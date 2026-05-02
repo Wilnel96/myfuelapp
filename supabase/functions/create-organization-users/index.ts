@@ -14,7 +14,6 @@ interface UserToCreate {
   title?: string;
   phone_office?: string;
   phone_mobile?: string;
-  id_number?: string;
   is_main_user: boolean;
   role: string;
   can_add_vehicles?: boolean;
@@ -156,7 +155,6 @@ Deno.serve(async (req: Request) => {
             organization_id: organization_id,
             is_main_user: userData.is_main_user,
             is_active: true,
-            id_number: userData.id_number || null,
             ...permissions,
           });
 

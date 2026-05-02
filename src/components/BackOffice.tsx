@@ -57,28 +57,25 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain }
     }
   };
 
-  const isClient = userRole !== 'super_admin';
-  const orgLabel = isClient ? 'Organization' : 'Management Organization';
-
   if (currentView === 'management-org-menu') {
     const managementOrgMenuItems = [
       {
         id: 'org-info',
-        title: `${orgLabel} Info`,
-        description: isClient ? 'View and update your organization details' : 'Manage management organization details',
+        title: 'Management Organization Info',
+        description: 'Manage management organization details',
         icon: Building2,
         color: 'blue',
       },
       {
         id: 'user-info',
-        title: `${orgLabel} Users`,
-        description: isClient ? 'Manage users and their permissions' : 'Manage management users and permissions',
+        title: 'Management User Info',
+        description: 'Manage management users and permissions',
         icon: Users,
         color: 'green',
       },
       {
         id: 'financial-info',
-        title: `${orgLabel} Financial Info`,
+        title: 'Management Financial Info',
         description: 'Manage banking and financial details',
         icon: DollarSign,
         color: 'emerald',
@@ -121,14 +118,13 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain }
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900">{orgLabel} Info</h2>
+          <h2 className="text-base font-semibold text-gray-900">Management Organization Info</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCurrentView('menu')}
               className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1 px-2 py-1"
             >
               ← Back to Back Office
-
             </button>
             {onNavigateToMain && (
               <button
@@ -271,8 +267,8 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain }
   const menuItems = [
     {
       id: 'management-org-menu',
-      title: `${orgLabel} Info`,
-      description: isClient ? 'View and update organization details, users, and financial information' : 'Manage organization details, users, and financial information',
+      title: 'Management Organization Info',
+      description: 'Manage organization details, users, and financial information',
       icon: Building2,
       color: 'blue',
     },

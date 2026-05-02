@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, User, Save, AlertCircle, CheckCircle, Copy } from 'lucide-react';
+import { Building2, Save, AlertCircle, CheckCircle, Copy } from 'lucide-react';
 
 interface CreateClientOrganizationProps {
   onNavigate?: (view: string) => void;
@@ -236,7 +236,6 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
           ...sanitizedFormData,
           name: formData.name.toUpperCase().trim(),
           organization_type: 'client',
-          account_type: accountType === 'individual' ? 'individual' : 'company',
           is_management_org: false,
           status: 'active',
         })
@@ -282,7 +281,6 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
               surname: mainUser.surname,
               phone_office: mainUser.phone_office || null,
               phone_mobile: mainUser.phone_mobile || null,
-              id_number: accountType === 'individual' ? formData.company_registration_number || null : null,
               is_main_user: true,
               role: 'admin',
             }],
@@ -310,7 +308,6 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
               surname: mainUser.surname,
               phone_office: mainUser.phone_office || null,
               phone_mobile: mainUser.phone_mobile || null,
-              id_number: accountType === 'individual' ? formData.company_registration_number || null : null,
               is_main_user: true,
               role: 'admin',
             }],
@@ -438,7 +435,7 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
                 >
                   <div className="flex flex-col items-center text-center">
                     <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
-                      <User className="w-8 h-8 text-blue-600" />
+                      <Building2 className="w-8 h-8 text-blue-600" />
                     </div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-2">Individual</h4>
                     <p className="text-sm text-gray-600">
@@ -600,9 +597,10 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
           </div>
         </div>
 
-        {accountType === 'organization' && (
         <div className="border-t pt-3">
-          <h3 className="text-base font-semibold text-gray-900 mb-2">Organization Address</h3>
+          <h3 className="text-base font-semibold text-gray-900 mb-2">
+            {accountType === 'organization' ? 'Organization Address' : 'Residential Address'}
+          </h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 1</label>
@@ -670,7 +668,6 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
             </div>
           </div>
         </div>
-        )}
 
         <div className="border-t pt-3">
           <h3 className="text-base font-semibold text-gray-900 mb-2">Payment Configuration</h3>
