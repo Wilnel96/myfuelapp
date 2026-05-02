@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Fuel, AlertCircle, ArrowLeft, Building2, User, Mail, Lock, Phone, MapPin, Users, CreditCard } from 'lucide-react';
+import { Fuel, AlertCircle, ArrowLeft, Building2, User, Mail, Lock, Phone, MapPin, CreditCard } from 'lucide-react';
 
 interface ClientSignupProps {
   portalType: 'card' | 'account';
@@ -112,11 +112,11 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
         p_vat_number: accountType === 'individual' ? null : (orgData.vat_number || null),
         p_email: accountType === 'individual' ? userData.email : orgData.email,
         p_phone_number: accountType === 'individual' ? (userData.phone_number || null) : (orgData.phone_number || null),
-        p_address_line_1: accountType === 'individual' ? null : (orgData.address_line_1 || null),
-        p_address_line_2: accountType === 'individual' ? null : (orgData.address_line_2 || null),
-        p_city: accountType === 'individual' ? null : (orgData.city || null),
-        p_province: accountType === 'individual' ? null : (orgData.province || null),
-        p_postal_code: accountType === 'individual' ? null : (orgData.postal_code || null),
+        p_address_line_1: orgData.address_line_1 || null,
+        p_address_line_2: orgData.address_line_2 || null,
+        p_city: orgData.city || null,
+        p_province: orgData.province || null,
+        p_postal_code: orgData.postal_code || null,
         p_payment_option: paymentOption,
         p_mobile_phone: userData.phone_number || null,
         p_id_number: accountType === 'individual' ? userData.id_number : null,
@@ -474,24 +474,94 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
               </div>
 
               {accountType === 'individual' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ID Number <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={userData.id_number}
-                      onChange={(e) => setUserData({ ...userData, id_number: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required={accountType === 'individual'}
-                      maxLength={13}
-                      placeholder="13-digit ID number"
-                    />
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ID Number <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={userData.id_number}
+                        onChange={(e) => setUserData({ ...userData, id_number: e.target.value })}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required={accountType === 'individual'}
+                        maxLength={13}
+                        placeholder="13-digit ID number"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">South African ID number (13 digits)</p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">South African ID number (13 digits)</p>
-                </div>
+
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-gray-500" />
+                      Residential Address
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
+                        <input
+                          type="text"
+                          value={orgData.address_line_1}
+                          onChange={(e) => setOrgData({ ...orgData, address_line_1: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Street address"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
+                        <input
+                          type="text"
+                          value={orgData.address_line_2}
+                          onChange={(e) => setOrgData({ ...orgData, address_line_2: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Suburb / Unit / Building"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                          <input
+                            type="text"
+                            value={orgData.city}
+                            onChange={(e) => setOrgData({ ...orgData, city: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Province</label>
+                          <select
+                            value={orgData.province}
+                            onChange={(e) => setOrgData({ ...orgData, province: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="">Select...</option>
+                            <option value="Eastern Cape">Eastern Cape</option>
+                            <option value="Free State">Free State</option>
+                            <option value="Gauteng">Gauteng</option>
+                            <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                            <option value="Limpopo">Limpopo</option>
+                            <option value="Mpumalanga">Mpumalanga</option>
+                            <option value="Northern Cape">Northern Cape</option>
+                            <option value="North West">North West</option>
+                            <option value="Western Cape">Western Cape</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                          <input
+                            type="text"
+                            value={orgData.postal_code}
+                            onChange={(e) => setOrgData({ ...orgData, postal_code: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               <div>
