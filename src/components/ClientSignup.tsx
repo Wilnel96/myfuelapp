@@ -497,7 +497,7 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
                   <div className="border-t border-gray-200 pt-4">
                     <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-gray-500" />
-                      Residential Address
+                      Address
                     </h4>
                     <div className="space-y-3">
                       <div>
