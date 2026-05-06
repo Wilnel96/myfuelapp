@@ -141,13 +141,14 @@ export default function OrganizationInfo() {
         bank_account_type_2: organization.bank_account_type_2,
       };
 
+      updatePayload.address_line_1 = organization.address_line_1;
+      updatePayload.address_line_2 = organization.address_line_2;
+      updatePayload.city = organization.city;
+      updatePayload.province = organization.province;
+      updatePayload.postal_code = organization.postal_code;
+
       if (!isIndividual) {
         updatePayload.vat_number = organization.vat_number;
-        updatePayload.address_line_1 = organization.address_line_1;
-        updatePayload.address_line_2 = organization.address_line_2;
-        updatePayload.city = organization.city;
-        updatePayload.province = organization.province;
-        updatePayload.postal_code = organization.postal_code;
         updatePayload.country = organization.country;
       }
 
@@ -341,6 +342,63 @@ export default function OrganizationInfo() {
                         type="tel"
                         value={orgUser?.phone_office || ''}
                         onChange={(e) => setOrgUser(prev => prev ? { ...prev, phone_office: e.target.value } : prev)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Physical Address</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
+                    <input
+                      type="text"
+                      value={organization.address_line_1}
+                      onChange={(e) => setOrganization({ ...organization, address_line_1: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      placeholder="Street address"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
+                    <input
+                      type="text"
+                      value={organization.address_line_2}
+                      onChange={(e) => setOrganization({ ...organization, address_line_2: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      placeholder="Suburb, unit, etc."
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                      <input
+                        type="text"
+                        value={organization.city}
+                        onChange={(e) => setOrganization({ ...organization, city: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Province</label>
+                      <select
+                        value={organization.province}
+                        onChange={(e) => setOrganization({ ...organization, province: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">Select Province</option>
+                        {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                      <input
+                        type="text"
+                        value={organization.postal_code}
+                        onChange={(e) => setOrganization({ ...organization, postal_code: e.target.value })}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                       />
                     </div>

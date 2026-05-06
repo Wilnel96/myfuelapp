@@ -33,6 +33,11 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
     email: '',
     phone_number: '',
     id_number: '',
+    address_line_1: '',
+    address_line_2: '',
+    city: '',
+    province: '',
+    postal_code: '',
     password: '',
     confirmPassword: '',
   });
@@ -123,11 +128,11 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
           vat_number: accountType === 'individual' ? null : (orgData.vat_number || null),
           email: accountType === 'individual' ? userData.email : orgData.email,
           phone_number: accountType === 'individual' ? (userData.phone_number || null) : (orgData.phone_number || null),
-          address_line_1: accountType === 'individual' ? null : (orgData.address_line_1 || null),
-          address_line_2: accountType === 'individual' ? null : (orgData.address_line_2 || null),
-          city: accountType === 'individual' ? null : (orgData.city || null),
-          province: accountType === 'individual' ? null : (orgData.province || null),
-          postal_code: accountType === 'individual' ? null : (orgData.postal_code || null),
+          address_line_1: accountType === 'individual' ? (userData.address_line_1 || null) : (orgData.address_line_1 || null),
+          address_line_2: accountType === 'individual' ? (userData.address_line_2 || null) : (orgData.address_line_2 || null),
+          city: accountType === 'individual' ? (userData.city || null) : (orgData.city || null),
+          province: accountType === 'individual' ? (userData.province || null) : (orgData.province || null),
+          postal_code: accountType === 'individual' ? (userData.postal_code || null) : (orgData.postal_code || null),
           account_type: accountType,
           payment_option: paymentOption,
           is_management_org: false,
@@ -507,24 +512,97 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
               </div>
 
               {accountType === 'individual' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ID Number <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={userData.id_number}
-                      onChange={(e) => setUserData({ ...userData, id_number: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required={accountType === 'individual'}
-                      maxLength={13}
-                      placeholder="13-digit ID number"
-                    />
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      ID Number <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={userData.id_number}
+                        onChange={(e) => setUserData({ ...userData, id_number: e.target.value })}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required={accountType === 'individual'}
+                        maxLength={13}
+                        placeholder="13-digit ID number"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">South African ID number (13 digits)</p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">South African ID number (13 digits)</p>
-                </div>
+
+                  <div className="pt-2">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Physical Address
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                          <input
+                            type="text"
+                            value={userData.address_line_1}
+                            onChange={(e) => setUserData({ ...userData, address_line_1: e.target.value })}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            placeholder="Street address"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
+                        <input
+                          type="text"
+                          value={userData.address_line_2}
+                          onChange={(e) => setUserData({ ...userData, address_line_2: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Suburb, unit, etc."
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                          <input
+                            type="text"
+                            value={userData.city}
+                            onChange={(e) => setUserData({ ...userData, city: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Province</label>
+                          <select
+                            value={userData.province}
+                            onChange={(e) => setUserData({ ...userData, province: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          >
+                            <option value="">Select...</option>
+                            <option value="Eastern Cape">Eastern Cape</option>
+                            <option value="Free State">Free State</option>
+                            <option value="Gauteng">Gauteng</option>
+                            <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                            <option value="Limpopo">Limpopo</option>
+                            <option value="Mpumalanga">Mpumalanga</option>
+                            <option value="Northern Cape">Northern Cape</option>
+                            <option value="North West">North West</option>
+                            <option value="Western Cape">Western Cape</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                          <input
+                            type="text"
+                            value={userData.postal_code}
+                            onChange={(e) => setUserData({ ...userData, postal_code: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               <div>
