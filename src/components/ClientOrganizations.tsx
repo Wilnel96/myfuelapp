@@ -1823,7 +1823,7 @@ export default function ClientOrganizations() {
                     onChange={(e) => setFormData({ ...formData, bank_account_type: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                   >
-                    <option value="cheque">Cheque</option>
+                    <option value="cheque">Current Account</option>
                     <option value="savings">Savings</option>
                     <option value="current">Current</option>
                   </select>
@@ -1893,7 +1893,7 @@ export default function ClientOrganizations() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select type...</option>
-                    <option value="cheque">Cheque</option>
+                    <option value="cheque">Current Account</option>
                     <option value="savings">Savings</option>
                     <option value="current">Current</option>
                   </select>

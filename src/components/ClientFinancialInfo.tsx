@@ -362,7 +362,7 @@ export default function ClientFinancialInfo({ onNavigate }: ClientFinancialInfoP
                         onChange={(e) => setEditForm({ ...editForm, bank_account_type: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                       >
-                        <option value="cheque">Cheque</option>
+                        <option value="cheque">Current Account</option>
                         <option value="savings">Savings</option>
                         <option value="transmission">Transmission</option>
                       </select>
@@ -417,7 +417,7 @@ export default function ClientFinancialInfo({ onNavigate }: ClientFinancialInfoP
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                       >
                         <option value="">-- Select --</option>
-                        <option value="cheque">Cheque</option>
+                        <option value="cheque">Current Account</option>
                         <option value="savings">Savings</option>
                         <option value="transmission">Transmission</option>
                       </select>

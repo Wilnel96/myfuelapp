@@ -648,7 +648,7 @@ export default function OrganizationInfo() {
                   <option value="">Select Type</option>
                   <option value="Current">Current</option>
                   <option value="Savings">Savings</option>
-                  <option value="Cheque">Cheque</option>
+                  <option value="Cheque">Current Account</option>
                 </select>
               </div>
             </div>
@@ -683,7 +683,7 @@ export default function OrganizationInfo() {
                   <option value="">Select Type</option>
                   <option value="Current">Current</option>
                   <option value="Savings">Savings</option>
-                  <option value="Cheque">Cheque</option>
+                  <option value="Cheque">Current Account</option>
                 </select>
               </div>
             </div>
