@@ -180,9 +180,8 @@ export default function ClientStandardSettings({ onBack }: ClientStandardSetting
               {LABELS['standard_monthly_fee_per_vehicle']}
             </label>
             <input
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               value={form['standard_monthly_fee_per_vehicle'] ?? ''}
               onChange={(e) => { setForm({ ...form, standard_monthly_fee_per_vehicle: e.target.value }); setSaved(false); }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -266,9 +265,8 @@ export default function ClientStandardSettings({ onBack }: ClientStandardSetting
               {LABELS['standard_late_payment_interest_rate']}
             </label>
             <input
-              type="number"
-              min="0"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               value={form['standard_late_payment_interest_rate'] ?? ''}
               onChange={(e) => { setForm({ ...form, standard_late_payment_interest_rate: e.target.value }); setSaved(false); }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -281,3 +279,6 @@ export default function ClientStandardSettings({ onBack }: ClientStandardSetting
     </div>
   );
 }
+
+
+export default ClientStandardSettings
