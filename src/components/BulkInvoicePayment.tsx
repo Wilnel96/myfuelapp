@@ -341,13 +341,25 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs text-gray-500 uppercase tracking-wide">Outstanding</p>
-                          <p className="text-xl font-bold text-gray-900">{formatCurrency(orgInvoices.total_outstanding)}</p>
-                          {hasCredits && (
-                            <p className="text-sm text-green-700 font-medium mt-0.5">
-                              {orgInvoices.credit_notes.length} credit note(s) available
-                            </p>
-                          )}
+                          {(() => {
+                            const net = orgInvoices.total_outstanding - orgInvoices.total_credits;
+                            const hasInvoices = orgInvoices.invoice_count > 0;
+                            return (
+                              <>
+                                <p className="text-xs text-gray-500 uppercase tracking-wide">
+                                  {hasInvoices ? 'Net Position' : 'Credit Balance'}
+                                </p>
+                                <p className={`text-xl font-bold ${net < 0 ? 'text-green-700' : 'text-gray-900'}`}>
+                                  {net < 0 ? `- ${formatCurrency(Math.abs(net))}` : formatCurrency(net)}
+                                </p>
+                                {hasCredits && hasInvoices && (
+                                  <p className="text-sm text-green-700 font-medium mt-0.5">
+                                    {orgInvoices.credit_notes.length} credit note(s) available
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
