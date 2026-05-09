@@ -417,7 +417,7 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
                         <div className="px-6 py-2 flex items-center gap-2">
                           <Tag className="h-3.5 w-3.5 text-green-700" />
                           <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">
-                            Available Credit Notes — tick to apply this month
+                            Available Credit Notes — tick to apply
                           </p>
                         </div>
                         {orgInvoices.credit_notes.map((cn) => {
