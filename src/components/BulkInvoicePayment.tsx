@@ -64,7 +64,7 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
           .order('invoice_date'),
         supabase
           .from('credit_notes')
-          .select(`id, organization_id, credit_note_number, credit_note_date, total_amount, reason, status`)
+          .select(`id, organization_id, credit_note_number, credit_note_date, total_amount, reason, status, organization:organizations(name)`)
           .eq('status', 'issued')
           .order('credit_note_date'),
       ]);
@@ -72,18 +72,18 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
       if (invoiceRes.error) throw invoiceRes.error;
       if (creditRes.error) throw creditRes.error;
 
-      const creditsByOrg = ((creditRes.data || []) as CreditNote[]).reduce((acc, cn) => {
-        if (!acc[cn.organization_id]) acc[cn.organization_id] = [];
-        acc[cn.organization_id].push(cn);
+      const creditsByOrg = ((creditRes.data || []) as (CreditNote & { organization?: { name: string } })[]).reduce((acc, cn) => {
+        if (!acc[cn.organization_id]) acc[cn.organization_id] = { credits: [], orgName: cn.organization?.name || 'Unknown' };
+        acc[cn.organization_id].credits.push(cn);
         return acc;
-      }, {} as Record<string, CreditNote[]>);
+      }, {} as Record<string, { credits: CreditNote[]; orgName: string }>);
 
       const grouped = ((invoiceRes.data || []) as Invoice[]).reduce((acc, invoice) => {
         const orgId = invoice.organization_id;
         const orgName = invoice.organization?.name || 'Unknown';
 
         if (!acc[orgId]) {
-          const orgCredits = creditsByOrg[orgId] || [];
+          const orgCredits = creditsByOrg[orgId]?.credits || [];
           acc[orgId] = {
             organization_id: orgId,
             organization_name: orgName,
@@ -101,6 +101,21 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
 
         return acc;
       }, {} as Record<string, OrganizationInvoices>);
+
+      // Add orgs that have issued credit notes but no outstanding invoices
+      for (const [orgId, { credits, orgName }] of Object.entries(creditsByOrg)) {
+        if (!grouped[orgId]) {
+          grouped[orgId] = {
+            organization_id: orgId,
+            organization_name: orgName,
+            invoices: [],
+            credit_notes: credits,
+            total_outstanding: 0,
+            total_credits: credits.reduce((s, cn) => s + cn.total_amount, 0),
+            invoice_count: 0,
+          };
+        }
+      }
 
       setOrganizationInvoices(Object.values(grouped));
     } catch (err: any) {
@@ -320,7 +335,9 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
                               <Building2 className="h-5 w-5 text-gray-600" />
                               {orgInvoices.organization_name}
                             </h3>
-                            <p className="text-sm text-gray-500">{orgInvoices.invoice_count} unpaid invoice(s)</p>
+                            <p className="text-sm text-gray-500">
+                              {orgInvoices.invoice_count > 0 ? `${orgInvoices.invoice_count} unpaid invoice(s)` : 'No outstanding invoices'}
+                            </p>
                           </div>
                         </div>
                         <div className="text-right">
