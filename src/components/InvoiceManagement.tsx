@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FileText, Plus, Filter, Eye, CheckCircle, XCircle, Calendar, DollarSign, Building2, Download, AlertCircle, Printer, FileSpreadsheet, Fuel, ArrowLeft, Search, CreditCard } from 'lucide-react';
+import { FileText, Plus, Filter, Eye, CheckCircle, XCircle, Calendar, DollarSign, Building2, Download, AlertCircle, Printer, FileSpreadsheet, Fuel, ArrowLeft, Search, CreditCard, FileX } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import BulkInvoicePayment from './BulkInvoicePayment';
+import CreditNoteManagement from './CreditNoteManagement';
 
 interface Invoice {
   id: string;
@@ -54,7 +55,7 @@ interface ManagementOrganization {
 }
 
 export default function InvoiceManagement() {
-  const [currentView, setCurrentView] = useState<'menu' | 'fee' | 'fuel' | 'bulk-payment'>('menu');
+  const [currentView, setCurrentView] = useState<'menu' | 'fee' | 'fuel' | 'bulk-payment' | 'credit-notes'>('menu');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -792,9 +793,28 @@ export default function InvoiceManagement() {
               </div>
             </div>
           </button>
+
+          <button
+            onClick={() => setCurrentView('credit-notes')}
+            className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-50 rounded-lg">
+                <FileX className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Credit Notes</h3>
+                <p className="text-sm text-gray-600">Issue and manage credit notes for client queries</p>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
     );
+  }
+
+  if (currentView === 'credit-notes') {
+    return <CreditNoteManagement onBack={() => setCurrentView('menu')} />;
   }
 
   if (currentView === 'bulk-payment') {
