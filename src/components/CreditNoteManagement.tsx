@@ -430,13 +430,19 @@ function CreditNoteManagement({ onBack }: Props) {
             </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-1">Reason *</label>
-              <input
-                type="text"
+              <select
                 value={form.reason}
                 onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-                placeholder="e.g. Client query — overcharged vehicle fee"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                <option value="">Select a reason...</option>
+                <option value="Overpayment">Overpayment</option>
+                <option value="Billing Error">Billing Error</option>
+                <option value="Service Credit">Service Credit</option>
+                <option value="Refund">Refund</option>
+                <option value="Adjustment">Adjustment</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-semibold text-gray-700 mb-1">Internal Notes (optional)</label>
@@ -792,5 +798,7 @@ function CreditNoteManagement({ onBack }: Props) {
   );
 }
 
+
+export default CreditNoteManagement
 
 export default CreditNoteManagement
