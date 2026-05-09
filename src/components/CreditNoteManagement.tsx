@@ -187,7 +187,7 @@ export default function CreditNoteManagement({ onBack }: Props) {
       setError('');
       let q = supabase
         .from('credit_notes')
-        .select(`*, organization:organizations(name, vat_number, address_line_1, address_line_2, city, province, postal_code, country, company_registration_number), invoice:invoices(invoice_number, invoice_date, total_amount, billing_period_start, billing_period_end)`)
+        .select(`*, organization:organizations(name, vat_number, address_line_1, address_line_2, city, province, postal_code, country, company_registration_number), invoice:invoices!credit_notes_invoice_id_fkey(invoice_number, invoice_date, total_amount, billing_period_start, billing_period_end)`)
         .order('created_at', { ascending: false });
 
       if (selectedOrgId !== 'all') q = q.eq('organization_id', selectedOrgId);
@@ -303,7 +303,7 @@ export default function CreditNoteManagement({ onBack }: Props) {
       // Re-fetch with org join for detail view
       const { data: full } = await supabase
         .from('credit_notes')
-        .select(`*, organization:organizations(name, vat_number, address_line_1, address_line_2, city, province, postal_code, country, company_registration_number), invoice:invoices(invoice_number, invoice_date, total_amount, billing_period_start, billing_period_end)`)
+        .select(`*, organization:organizations(name, vat_number, address_line_1, address_line_2, city, province, postal_code, country, company_registration_number), invoice:invoices!credit_notes_invoice_id_fkey(invoice_number, invoice_date, total_amount, billing_period_start, billing_period_end)`)
         .eq('id', cn.id)
         .maybeSingle();
       if (full) {
@@ -807,3 +807,6 @@ export default function CreditNoteManagement({ onBack }: Props) {
     </div>
   );
 }
+
+
+export default CreditNoteManagement
