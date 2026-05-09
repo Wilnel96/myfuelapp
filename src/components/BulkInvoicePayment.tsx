@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, ArrowLeft, DollarSign, Building2, Calendar, AlertCircle, Search } from 'lucide-react';
+import { CheckCircle, ArrowLeft, DollarSign, Building2, Calendar, AlertCircle, Search, Tag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Invoice {
@@ -13,16 +13,26 @@ interface Invoice {
   amount_outstanding: number;
   payment_due_date: string;
   status: string;
-  organization?: {
-    name: string;
-  };
+  organization?: { name: string };
+}
+
+interface CreditNote {
+  id: string;
+  organization_id: string;
+  credit_note_number: string;
+  credit_note_date: string;
+  total_amount: number;
+  reason: string;
+  status: string;
 }
 
 interface OrganizationInvoices {
   organization_id: string;
   organization_name: string;
   invoices: Invoice[];
+  credit_notes: CreditNote[];
   total_outstanding: number;
+  total_credits: number;
   invoice_count: number;
 }
 
@@ -36,59 +46,65 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    loadUnpaidInvoices();
+    loadData();
   }, []);
 
-  const loadUnpaidInvoices = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
       setError('');
 
-      const { data: invoices, error: invoiceError } = await supabase
-        .from('invoices')
-        .select(`
-          id,
-          organization_id,
-          invoice_number,
-          invoice_date,
-          billing_period_start,
-          billing_period_end,
-          total_amount,
-          amount_outstanding,
-          payment_due_date,
-          status,
-          organization:organizations(name)
-        `)
-        .in('status', ['issued', 'overdue'])
-        .order('organization_id')
-        .order('invoice_date');
+      const [invoiceRes, creditRes] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select(`id, organization_id, invoice_number, invoice_date, billing_period_start, billing_period_end, total_amount, amount_outstanding, payment_due_date, status, organization:organizations(name)`)
+          .in('status', ['issued', 'overdue'])
+          .order('organization_id')
+          .order('invoice_date'),
+        supabase
+          .from('credit_notes')
+          .select(`id, organization_id, credit_note_number, credit_note_date, total_amount, reason, status`)
+          .eq('status', 'issued')
+          .order('credit_note_date'),
+      ]);
 
-      if (invoiceError) throw invoiceError;
+      if (invoiceRes.error) throw invoiceRes.error;
+      if (creditRes.error) throw creditRes.error;
 
-      const grouped = (invoices || []).reduce((acc, invoice) => {
+      const creditsByOrg = ((creditRes.data || []) as CreditNote[]).reduce((acc, cn) => {
+        if (!acc[cn.organization_id]) acc[cn.organization_id] = [];
+        acc[cn.organization_id].push(cn);
+        return acc;
+      }, {} as Record<string, CreditNote[]>);
+
+      const grouped = ((invoiceRes.data || []) as Invoice[]).reduce((acc, invoice) => {
         const orgId = invoice.organization_id;
         const orgName = invoice.organization?.name || 'Unknown';
 
         if (!acc[orgId]) {
+          const orgCredits = creditsByOrg[orgId] || [];
           acc[orgId] = {
             organization_id: orgId,
             organization_name: orgName,
             invoices: [],
+            credit_notes: orgCredits,
             total_outstanding: 0,
+            total_credits: orgCredits.reduce((s, cn) => s + cn.total_amount, 0),
             invoice_count: 0,
           };
         }
 
-        acc[orgId].invoices.push(invoice as Invoice);
+        acc[orgId].invoices.push(invoice);
         acc[orgId].total_outstanding += invoice.amount_outstanding;
         acc[orgId].invoice_count += 1;
 
         return acc;
       }, {} as Record<string, OrganizationInvoices>);
 
+      // Also include orgs that only have credit notes but no invoices (edge case — skip, not useful here)
       setOrganizationInvoices(Object.values(grouped));
     } catch (err: any) {
-      setError('Failed to load unpaid invoices: ' + err.message);
+      setError('Failed to load data: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -107,13 +123,11 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
   const toggleOrganization = (orgInvoices: OrganizationInvoices) => {
     const newSelected = new Set(selectedInvoices);
     const allSelected = orgInvoices.invoices.every(inv => selectedInvoices.has(inv.id));
-
     if (allSelected) {
       orgInvoices.invoices.forEach(inv => newSelected.delete(inv.id));
     } else {
       orgInvoices.invoices.forEach(inv => newSelected.add(inv.id));
     }
-
     setSelectedInvoices(newSelected);
   };
 
@@ -123,16 +137,30 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
       return;
     }
 
-    if (!confirm(`Mark ${selectedInvoices.size} invoice(s) as paid?`)) return;
+    const invoiceIds = Array.from(selectedInvoices);
+    const allInvoices = organizationInvoices.flatMap(org => org.invoices);
+    const invoicesToUpdate = allInvoices.filter(inv => invoiceIds.includes(inv.id));
+
+    // Collect credit notes for orgs that have all their invoices selected
+    const creditNotesToApply: CreditNote[] = [];
+    for (const org of organizationInvoices) {
+      const orgInvoiceIds = org.invoices.map(inv => inv.id);
+      const allOrgSelected = orgInvoiceIds.every(id => selectedInvoices.has(id));
+      if (allOrgSelected && org.credit_notes.length > 0) {
+        creditNotesToApply.push(...org.credit_notes);
+      }
+    }
+
+    const creditSummary = creditNotesToApply.length > 0
+      ? `\n\nThis will also mark ${creditNotesToApply.length} credit note(s) as applied.`
+      : '';
+
+    if (!confirm(`Mark ${selectedInvoices.size} invoice(s) as paid?${creditSummary}`)) return;
 
     try {
       setProcessing(true);
       setError('');
       setSuccess('');
-
-      const invoiceIds = Array.from(selectedInvoices);
-      const allInvoices = organizationInvoices.flatMap(org => org.invoices);
-      const invoicesToUpdate = allInvoices.filter(inv => invoiceIds.includes(inv.id));
 
       for (const invoice of invoicesToUpdate) {
         const { error: updateError } = await supabase
@@ -144,51 +172,60 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
             paid_at: new Date().toISOString(),
           })
           .eq('id', invoice.id);
-
         if (updateError) throw updateError;
       }
 
-      setSuccess(`Successfully marked ${selectedInvoices.size} invoice(s) as paid`);
+      for (const cn of creditNotesToApply) {
+        const { error: cnError } = await supabase
+          .from('credit_notes')
+          .update({ status: 'applied' })
+          .eq('id', cn.id);
+        if (cnError) throw cnError;
+      }
+
+      const creditMsg = creditNotesToApply.length > 0
+        ? ` and ${creditNotesToApply.length} credit note(s) marked as applied`
+        : '';
+      setSuccess(`Successfully marked ${selectedInvoices.size} invoice(s) as paid${creditMsg}`);
       setSelectedInvoices(new Set());
-      await loadUnpaidInvoices();
+      await loadData();
     } catch (err: any) {
-      setError('Failed to mark invoices as paid: ' + err.message);
+      setError('Failed to process payment: ' + err.message);
     } finally {
       setProcessing(false);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-    }).format(amount);
-  };
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(amount);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA');
-  };
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('en-ZA');
 
   const filteredOrgs = organizationInvoices.filter(org =>
     org.organization_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalSelected = Array.from(selectedInvoices).reduce((sum, invoiceId) => {
-    const invoice = organizationInvoices
-      .flatMap(org => org.invoices)
-      .find(inv => inv.id === invoiceId);
+    const invoice = organizationInvoices.flatMap(org => org.invoices).find(inv => inv.id === invoiceId);
     return sum + (invoice?.amount_outstanding || 0);
   }, 0);
+
+  // Credits for orgs where ALL invoices are selected
+  const creditsForSelected = organizationInvoices.reduce((sum, org) => {
+    const allOrgSelected = org.invoices.length > 0 && org.invoices.every(inv => selectedInvoices.has(inv.id));
+    return sum + (allOrgSelected ? org.total_credits : 0);
+  }, 0);
+
+  const netSelected = Math.max(0, totalSelected - creditsForSelected);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading unpaid invoices...</p>
-            </div>
+        <div className="max-w-7xl mx-auto flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto" />
+            <p className="mt-4 text-gray-600">Loading invoices...</p>
           </div>
         </div>
       </div>
@@ -199,44 +236,36 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
-          >
+          <button onClick={onBack} className="flex items-center text-gray-600 hover:text-gray-900 mb-4">
             <ArrowLeft className="h-5 w-5 mr-2" />
             Back to Invoice Management
           </button>
-
           <h1 className="text-3xl font-bold text-gray-900 flex items-center">
             <DollarSign className="h-8 w-8 mr-3 text-green-600" />
             Bulk Invoice Payment
           </h1>
-          <p className="mt-2 text-gray-600">
-            Select and mark multiple invoices as paid
-          </p>
+          <p className="mt-2 text-gray-600">Select and mark multiple invoices as paid. Issued credit notes are shown per organisation.</p>
         </div>
 
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg flex items-center">
-            <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-            {error}
+            <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />{error}
           </div>
         )}
 
         {success && (
           <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center">
-            <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-            {success}
+            <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />{success}
           </div>
         )}
 
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="relative flex-1 max-w-md">
+          <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
+            <div className="relative flex-1 min-w-64 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
-                placeholder="Search organizations..."
+                placeholder="Search organisations..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -244,19 +273,25 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
             </div>
 
             {selectedInvoices.size > 0 && (
-              <div className="ml-4 flex items-center space-x-4">
+              <div className="flex items-center gap-6">
                 <div className="text-right">
-                  <p className="text-sm text-gray-600">
-                    {selectedInvoices.size} invoice(s) selected
+                  <p className="text-sm text-gray-500">{selectedInvoices.size} invoice(s) selected</p>
+                  <p className="text-sm text-gray-700">
+                    Invoices: <span className="font-semibold">{formatCurrency(totalSelected)}</span>
                   </p>
-                  <p className="text-lg font-bold text-gray-900">
-                    {formatCurrency(totalSelected)}
+                  {creditsForSelected > 0 && (
+                    <p className="text-sm text-green-700">
+                      Credits: <span className="font-semibold">- {formatCurrency(creditsForSelected)}</span>
+                    </p>
+                  )}
+                  <p className="text-lg font-bold text-gray-900 border-t border-gray-200 mt-1 pt-1">
+                    Net: {formatCurrency(netSelected)}
                   </p>
                 </div>
                 <button
                   onClick={markSelectedAsPaid}
                   disabled={processing}
-                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center disabled:opacity-50"
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center disabled:opacity-50 whitespace-nowrap"
                 >
                   <CheckCircle className="h-5 w-5 mr-2" />
                   {processing ? 'Processing...' : 'Mark as Paid'}
@@ -275,87 +310,86 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
               {filteredOrgs.map((orgInvoices) => {
                 const allSelected = orgInvoices.invoices.every(inv => selectedInvoices.has(inv.id));
                 const someSelected = orgInvoices.invoices.some(inv => selectedInvoices.has(inv.id));
+                const hasCredits = orgInvoices.credit_notes.length > 0;
+                const netOutstanding = Math.max(0, orgInvoices.total_outstanding - orgInvoices.total_credits);
 
                 return (
                   <div key={orgInvoices.organization_id} className="border border-gray-200 rounded-lg overflow-hidden">
+                    {/* Org header */}
                     <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                           <input
                             type="checkbox"
                             checked={allSelected}
+                            ref={el => { if (el) el.indeterminate = someSelected && !allSelected; }}
                             onChange={() => toggleOrganization(orgInvoices)}
                             className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                           />
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                              <Building2 className="h-5 w-5 mr-2 text-gray-600" />
+                            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                              <Building2 className="h-5 w-5 text-gray-600" />
                               {orgInvoices.organization_name}
                             </h3>
-                            <p className="text-sm text-gray-600">
-                              {orgInvoices.invoice_count} unpaid invoice(s)
-                            </p>
+                            <p className="text-sm text-gray-500">{orgInvoices.invoice_count} unpaid invoice(s)</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm text-gray-600">Total Outstanding</p>
-                          <p className="text-xl font-bold text-gray-900">
-                            {formatCurrency(orgInvoices.total_outstanding)}
-                          </p>
+                          <p className="text-xs text-gray-500 uppercase tracking-wide">Outstanding</p>
+                          <p className="text-xl font-bold text-gray-900">{formatCurrency(orgInvoices.total_outstanding)}</p>
+                          {hasCredits && (
+                            <>
+                              <p className="text-sm text-green-700 font-medium">
+                                Credits: - {formatCurrency(orgInvoices.total_credits)}
+                              </p>
+                              <p className="text-base font-bold text-blue-700 border-t border-gray-200 mt-1 pt-1">
+                                Net: {formatCurrency(netOutstanding)}
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
 
+                    {/* Invoices */}
                     <div className="divide-y divide-gray-100">
                       {orgInvoices.invoices.map((invoice) => {
                         const isOverdue = new Date(invoice.payment_due_date) < new Date() && invoice.status === 'issued';
-
                         return (
                           <div
                             key={invoice.id}
-                            className={`px-6 py-4 hover:bg-gray-50 transition-colors ${
-                              selectedInvoices.has(invoice.id) ? 'bg-blue-50' : ''
-                            }`}
+                            className={`px-6 py-4 hover:bg-gray-50 transition-colors ${selectedInvoices.has(invoice.id) ? 'bg-blue-50' : ''}`}
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-4 flex-1">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedInvoices.has(invoice.id)}
-                                  onChange={() => toggleInvoice(invoice.id)}
-                                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                />
-                                <div className="flex-1 grid grid-cols-4 gap-4">
-                                  <div>
-                                    <p className="text-sm font-medium text-gray-900">
-                                      {invoice.invoice_number}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {formatDate(invoice.invoice_date)}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-gray-600">Billing Period</p>
-                                    <p className="text-sm font-medium text-gray-900">
-                                      {formatDate(invoice.billing_period_start)} - {formatDate(invoice.billing_period_end)}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <p className="text-sm text-gray-600 flex items-center">
-                                      <Calendar className="h-4 w-4 mr-1" />
-                                      Due Date
-                                    </p>
-                                    <p className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
-                                      {formatDate(invoice.payment_due_date)}
-                                      {isOverdue && <span className="ml-2 text-xs">(Overdue)</span>}
-                                    </p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-sm text-gray-600">Amount</p>
-                                    <p className="text-lg font-bold text-gray-900">
-                                      {formatCurrency(invoice.amount_outstanding)}
-                                    </p>
-                                  </div>
+                            <div className="flex items-center space-x-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedInvoices.has(invoice.id)}
+                                onChange={() => toggleInvoice(invoice.id)}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded flex-shrink-0"
+                              />
+                              <div className="flex-1 grid grid-cols-4 gap-4">
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{invoice.invoice_number}</p>
+                                  <p className="text-xs text-gray-500">{formatDate(invoice.invoice_date)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500">Billing Period</p>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {formatDate(invoice.billing_period_start)} – {formatDate(invoice.billing_period_end)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" /> Due Date
+                                  </p>
+                                  <p className={`text-sm font-medium ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
+                                    {formatDate(invoice.payment_due_date)}
+                                    {isOverdue && <span className="ml-1 text-xs">(Overdue)</span>}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xs text-gray-500">Amount</p>
+                                  <p className="text-base font-bold text-gray-900">{formatCurrency(invoice.amount_outstanding)}</p>
                                 </div>
                               </div>
                             </div>
@@ -363,6 +397,29 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
                         );
                       })}
                     </div>
+
+                    {/* Credit notes section */}
+                    {hasCredits && (
+                      <div className="border-t border-green-200 bg-green-50 divide-y divide-green-100">
+                        <div className="px-6 py-2">
+                          <p className="text-xs font-semibold text-green-800 uppercase tracking-wide flex items-center gap-1">
+                            <Tag className="h-3 w-3" /> Issued Credit Notes
+                          </p>
+                        </div>
+                        {orgInvoices.credit_notes.map((cn) => (
+                          <div key={cn.id} className="px-6 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-8">
+                              <div>
+                                <p className="text-sm font-medium text-green-900">{cn.credit_note_number}</p>
+                                <p className="text-xs text-green-700">{formatDate(cn.credit_note_date)}</p>
+                              </div>
+                              <p className="text-sm text-green-800">{cn.reason}</p>
+                            </div>
+                            <p className="text-base font-bold text-green-700">- {formatCurrency(cn.total_amount)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -374,12 +431,12 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
           <div className="flex items-start">
             <AlertCircle className="h-5 w-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-blue-800">
-              <p className="font-medium mb-1">Quick Payment Tips:</p>
+              <p className="font-medium mb-1">Payment Notes:</p>
               <ul className="list-disc list-inside space-y-1 text-blue-700">
-                <li>Click organization checkbox to select all invoices for that organization</li>
-                <li>Individual invoices can be selected/deselected independently</li>
-                <li>Selected invoices remain selected while you scroll and review</li>
-                <li>Total amount updates automatically as you select invoices</li>
+                <li>Click an organisation checkbox to select all its invoices at once</li>
+                <li>Issued credit notes are shown per organisation for reference</li>
+                <li>When all invoices for an organisation are selected, its credit notes are included in the net total and will be marked as applied on payment</li>
+                <li>The net amount reflects invoices minus any available credits</li>
               </ul>
             </div>
           </div>
