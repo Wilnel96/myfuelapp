@@ -279,6 +279,3 @@ export default function ClientStandardSettings({ onBack }: ClientStandardSetting
     </div>
   );
 }
-
-
-export default ClientStandardSettings
