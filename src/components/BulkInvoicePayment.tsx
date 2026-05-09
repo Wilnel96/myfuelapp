@@ -39,6 +39,7 @@ interface OrganizationInvoices {
 export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
   const [organizationInvoices, setOrganizationInvoices] = useState<OrganizationInvoices[]>([]);
   const [selectedInvoices, setSelectedInvoices] = useState<Set<string>>(new Set());
+  const [selectedCreditNotes, setSelectedCreditNotes] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
@@ -101,7 +102,6 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
         return acc;
       }, {} as Record<string, OrganizationInvoices>);
 
-      // Also include orgs that only have credit notes but no invoices (edge case — skip, not useful here)
       setOrganizationInvoices(Object.values(grouped));
     } catch (err: any) {
       setError('Failed to load data: ' + err.message);
@@ -112,23 +112,24 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
 
   const toggleInvoice = (invoiceId: string) => {
     const newSelected = new Set(selectedInvoices);
-    if (newSelected.has(invoiceId)) {
-      newSelected.delete(invoiceId);
-    } else {
-      newSelected.add(invoiceId);
-    }
+    if (newSelected.has(invoiceId)) newSelected.delete(invoiceId);
+    else newSelected.add(invoiceId);
     setSelectedInvoices(newSelected);
   };
 
   const toggleOrganization = (orgInvoices: OrganizationInvoices) => {
     const newSelected = new Set(selectedInvoices);
     const allSelected = orgInvoices.invoices.every(inv => selectedInvoices.has(inv.id));
-    if (allSelected) {
-      orgInvoices.invoices.forEach(inv => newSelected.delete(inv.id));
-    } else {
-      orgInvoices.invoices.forEach(inv => newSelected.add(inv.id));
-    }
+    if (allSelected) orgInvoices.invoices.forEach(inv => newSelected.delete(inv.id));
+    else orgInvoices.invoices.forEach(inv => newSelected.add(inv.id));
     setSelectedInvoices(newSelected);
+  };
+
+  const toggleCreditNote = (cnId: string) => {
+    const newSelected = new Set(selectedCreditNotes);
+    if (newSelected.has(cnId)) newSelected.delete(cnId);
+    else newSelected.add(cnId);
+    setSelectedCreditNotes(newSelected);
   };
 
   const markSelectedAsPaid = async () => {
@@ -140,19 +141,11 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
     const invoiceIds = Array.from(selectedInvoices);
     const allInvoices = organizationInvoices.flatMap(org => org.invoices);
     const invoicesToUpdate = allInvoices.filter(inv => invoiceIds.includes(inv.id));
-
-    // Collect credit notes for orgs that have all their invoices selected
-    const creditNotesToApply: CreditNote[] = [];
-    for (const org of organizationInvoices) {
-      const orgInvoiceIds = org.invoices.map(inv => inv.id);
-      const allOrgSelected = orgInvoiceIds.every(id => selectedInvoices.has(id));
-      if (allOrgSelected && org.credit_notes.length > 0) {
-        creditNotesToApply.push(...org.credit_notes);
-      }
-    }
+    const allCreditNotes = organizationInvoices.flatMap(org => org.credit_notes);
+    const creditNotesToApply = allCreditNotes.filter(cn => selectedCreditNotes.has(cn.id));
 
     const creditSummary = creditNotesToApply.length > 0
-      ? `\n\nThis will also mark ${creditNotesToApply.length} credit note(s) as applied.`
+      ? `\n\n${creditNotesToApply.length} selected credit note(s) will be marked as applied.`
       : '';
 
     if (!confirm(`Mark ${selectedInvoices.size} invoice(s) as paid?${creditSummary}`)) return;
@@ -165,12 +158,7 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
       for (const invoice of invoicesToUpdate) {
         const { error: updateError } = await supabase
           .from('invoices')
-          .update({
-            status: 'paid',
-            amount_paid: invoice.total_amount,
-            amount_outstanding: 0,
-            paid_at: new Date().toISOString(),
-          })
+          .update({ status: 'paid', amount_paid: invoice.total_amount, amount_outstanding: 0, paid_at: new Date().toISOString() })
           .eq('id', invoice.id);
         if (updateError) throw updateError;
       }
@@ -188,6 +176,7 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
         : '';
       setSuccess(`Successfully marked ${selectedInvoices.size} invoice(s) as paid${creditMsg}`);
       setSelectedInvoices(new Set());
+      setSelectedCreditNotes(new Set());
       await loadData();
     } catch (err: any) {
       setError('Failed to process payment: ' + err.message);
@@ -211,13 +200,12 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
     return sum + (invoice?.amount_outstanding || 0);
   }, 0);
 
-  // Credits for orgs where ALL invoices are selected
-  const creditsForSelected = organizationInvoices.reduce((sum, org) => {
-    const allOrgSelected = org.invoices.length > 0 && org.invoices.every(inv => selectedInvoices.has(inv.id));
-    return sum + (allOrgSelected ? org.total_credits : 0);
+  const selectedCreditsTotal = Array.from(selectedCreditNotes).reduce((sum, cnId) => {
+    const cn = organizationInvoices.flatMap(org => org.credit_notes).find(c => c.id === cnId);
+    return sum + (cn?.total_amount || 0);
   }, 0);
 
-  const netSelected = Math.max(0, totalSelected - creditsForSelected);
+  const netSelected = Math.max(0, totalSelected - selectedCreditsTotal);
 
   if (loading) {
     return (
@@ -244,7 +232,9 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
             <DollarSign className="h-8 w-8 mr-3 text-green-600" />
             Bulk Invoice Payment
           </h1>
-          <p className="mt-2 text-gray-600">Select and mark multiple invoices as paid. Issued credit notes are shown per organisation.</p>
+          <p className="mt-2 text-gray-600">
+            Select invoices to mark as paid. Tick any credit notes you want to apply this month — unticked ones remain available for the following month.
+          </p>
         </div>
 
         {error && (
@@ -279,9 +269,9 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
                   <p className="text-sm text-gray-700">
                     Invoices: <span className="font-semibold">{formatCurrency(totalSelected)}</span>
                   </p>
-                  {creditsForSelected > 0 && (
+                  {selectedCreditsTotal > 0 && (
                     <p className="text-sm text-green-700">
-                      Credits: <span className="font-semibold">- {formatCurrency(creditsForSelected)}</span>
+                      Credits applied: <span className="font-semibold">- {formatCurrency(selectedCreditsTotal)}</span>
                     </p>
                   )}
                   <p className="text-lg font-bold text-gray-900 border-t border-gray-200 mt-1 pt-1">
@@ -311,7 +301,6 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
                 const allSelected = orgInvoices.invoices.every(inv => selectedInvoices.has(inv.id));
                 const someSelected = orgInvoices.invoices.some(inv => selectedInvoices.has(inv.id));
                 const hasCredits = orgInvoices.credit_notes.length > 0;
-                const netOutstanding = Math.max(0, orgInvoices.total_outstanding - orgInvoices.total_credits);
 
                 return (
                   <div key={orgInvoices.organization_id} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -338,14 +327,9 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
                           <p className="text-xs text-gray-500 uppercase tracking-wide">Outstanding</p>
                           <p className="text-xl font-bold text-gray-900">{formatCurrency(orgInvoices.total_outstanding)}</p>
                           {hasCredits && (
-                            <>
-                              <p className="text-sm text-green-700 font-medium">
-                                Credits: - {formatCurrency(orgInvoices.total_credits)}
-                              </p>
-                              <p className="text-base font-bold text-blue-700 border-t border-gray-200 mt-1 pt-1">
-                                Net: {formatCurrency(netOutstanding)}
-                              </p>
-                            </>
+                            <p className="text-sm text-green-700 font-medium mt-0.5">
+                              {orgInvoices.credit_notes.length} credit note(s) available
+                            </p>
                           )}
                         </div>
                       </div>
@@ -398,26 +382,46 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
                       })}
                     </div>
 
-                    {/* Credit notes section */}
+                    {/* Credit notes — each one individually selectable */}
                     {hasCredits && (
-                      <div className="border-t border-green-200 bg-green-50 divide-y divide-green-100">
-                        <div className="px-6 py-2">
-                          <p className="text-xs font-semibold text-green-800 uppercase tracking-wide flex items-center gap-1">
-                            <Tag className="h-3 w-3" /> Issued Credit Notes
+                      <div className="border-t-2 border-green-200 bg-green-50 divide-y divide-green-100">
+                        <div className="px-6 py-2 flex items-center gap-2">
+                          <Tag className="h-3.5 w-3.5 text-green-700" />
+                          <p className="text-xs font-semibold text-green-800 uppercase tracking-wide">
+                            Available Credit Notes — tick to apply this month
                           </p>
                         </div>
-                        {orgInvoices.credit_notes.map((cn) => (
-                          <div key={cn.id} className="px-6 py-3 flex items-center justify-between">
-                            <div className="flex items-center gap-8">
-                              <div>
-                                <p className="text-sm font-medium text-green-900">{cn.credit_note_number}</p>
-                                <p className="text-xs text-green-700">{formatDate(cn.credit_note_date)}</p>
+                        {orgInvoices.credit_notes.map((cn) => {
+                          const isSelected = selectedCreditNotes.has(cn.id);
+                          return (
+                            <div
+                              key={cn.id}
+                              className={`px-6 py-3 flex items-center justify-between transition-colors ${isSelected ? 'bg-green-100' : ''}`}
+                            >
+                              <div className="flex items-center gap-4">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleCreditNote(cn.id)}
+                                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded flex-shrink-0"
+                                />
+                                <div>
+                                  <p className="text-sm font-medium text-green-900">{cn.credit_note_number}</p>
+                                  <p className="text-xs text-green-700">{formatDate(cn.credit_note_date)}</p>
+                                </div>
+                                <p className="text-sm text-green-800">{cn.reason}</p>
                               </div>
-                              <p className="text-sm text-green-800">{cn.reason}</p>
+                              <div className="text-right">
+                                <p className="text-base font-bold text-green-700">- {formatCurrency(cn.total_amount)}</p>
+                                {isSelected ? (
+                                  <p className="text-xs text-green-600 font-medium">Will be applied</p>
+                                ) : (
+                                  <p className="text-xs text-gray-400">Not applied</p>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-base font-bold text-green-700">- {formatCurrency(cn.total_amount)}</p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -433,10 +437,10 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
             <div className="text-sm text-blue-800">
               <p className="font-medium mb-1">Payment Notes:</p>
               <ul className="list-disc list-inside space-y-1 text-blue-700">
-                <li>Click an organisation checkbox to select all its invoices at once</li>
-                <li>Issued credit notes are shown per organisation for reference</li>
-                <li>When all invoices for an organisation are selected, its credit notes are included in the net total and will be marked as applied on payment</li>
-                <li>The net amount reflects invoices minus any available credits</li>
+                <li>Select the invoices being paid this month</li>
+                <li>Credit notes are shown separately — only tick a credit note if it is being applied this month</li>
+                <li>Unticked credit notes remain as issued and carry over to the following month</li>
+                <li>Only ticked credit notes are marked as applied when you click Mark as Paid</li>
               </ul>
             </div>
           </div>
