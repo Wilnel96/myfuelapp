@@ -182,6 +182,7 @@ function CreditNoteManagement({ onBack }: Props) {
   };
 
   const loadCreditNotes = async () => {
+    if (!selectedOrgId) return;
     try {
       setLoading(true);
       setError('');
@@ -798,5 +799,7 @@ function CreditNoteManagement({ onBack }: Props) {
   );
 }
 
+
+export default CreditNoteManagement
 
 export default CreditNoteManagement
