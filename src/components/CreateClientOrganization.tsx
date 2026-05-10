@@ -59,6 +59,7 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
     country: 'South Africa',
     website: '',
     monthly_fee_per_vehicle: 0,
+    monthly_fee_per_driver: 0,
     month_end_day: 25,
     year_end_month: 2,
     year_end_day: 28,
@@ -141,19 +142,24 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
           return;
         }
 
-        // Load global default monthly fee
-        const { data: feeSetting } = await supabase
-          .from('global_settings')
-          .select('value')
-          .eq('key', 'monthly_fee_per_vehicle')
-          .maybeSingle();
+        // Load global default monthly fees
+        const [vFeeSetting, dFeeSetting] = await Promise.all([
+          supabase.from('global_settings').select('value').eq('key', 'monthly_fee_per_vehicle').maybeSingle(),
+          supabase.from('global_settings').select('value').eq('key', 'monthly_fee_per_driver').maybeSingle(),
+        ]);
 
-        if (feeSetting?.value) {
-          const defaultFee = parseFloat(feeSetting.value);
-          if (!isNaN(defaultFee)) {
-            safeSetFormData((prev: any) => ({ ...prev, monthly_fee_per_vehicle: defaultFee }));
+        safeSetFormData((prev: any) => {
+          const updates: any = {};
+          if (vFeeSetting.data?.value) {
+            const v = parseFloat(vFeeSetting.data.value);
+            if (!isNaN(v)) updates.monthly_fee_per_vehicle = v;
           }
-        }
+          if (dFeeSetting.data?.value) {
+            const d = parseFloat(dFeeSetting.data.value);
+            if (!isNaN(d)) updates.monthly_fee_per_driver = d;
+          }
+          return { ...prev, ...updates };
+        });
 
         console.log('[CreateClient] Permissions check passed');
       } catch (err: any) {
@@ -243,6 +249,7 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
       // Sanitize formData - convert empty strings to null for optional fields
       const sanitizedFormData = {
         ...formData,
+        monthly_fee_per_driver: formData.monthly_fee_per_driver,
         entity_type: accountType === 'organization' ? formData.entity_type || null : null,
         entity_type_other: (accountType === 'organization' && formData.entity_type === 'Other') ? formData.entity_type_other.trim() || null : null,
         payment_option: formData.payment_option || null,
@@ -1176,7 +1183,7 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
 
         <div className="border-t pt-3">
           <h3 className="text-base font-semibold text-gray-900 mb-2">Financial Settings</h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-0.5">
                 Monthly Fee Per Vehicle (R)
@@ -1187,6 +1194,19 @@ export default function CreateClientOrganization({ onNavigate }: CreateClientOrg
                 value={formData.monthly_fee_per_vehicle}
                 onFocus={(e) => e.target.select()}
                 onChange={(e) => safeSetFormData({ ...formData, monthly_fee_per_vehicle: parseFloat(e.target.value) })}
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                Monthly Fee Per Driver (R)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.monthly_fee_per_driver}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => safeSetFormData({ ...formData, monthly_fee_per_driver: parseFloat(e.target.value) })}
                 className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
