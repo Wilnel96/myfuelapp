@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { DollarSign, Save, AlertCircle, CheckCircle, ArrowLeft, RefreshCw, Info } from 'lucide-react';
+import { DollarSign, Save, AlertCircle, CheckCircle, ArrowLeft, RefreshCw, Info, Car, Users } from 'lucide-react';
 
-interface MonthlyVehicleFeesProps {
+interface StandardMonthlyFeesProps {
   onBack: () => void;
 }
 
@@ -10,12 +10,16 @@ interface OrgFeeRow {
   id: string;
   name: string;
   monthly_fee_per_vehicle: number | null;
+  monthly_fee_per_driver: number | null;
   vehicle_count: number;
+  driver_count: number;
 }
 
-export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) {
-  const [globalFee, setGlobalFee] = useState<string>('');
-  const [newFee, setNewFee] = useState<string>('');
+export default function MonthlyVehicleFees({ onBack }: StandardMonthlyFeesProps) {
+  const [globalVehicleFee, setGlobalVehicleFee] = useState<string>('');
+  const [newVehicleFee, setNewVehicleFee] = useState<string>('');
+  const [globalDriverFee, setGlobalDriverFee] = useState<string>('');
+  const [newDriverFee, setNewDriverFee] = useState<string>('');
   const [orgs, setOrgs] = useState<OrgFeeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,40 +36,43 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
     setLoading(true);
     setError('');
     try {
-      const [settingRes, orgsRes] = await Promise.all([
-        supabase
-          .from('global_settings')
-          .select('value')
-          .eq('key', 'monthly_fee_per_vehicle')
-          .maybeSingle(),
+      const [vehicleSettingRes, driverSettingRes, orgsRes] = await Promise.all([
+        supabase.from('global_settings').select('value').eq('key', 'monthly_fee_per_vehicle').maybeSingle(),
+        supabase.from('global_settings').select('value').eq('key', 'monthly_fee_per_driver').maybeSingle(),
         supabase
           .from('organizations')
-          .select('id, name, monthly_fee_per_vehicle')
+          .select('id, name, monthly_fee_per_vehicle, monthly_fee_per_driver')
           .eq('organization_type', 'client')
           .eq('is_management_org', false)
           .order('name'),
       ]);
 
-      if (settingRes.error) throw settingRes.error;
+      if (vehicleSettingRes.error) throw vehicleSettingRes.error;
+      if (driverSettingRes.error) throw driverSettingRes.error;
       if (orgsRes.error) throw orgsRes.error;
 
-      const currentFee = settingRes.data?.value ?? '10';
-      setGlobalFee(currentFee);
-      setNewFee(currentFee);
+      const vFee = vehicleSettingRes.data?.value ?? '10';
+      const dFee = driverSettingRes.data?.value ?? '0';
+      setGlobalVehicleFee(vFee);
+      setNewVehicleFee(vFee);
+      setGlobalDriverFee(dFee);
+      setNewDriverFee(dFee);
 
-      // Get vehicle counts per org
       const orgIds = (orgsRes.data ?? []).map((o) => o.id);
       let vehicleCounts: Record<string, number> = {};
+      let driverCounts: Record<string, number> = {};
 
       if (orgIds.length > 0) {
-        const { data: vehicles } = await supabase
-          .from('vehicles')
-          .select('organization_id')
-          .in('organization_id', orgIds)
-          .eq('status', 'active');
+        const [vehiclesRes, driversRes] = await Promise.all([
+          supabase.from('vehicles').select('organization_id').in('organization_id', orgIds).eq('status', 'active'),
+          supabase.from('drivers').select('organization_id').in('organization_id', orgIds).eq('status', 'active'),
+        ]);
 
-        (vehicles ?? []).forEach((v) => {
+        (vehiclesRes.data ?? []).forEach((v) => {
           vehicleCounts[v.organization_id] = (vehicleCounts[v.organization_id] ?? 0) + 1;
+        });
+        (driversRes.data ?? []).forEach((d) => {
+          driverCounts[d.organization_id] = (driverCounts[d.organization_id] ?? 0) + 1;
         });
       }
 
@@ -74,7 +81,9 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
           id: o.id,
           name: o.name,
           monthly_fee_per_vehicle: o.monthly_fee_per_vehicle,
+          monthly_fee_per_driver: o.monthly_fee_per_driver,
           vehicle_count: vehicleCounts[o.id] ?? 0,
+          driver_count: driverCounts[o.id] ?? 0,
         }))
       );
     } catch (err: any) {
@@ -85,9 +94,10 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
   };
 
   const handleSave = async () => {
-    const parsed = parseFloat(newFee);
-    if (isNaN(parsed) || parsed < 0) {
-      setError('Please enter a valid fee amount');
+    const parsedV = parseFloat(newVehicleFee);
+    const parsedD = parseFloat(newDriverFee);
+    if (isNaN(parsedV) || parsedV < 0 || isNaN(parsedD) || parsedD < 0) {
+      setError('Please enter valid fee amounts');
       return;
     }
 
@@ -99,30 +109,45 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Update global setting
-      const { error: settingErr } = await supabase
-        .from('global_settings')
-        .update({ value: parsed.toString(), updated_at: new Date().toISOString(), updated_by: user.id })
-        .eq('key', 'monthly_fee_per_vehicle');
+      const now = new Date().toISOString();
 
-      if (settingErr) throw settingErr;
+      const [vErr, dErr] = await Promise.all([
+        supabase.from('global_settings')
+          .update({ value: parsedV.toString(), updated_at: now, updated_by: user.id })
+          .eq('key', 'monthly_fee_per_vehicle')
+          .then((r) => r.error),
+        supabase.from('global_settings')
+          .update({ value: parsedD.toString(), updated_at: now, updated_by: user.id })
+          .eq('key', 'monthly_fee_per_driver')
+          .then((r) => r.error),
+      ]);
 
-      setGlobalFee(parsed.toString());
+      if (vErr) throw vErr;
+      if (dErr) throw dErr;
+
+      setGlobalVehicleFee(parsedV.toString());
+      setGlobalDriverFee(parsedD.toString());
 
       if (applyToAll) {
         setApplying(true);
         const { error: updateErr } = await supabase
           .from('organizations')
-          .update({ monthly_fee_per_vehicle: parsed })
+          .update({ monthly_fee_per_vehicle: parsedV, monthly_fee_per_driver: parsedD })
           .eq('organization_type', 'client')
           .eq('is_management_org', false);
 
         if (updateErr) throw updateErr;
 
-        setOrgs((prev) => prev.map((o) => ({ ...o, monthly_fee_per_vehicle: parsed })));
-        setSuccess(`Global fee updated to R${parsed.toFixed(2)} and applied to all ${orgs.length} client organisation(s).`);
+        setOrgs((prev) =>
+          prev.map((o) => ({ ...o, monthly_fee_per_vehicle: parsedV, monthly_fee_per_driver: parsedD }))
+        );
+        setSuccess(
+          `Fees updated (Vehicle: R${parsedV.toFixed(2)}, Driver: R${parsedD.toFixed(2)}) and applied to all ${orgs.length} client organisation(s).`
+        );
       } else {
-        setSuccess(`Global fee updated to R${parsed.toFixed(2)}. Existing clients were not changed.`);
+        setSuccess(
+          `Fees updated (Vehicle: R${parsedV.toFixed(2)}, Driver: R${parsedD.toFixed(2)}). Existing clients were not changed.`
+        );
       }
     } catch (err: any) {
       setError(err.message ?? 'Failed to save');
@@ -135,9 +160,14 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
   const formatFee = (fee: number | null) =>
     fee == null ? <span className="text-gray-400 italic">Not set</span> : `R${Number(fee).toFixed(2)}`;
 
-  const feeChanged = newFee !== globalFee;
-  const parsedNew = parseFloat(newFee);
-  const parsedGlobal = parseFloat(globalFee);
+  const parsedNewV = parseFloat(newVehicleFee);
+  const parsedGlobalV = parseFloat(globalVehicleFee);
+  const parsedNewD = parseFloat(newDriverFee);
+  const parsedGlobalD = parseFloat(globalDriverFee);
+
+  const vehicleFeeChanged = newVehicleFee !== globalVehicleFee;
+  const driverFeeChanged = newDriverFee !== globalDriverFee;
+  const anyChanged = vehicleFeeChanged || driverFeeChanged;
 
   return (
     <div className="space-y-6">
@@ -154,8 +184,8 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
             <DollarSign className="w-5 h-5 text-teal-600" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Monthly Vehicle Fees</h2>
-            <p className="text-sm text-gray-500">Set the default rate charged per active vehicle each month</p>
+            <h2 className="text-xl font-bold text-gray-900">Standard Monthly Fees</h2>
+            <p className="text-sm text-gray-500">Set the default rates charged per active vehicle and driver each month</p>
           </div>
         </div>
       </div>
@@ -176,37 +206,65 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
 
       {/* Fee setting card */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-        <h3 className="text-base font-semibold text-gray-900 mb-1">Standard Rate</h3>
+        <h3 className="text-base font-semibold text-gray-900 mb-1">Standard Rates</h3>
         <p className="text-sm text-gray-500 mb-5">
-          This is the system-wide default. New client accounts will automatically be assigned this rate.
+          System-wide defaults. New client accounts are automatically assigned these rates.
         </p>
 
-        <div className="flex items-end gap-4">
-          <div className="w-48">
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {/* Vehicle fee */}
+          <div>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1">
+              <Car className="w-3.5 h-3.5 text-teal-500" />
               Fee per vehicle per month (R)
             </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">R</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={newFee}
-                onChange={(e) => { setNewFee(e.target.value); setSuccess(''); }}
-                onFocus={(e) => e.target.select()}
-                className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              />
+            <div className="flex items-center gap-3">
+              <div className="relative w-40">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">R</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newVehicleFee}
+                  onChange={(e) => { setNewVehicleFee(e.target.value); setSuccess(''); }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+              </div>
+              {!isNaN(parsedNewV) && !isNaN(parsedGlobalV) && vehicleFeeChanged && (
+                <span className={`text-xs font-medium px-2 py-1 rounded ${parsedNewV > parsedGlobalV ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+                  {parsedNewV > parsedGlobalV ? `+R${(parsedNewV - parsedGlobalV).toFixed(2)}` : `-R${(parsedGlobalV - parsedNewV).toFixed(2)}`}
+                </span>
+              )}
             </div>
           </div>
 
-          {!isNaN(parsedNew) && !isNaN(parsedGlobal) && feeChanged && (
-            <div className={`text-sm font-medium px-3 py-2 rounded-lg ${parsedNew > parsedGlobal ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
-              {parsedNew > parsedGlobal
-                ? `+R${(parsedNew - parsedGlobal).toFixed(2)} increase`
-                : `-R${(parsedGlobal - parsedNew).toFixed(2)} decrease`}
+          {/* Driver fee */}
+          <div>
+            <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1">
+              <Users className="w-3.5 h-3.5 text-blue-500" />
+              Fee per driver per month (R)
+            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative w-40">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium text-sm">R</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newDriverFee}
+                  onChange={(e) => { setNewDriverFee(e.target.value); setSuccess(''); }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              {!isNaN(parsedNewD) && !isNaN(parsedGlobalD) && driverFeeChanged && (
+                <span className={`text-xs font-medium px-2 py-1 rounded ${parsedNewD > parsedGlobalD ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+                  {parsedNewD > parsedGlobalD ? `+R${(parsedNewD - parsedGlobalD).toFixed(2)}` : `-R${(parsedGlobalD - parsedNewD).toFixed(2)}`}
+                </span>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Apply to all toggle */}
@@ -221,8 +279,8 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
             <div>
               <span className="text-sm font-medium text-gray-900">Apply to all existing clients</span>
               <p className="text-xs text-gray-500 mt-0.5">
-                Update the monthly fee for all {orgs.length} existing client organisation(s) to match this new rate.
-                Uncheck to only update the default for new sign-ups going forward.
+                Update both fees for all {orgs.length} existing client organisation(s) to match these new rates.
+                Uncheck to only update the defaults for new sign-ups going forward.
               </p>
             </div>
           </label>
@@ -231,18 +289,14 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
         <div className="mt-4 flex items-center gap-3">
           <button
             onClick={handleSave}
-            disabled={saving || applying || !feeChanged || isNaN(parsedNew) || parsedNew < 0}
+            disabled={saving || applying || !anyChanged || isNaN(parsedNewV) || parsedNewV < 0 || isNaN(parsedNewD) || parsedNewD < 0}
             className="flex items-center gap-2 px-5 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {applying ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
+            {applying ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {applying ? 'Applying to all clients...' : saving ? 'Saving...' : 'Save Changes'}
           </button>
 
-          {!feeChanged && !success && (
+          {!anyChanged && !success && (
             <span className="text-xs text-gray-400 flex items-center gap-1">
               <Info className="w-3.5 h-3.5" />
               No changes to save
@@ -256,7 +310,7 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h3 className="text-base font-semibold text-gray-900">Client Rate Overview</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Current fee assigned to each client organisation</p>
+            <p className="text-xs text-gray-500 mt-0.5">Current fees assigned to each client organisation</p>
           </div>
           <button
             onClick={load}
@@ -273,26 +327,32 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
           <div className="p-8 text-center text-gray-400 text-sm">No client organisations found</div>
         ) : (
           <div className="divide-y divide-gray-100">
-            <div className="grid grid-cols-3 gap-4 px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              <span>Organisation</span>
-              <span className="text-center">Active Vehicles</span>
-              <span className="text-right">Monthly Fee / Vehicle</span>
+            <div className="grid grid-cols-5 gap-3 px-6 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <span className="col-span-1">Organisation</span>
+              <span className="text-center">Vehicles</span>
+              <span className="text-right">Fee / Vehicle</span>
+              <span className="text-center">Drivers</span>
+              <span className="text-right">Fee / Driver</span>
             </div>
             {orgs.map((org) => {
-              const differsFromGlobal =
-                org.monthly_fee_per_vehicle != null &&
-                Math.abs(org.monthly_fee_per_vehicle - parsedGlobal) > 0.001;
+              const vDiffers = org.monthly_fee_per_vehicle != null && Math.abs(org.monthly_fee_per_vehicle - parsedGlobalV) > 0.001;
+              const dDiffers = org.monthly_fee_per_driver != null && Math.abs(org.monthly_fee_per_driver - parsedGlobalD) > 0.001;
               return (
-                <div key={org.id} className="grid grid-cols-3 gap-4 px-6 py-3 items-center hover:bg-gray-50 transition-colors">
-                  <span className="text-sm font-medium text-gray-900 truncate">{org.name}</span>
+                <div key={org.id} className="grid grid-cols-5 gap-3 px-6 py-3 items-center hover:bg-gray-50 transition-colors">
+                  <span className="col-span-1 text-sm font-medium text-gray-900 truncate">{org.name}</span>
                   <span className="text-sm text-gray-600 text-center">{org.vehicle_count}</span>
                   <div className="text-right">
-                    <span className={`text-sm font-medium ${differsFromGlobal ? 'text-amber-600' : 'text-gray-900'}`}>
+                    <span className={`text-sm font-medium ${vDiffers ? 'text-amber-600' : 'text-gray-900'}`}>
                       {formatFee(org.monthly_fee_per_vehicle)}
                     </span>
-                    {differsFromGlobal && (
-                      <span className="ml-2 text-xs text-amber-500">(custom)</span>
-                    )}
+                    {vDiffers && <span className="ml-1 text-xs text-amber-500">(custom)</span>}
+                  </div>
+                  <span className="text-sm text-gray-600 text-center">{org.driver_count}</span>
+                  <div className="text-right">
+                    <span className={`text-sm font-medium ${dDiffers ? 'text-amber-600' : 'text-gray-900'}`}>
+                      {formatFee(org.monthly_fee_per_driver)}
+                    </span>
+                    {dDiffers && <span className="ml-1 text-xs text-amber-500">(custom)</span>}
                   </div>
                 </div>
               );
@@ -302,7 +362,8 @@ export default function MonthlyVehicleFees({ onBack }: MonthlyVehicleFeesProps) 
 
         <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center gap-1.5 text-xs text-gray-500">
           <Info className="w-3.5 h-3.5 flex-shrink-0" />
-          Rows marked <span className="text-amber-600 font-medium mx-1">(custom)</span> differ from the current global rate of R{parseFloat(globalFee).toFixed(2)}.
+          Rows marked <span className="text-amber-600 font-medium mx-1">(custom)</span> differ from the current global rates
+          (Vehicle: R{parseFloat(globalVehicleFee || '0').toFixed(2)}, Driver: R{parseFloat(globalDriverFee || '0').toFixed(2)}).
         </div>
       </div>
     </div>
