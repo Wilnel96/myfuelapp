@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   DollarSign, Save, AlertCircle, CheckCircle, ArrowLeft,
-  RefreshCw, Info, Car, Users,
+  RefreshCw, Info, Car, Users, ChevronDown, ChevronUp,
 } from 'lucide-react';
 
 interface StandardMonthlyFeesProps {
@@ -18,197 +18,94 @@ interface OrgRow {
   driver_count: number;
 }
 
-interface FeePanelProps {
-  type: 'vehicle' | 'driver';
-  parsedGlobal: number;
-  newFee: string;
-  setNewFee: (v: string) => void;
-  parsedNew: number;
-  changed: boolean;
-  saving: boolean;
-  error: string;
-  success: string;
-  excluded: Set<string>;
-  setExcluded: (s: Set<string>) => void;
-  allExcluded: boolean;
-  onSave: () => void;
-  orgs: OrgRow[];
-  loading: boolean;
-}
-
-function toggle(set: Set<string>, id: string): Set<string> {
+function toggleSet(set: Set<string>, id: string): Set<string> {
   const next = new Set(set);
   next.has(id) ? next.delete(id) : next.add(id);
   return next;
 }
 
-function FeePanel({
-  type,
-  parsedGlobal,
-  newFee,
-  setNewFee,
-  parsedNew,
-  changed,
-  saving,
-  error,
-  success,
-  excluded,
-  setExcluded,
-  allExcluded,
-  onSave,
-  orgs,
-  loading,
-}: FeePanelProps) {
+interface ClientDropdownProps {
+  type: 'vehicle' | 'driver';
+  orgs: OrgRow[];
+  loading: boolean;
+  globalRate: number;
+  excluded: Set<string>;
+  setExcluded: (s: Set<string>) => void;
+}
+
+function ClientDropdown({ type, orgs, loading, globalRate, excluded, setExcluded }: ClientDropdownProps) {
   const isVehicle = type === 'vehicle';
-  const focusRing = isVehicle ? 'focus:ring-teal-500' : 'focus:ring-blue-500';
-  const checkColor = isVehicle ? 'text-teal-600 focus:ring-teal-500' : 'text-blue-600 focus:ring-blue-500';
-  const btnColor = isVehicle ? 'bg-teal-600 hover:bg-teal-700' : 'bg-blue-600 hover:bg-blue-700';
-  const headerBg = isVehicle ? 'bg-teal-50' : 'bg-blue-50';
-  const iconBg = isVehicle ? 'bg-teal-100' : 'bg-blue-100';
-  const iconColor = isVehicle ? 'text-teal-600' : 'text-blue-600';
-  const Icon = isVehicle ? Car : Users;
   const countKey = isVehicle ? 'vehicle_count' as const : 'driver_count' as const;
   const rateKey = isVehicle ? 'monthly_fee_per_vehicle' as const : 'monthly_fee_per_driver' as const;
-  const label = isVehicle ? 'Vehicle Fee' : 'Driver Fee';
-  const unit = isVehicle ? 'vehicle' : 'driver';
-
-  const diffAbs = !isNaN(parsedNew) ? Math.abs(parsedNew - parsedGlobal) : 0;
-  const up = parsedNew > parsedGlobal;
+  const checkColor = isVehicle ? 'text-teal-600 focus:ring-teal-500' : 'text-blue-600 focus:ring-blue-500';
+  const allExcluded = orgs.length > 0 && excluded.size === orgs.length;
 
   return (
-    <div className="flex flex-col bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      {/* Panel header */}
-      <div className={`px-5 py-4 border-b border-gray-100 flex items-center gap-3 ${headerBg}`}>
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg}`}>
-          <Icon className={`w-4 h-4 ${iconColor}`} />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-gray-900">{label}</p>
-          <p className="text-xs text-gray-500">
-            Global rate: <span className="font-medium text-gray-700">R{parsedGlobal.toFixed(2)}</span> / {unit} / month
-          </p>
-        </div>
+    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+      <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100 grid grid-cols-[1.75rem_1fr_3.5rem_5.5rem] gap-2 items-center">
+        <label className="flex items-center justify-center cursor-pointer" title="Exclude all">
+          <input
+            type="checkbox"
+            checked={allExcluded}
+            onChange={(e) => setExcluded(new Set(e.target.checked ? orgs.map((o) => o.id) : []))}
+            className={`w-3.5 h-3.5 ${checkColor} border-gray-300 rounded`}
+          />
+        </label>
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Client</span>
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">
+          {isVehicle ? 'Veh.' : 'Drv.'}
+        </span>
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Current Rate</span>
       </div>
 
-      {/* Rate input */}
-      <div className="px-5 py-4 space-y-3 border-b border-gray-100">
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
-            <p className="text-red-800 text-xs">{error}</p>
-          </div>
-        )}
-        {success && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-2.5 flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-            <p className="text-green-800 text-xs">{success}</p>
-          </div>
-        )}
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">New global rate (R)</label>
-          <div className="flex items-center gap-3">
-            <div className="relative w-36">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium pointer-events-none">R</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={newFee}
-                onChange={(e) => setNewFee(e.target.value)}
-                onFocus={(e) => e.target.select()}
-                className={`w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 ${focusRing} focus:border-transparent`}
-              />
-            </div>
-            {changed && !isNaN(parsedNew) && diffAbs > 0.001 && (
-              <span className={`text-xs font-medium px-2 py-1 rounded ${up ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
-                {up ? '+' : '-'}R{diffAbs.toFixed(2)}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <button
-          onClick={onSave}
-          disabled={saving || !changed || isNaN(parsedNew) || parsedNew < 0}
-          className={`flex items-center gap-2 px-4 py-2 ${btnColor} text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-        >
-          {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? 'Saving...' : `Save ${label}`}
-        </button>
-      </div>
-
-      {/* Exclusion table */}
-      <div className="flex flex-col flex-1">
-        <div className="px-5 py-2.5 bg-gray-50 border-b border-gray-100">
-          <p className="text-xs font-semibold text-gray-700">Client Exclusions</p>
-          <p className="text-xs text-gray-400 mt-0.5">Tick to exclude from global update</p>
-        </div>
-
-        {loading ? (
-          <div className="p-6 text-center text-gray-400 text-sm">Loading...</div>
-        ) : orgs.length === 0 ? (
-          <div className="p-6 text-center text-gray-400 text-sm">No clients found</div>
-        ) : (
-          <>
-            <div className="grid grid-cols-[1.75rem_1fr_3.5rem_5.5rem] gap-2 px-5 py-2 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              <label className="flex items-center justify-center cursor-pointer" title="Exclude all">
-                <input
-                  type="checkbox"
-                  checked={allExcluded}
-                  onChange={(e) => setExcluded(new Set(e.target.checked ? orgs.map((o) => o.id) : []))}
-                  className={`w-3.5 h-3.5 ${checkColor} border-gray-300 rounded`}
-                />
-              </label>
-              <span>Client</span>
-              <span className="text-center">{isVehicle ? 'Veh.' : 'Drv.'}</span>
-              <span className="text-right">Rate</span>
-            </div>
-
-            <div className="divide-y divide-gray-100 overflow-y-auto" style={{ maxHeight: '18rem' }}>
-              {orgs.map((org) => {
-                const isExcluded = excluded.has(org.id);
-                const rate = org[rateKey];
-                const differs = rate != null && Math.abs(rate - parsedGlobal) > 0.001;
-                return (
-                  <div
-                    key={org.id}
-                    onClick={() => setExcluded(toggle(excluded, org.id))}
-                    className={`grid grid-cols-[1.75rem_1fr_3.5rem_5.5rem] gap-2 px-5 py-2.5 items-center cursor-pointer transition-colors ${isExcluded ? 'bg-amber-50' : 'hover:bg-gray-50'}`}
-                  >
-                    <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={isExcluded}
-                        onChange={() => setExcluded(toggle(excluded, org.id))}
-                        className={`w-3.5 h-3.5 ${checkColor} border-gray-300 rounded`}
-                      />
-                    </div>
-                    <span className={`text-xs font-medium truncate ${isExcluded ? 'text-amber-700' : 'text-gray-900'}`} title={org.name}>
-                      {org.name}
-                    </span>
-                    <span className="text-xs text-gray-500 text-center">{org[countKey]}</span>
-                    <div className="text-right">
-                      {rate != null
-                        ? <span className={`text-xs font-medium ${differs ? 'text-amber-600' : 'text-gray-700'}`}>R{Number(rate).toFixed(2)}</span>
-                        : <span className="text-xs text-gray-400 italic">—</span>
-                      }
-                      {differs && <span className="ml-1 text-xs text-amber-400">(c)</span>}
-                    </div>
+      {loading ? (
+        <div className="p-6 text-center text-gray-400 text-sm">Loading...</div>
+      ) : orgs.length === 0 ? (
+        <div className="p-6 text-center text-gray-400 text-sm">No clients found</div>
+      ) : (
+        <>
+          <div className="divide-y divide-gray-100 overflow-y-auto" style={{ maxHeight: '20rem' }}>
+            {orgs.map((org) => {
+              const isExcluded = excluded.has(org.id);
+              const rate = org[rateKey];
+              const differs = rate != null && Math.abs(rate - globalRate) > 0.001;
+              return (
+                <div
+                  key={org.id}
+                  onClick={() => setExcluded(toggleSet(excluded, org.id))}
+                  className={`grid grid-cols-[1.75rem_1fr_3.5rem_5.5rem] gap-2 px-5 py-2.5 items-center cursor-pointer transition-colors ${isExcluded ? 'bg-amber-50' : 'hover:bg-gray-50'}`}
+                >
+                  <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={isExcluded}
+                      onChange={() => setExcluded(toggleSet(excluded, org.id))}
+                      className={`w-3.5 h-3.5 ${checkColor} border-gray-300 rounded`}
+                    />
                   </div>
-                );
-              })}
+                  <span className={`text-xs font-medium truncate ${isExcluded ? 'text-amber-700' : 'text-gray-900'}`} title={org.name}>
+                    {org.name}
+                  </span>
+                  <span className="text-xs text-gray-500 text-center">{org[countKey]}</span>
+                  <div className="text-right">
+                    {rate != null
+                      ? <span className={`text-xs font-medium ${differs ? 'text-amber-600' : 'text-gray-700'}`}>R{Number(rate).toFixed(2)}</span>
+                      : <span className="text-xs text-gray-400 italic">—</span>
+                    }
+                    {differs && <span className="ml-1 text-xs text-amber-400">(c)</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {excluded.size > 0 && (
+            <div className="px-5 py-2 bg-amber-50 border-t border-amber-100 flex items-center gap-1.5 text-xs text-amber-700">
+              <Info className="w-3 h-3 flex-shrink-0" />
+              {excluded.size} client(s) will keep their current rate.
             </div>
-
-            {excluded.size > 0 && (
-              <div className="px-5 py-2.5 bg-amber-50 border-t border-amber-100 flex items-center gap-1.5 text-xs text-amber-700">
-                <Info className="w-3 h-3 flex-shrink-0" />
-                {excluded.size} client(s) will keep their current rate.
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -217,6 +114,9 @@ export default function MonthlyVehicleFees({ onBack }: StandardMonthlyFeesProps)
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+
+  // Which panel is open: null | 'vehicle' | 'driver'
+  const [openPanel, setOpenPanel] = useState<'vehicle' | 'driver' | null>(null);
 
   const [globalV, setGlobalV] = useState('');
   const [newV, setNewV] = useState('');
@@ -344,8 +244,12 @@ export default function MonthlyVehicleFees({ onBack }: StandardMonthlyFeesProps)
   const parsedNewD = parseFloat(newD);
   const parsedGlobalD = parseFloat(globalD || '0');
 
+  const vChanged = newV !== globalV;
+  const dChanged = newD !== globalD;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="text-gray-500 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -371,42 +275,161 @@ export default function MonthlyVehicleFees({ onBack }: StandardMonthlyFeesProps)
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <FeePanel
+      {/* Fee row — both fees side by side */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+        {/* Vehicle Fee card */}
+        <div className={`bg-white border rounded-xl shadow-sm overflow-hidden transition-all ${openPanel === 'vehicle' ? 'border-teal-400 ring-1 ring-teal-300' : 'border-gray-200'}`}>
+          <div className="px-5 py-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
+                <Car className="w-4 h-4 text-teal-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900">Vehicle Fee</p>
+                <p className="text-xs text-gray-500">Current global: <span className="font-medium text-gray-700">R{parsedGlobalV.toFixed(2)}</span>/vehicle/month</p>
+              </div>
+            </div>
+
+            {errorV && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-2 flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                <p className="text-red-800 text-xs">{errorV}</p>
+              </div>
+            )}
+            {successV && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-2 flex items-center gap-2">
+                <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                <p className="text-green-800 text-xs">{successV}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <div className="relative w-32">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium pointer-events-none">R</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newV}
+                  onChange={(e) => { setNewV(e.target.value); setSuccessV(''); }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full pl-7 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+              </div>
+              {vChanged && !isNaN(parsedNewV) && (
+                <span className={`text-xs font-medium px-2 py-1 rounded ${parsedNewV > parsedGlobalV ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+                  {parsedNewV > parsedGlobalV ? '+' : '-'}R{Math.abs(parsedNewV - parsedGlobalV).toFixed(2)}
+                </span>
+              )}
+              <button
+                onClick={handleSaveV}
+                disabled={savingV || !vChanged || isNaN(parsedNewV) || parsedNewV < 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-auto"
+              >
+                {savingV ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Save
+              </button>
+            </div>
+
+            {/* Toggle clients */}
+            <button
+              onClick={() => setOpenPanel(openPanel === 'vehicle' ? null : 'vehicle')}
+              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 transition-colors"
+            >
+              <span>Client Exclusions {excludedV.size > 0 && <span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{excludedV.size} excluded</span>}</span>
+              {openPanel === 'vehicle' ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Driver Fee card */}
+        <div className={`bg-white border rounded-xl shadow-sm overflow-hidden transition-all ${openPanel === 'driver' ? 'border-blue-400 ring-1 ring-blue-300' : 'border-gray-200'}`}>
+          <div className="px-5 py-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                <Users className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900">Driver Fee</p>
+                <p className="text-xs text-gray-500">Current global: <span className="font-medium text-gray-700">R{parsedGlobalD.toFixed(2)}</span>/driver/month</p>
+              </div>
+            </div>
+
+            {errorD && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-2 flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                <p className="text-red-800 text-xs">{errorD}</p>
+              </div>
+            )}
+            {successD && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-2 flex items-center gap-2">
+                <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+                <p className="text-green-800 text-xs">{successD}</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <div className="relative w-32">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium pointer-events-none">R</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newD}
+                  onChange={(e) => { setNewD(e.target.value); setSuccessD(''); }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full pl-7 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              {dChanged && !isNaN(parsedNewD) && (
+                <span className={`text-xs font-medium px-2 py-1 rounded ${parsedNewD > parsedGlobalD ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+                  {parsedNewD > parsedGlobalD ? '+' : '-'}R{Math.abs(parsedNewD - parsedGlobalD).toFixed(2)}
+                </span>
+              )}
+              <button
+                onClick={handleSaveD}
+                disabled={savingD || !dChanged || isNaN(parsedNewD) || parsedNewD < 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-auto"
+              >
+                {savingD ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                Save
+              </button>
+            </div>
+
+            {/* Toggle clients */}
+            <button
+              onClick={() => setOpenPanel(openPanel === 'driver' ? null : 'driver')}
+              className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-xs font-medium text-gray-700 transition-colors"
+            >
+              <span>Client Exclusions {excludedD.size > 0 && <span className="ml-1 bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">{excludedD.size} excluded</span>}</span>
+              {openPanel === 'driver' ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Client exclusion dropdown — only one open at a time */}
+      {openPanel === 'vehicle' && (
+        <ClientDropdown
           type="vehicle"
-          parsedGlobal={parsedGlobalV}
-          newFee={newV}
-          setNewFee={(v) => { setNewV(v); setSuccessV(''); }}
-          parsedNew={parsedNewV}
-          changed={newV !== globalV}
-          saving={savingV}
-          error={errorV}
-          success={successV}
+          orgs={orgs}
+          loading={loading}
+          globalRate={parsedGlobalV}
           excluded={excludedV}
           setExcluded={setExcludedV}
-          allExcluded={orgs.length > 0 && excludedV.size === orgs.length}
-          onSave={handleSaveV}
+        />
+      )}
+      {openPanel === 'driver' && (
+        <ClientDropdown
+          type="driver"
           orgs={orgs}
           loading={loading}
-        />
-        <FeePanel
-          type="driver"
-          parsedGlobal={parsedGlobalD}
-          newFee={newD}
-          setNewFee={(v) => { setNewD(v); setSuccessD(''); }}
-          parsedNew={parsedNewD}
-          changed={newD !== globalD}
-          saving={savingD}
-          error={errorD}
-          success={successD}
+          globalRate={parsedGlobalD}
           excluded={excludedD}
           setExcluded={setExcludedD}
-          allExcluded={orgs.length > 0 && excludedD.size === orgs.length}
-          onSave={handleSaveD}
-          orgs={orgs}
-          loading={loading}
         />
-      </div>
+      )}
     </div>
   );
 }
