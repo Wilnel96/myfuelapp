@@ -37,6 +37,7 @@ import InvoiceManagement from './components/InvoiceManagement';
 import ClientFuelInvoices from './components/ClientFuelInvoices';
 import AdminPasswordReset from './components/AdminPasswordReset';
 import MonthlyVehicleFees from './components/MonthlyVehicleFees';
+import MonthlyDriverFees from './components/MonthlyDriverFees';
 import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3, FileText, Settings, CreditCard as Edit3, ArrowLeft, UserPlus } from 'lucide-react';
 import { DriverData } from './components/DriverAuth';
 
@@ -53,7 +54,7 @@ function App() {
   const [userMode, setUserMode] = useState<UserMode>(null);
   const [clientPortalType, setClientPortalType] = useState<ClientPortalType>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'backup' | 'monthly-vehicle-fees' | null>(() => {
+  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'backup' | 'monthly-vehicle-fees' | 'monthly-driver-fees' | null>(() => {
     const saved = sessionStorage.getItem('appCurrentView');
     return saved ? saved as any : null;
   });
@@ -1014,6 +1015,8 @@ function App() {
           <BackupManagement key="backup" />
         ) : currentView === 'monthly-vehicle-fees' ? (
           <MonthlyVehicleFees key="monthly-vehicle-fees" onBack={() => setCurrentView(null)} />
+        ) : currentView === 'monthly-driver-fees' ? (
+          <MonthlyDriverFees key="monthly-driver-fees" onBack={() => setCurrentView(null)} />
         ) : null}
         </div>
       </main>

@@ -63,6 +63,13 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       color: 'teal',
     },
     {
+      id: 'monthly-driver-fees',
+      title: 'Monthly Driver Fees',
+      description: 'Set the standard rate charged per active driver each month',
+      icon: Users,
+      color: 'blue',
+    },
+    {
       id: 'backoffice',
       title: 'Back Office',
       description: 'System settings and EFT processing',
