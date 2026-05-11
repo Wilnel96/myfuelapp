@@ -5,7 +5,6 @@ import { Building2, CreditCard as Edit2, Save, X, AlertCircle, CheckCircle } fro
 interface Organization {
   id: string;
   name: string;
-  billing_contact_email: string;
   phone_number: string;
   address_line_1: string;
   address_line_2: string;
@@ -90,7 +89,6 @@ export default function OrganizationManagement({ onBack }: OrganizationManagemen
       const { error: updateError } = await supabase
         .from('organizations')
         .update({
-          billing_contact_email: editForm.billing_contact_email,
           phone_number: editForm.phone_number,
           address_line_1: editForm.address_line_1,
           address_line_2: editForm.address_line_2,
@@ -201,16 +199,6 @@ export default function OrganizationManagement({ onBack }: OrganizationManagemen
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
                 />
                 <p className="text-xs text-gray-500 mt-1">Cannot be changed</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  value={editForm.billing_contact_email || ''}
-                  onChange={(e) => setEditForm({ ...editForm, billing_contact_email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder={isIndividual ? 'your@email.com' : 'info@company.com'}
-                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">{isIndividual ? 'ID Number' : 'Registration Number'}</label>
@@ -325,10 +313,6 @@ export default function OrganizationManagement({ onBack }: OrganizationManagemen
 
             {(() => { const isIndividual = organization.account_type === 'individual'; return (
             <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Email Address</p>
-                <p className="text-gray-900">{organization.billing_contact_email || '-'}</p>
-              </div>
               <div>
                 <p className="text-sm font-medium text-gray-500">{isIndividual ? 'Mobile Number' : 'Office Number'}</p>
                 <p className="text-gray-900">{organization.phone_number || '-'}</p>
