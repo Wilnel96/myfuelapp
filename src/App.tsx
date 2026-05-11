@@ -33,7 +33,6 @@ import BackOffice from './components/BackOffice';
 import CustomReportBuilder from './components/CustomReportBuilder';
 import BackupManagement from './components/BackupManagement';
 import ClientInvoices from './components/ClientInvoices';
-import InvoiceManagement from './components/InvoiceManagement';
 import ClientFuelInvoices from './components/ClientFuelInvoices';
 import AdminPasswordReset from './components/AdminPasswordReset';
 import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3, FileText, Settings, CreditCard as Edit3, ArrowLeft, UserPlus } from 'lucide-react';
@@ -1002,7 +1001,7 @@ function App() {
         ) : currentView === 'drivers' ? (
           <DriverManagement key="drivers" onNavigate={setCurrentView} />
         ) : currentView === 'invoices' ? (
-          userRole === 'super_admin' ? <InvoiceManagement key="invoices" /> : <ClientInvoices key="invoices" />
+          userRole === 'super_admin' ? <BackOffice key="backoffice-invoices" userRole={userRole} paymentOption={paymentOption} onNavigateToMain={() => setCurrentView(null)} /> : <ClientInvoices key="invoices" />
         ) : currentView === 'invoices-menu' ? (
           clientPortalType === 'card' ? (
             <ClientCardDashboard key="invoices-menu-card" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="invoices" />
