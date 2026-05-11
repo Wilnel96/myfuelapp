@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, ArrowLeft, DollarSign, Building2, Calendar, AlertCircle, Search, Tag } from 'lucide-react';
+import { CheckCircle, ArrowLeft, Receipt, Building2, Calendar, AlertCircle, Search, Tag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Invoice {
@@ -239,14 +239,16 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <button onClick={onBack} className="flex items-center text-gray-600 hover:text-gray-900 mb-4">
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            Back to Invoice Management
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-            <DollarSign className="h-8 w-8 mr-3 text-green-600" />
-            Bulk Invoice Payment
-          </h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+              <Receipt className="h-8 w-8 mr-3 text-green-600" />
+              Bulk Invoice Payment
+            </h1>
+            <button onClick={onBack} className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Invoice Management
+            </button>
+          </div>
           <p className="mt-2 text-gray-600">
             Select invoices to mark as paid. Tick any credit notes you want to apply this month — unticked ones remain available for the following month.
           </p>
@@ -307,7 +309,7 @@ export default function BulkInvoicePayment({ onBack }: { onBack: () => void }) {
 
           {filteredOrgs.length === 0 ? (
             <div className="text-center py-12">
-              <DollarSign className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <Receipt className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-600 text-lg">No unpaid invoices found</p>
             </div>
           ) : (
