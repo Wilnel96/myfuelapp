@@ -250,6 +250,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
       setError('');
       setSuccess('');
     }
+    setCurrentView('menu');
   };
 
   const handleAddFuelType = () => {
