@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, CreditCard, Plus, Calendar, Download, Printer, Eye, ArrowLeft, DollarSign, Fuel, AlertCircle } from 'lucide-react';
+import { FileText, CreditCard, Plus, Calendar, Download, Printer, Eye, ArrowLeft, DollarSign, Fuel, AlertCircle, Search, X } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 interface Organization {
@@ -91,6 +91,15 @@ export default function GarageStatementsPayments({
   const [paymentReference, setPaymentReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
 
+  const [filterFrom, setFilterFrom] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d.toISOString().split('T')[0];
+  });
+  const [filterTo, setFilterTo] = useState(() => new Date().toISOString().split('T')[0]);
+  const [filterMethod, setFilterMethod] = useState('');
+  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -113,6 +122,21 @@ export default function GarageStatementsPayments({
       setStatementPeriodStart(thirtyDaysAgo.toISOString().split('T')[0]);
     }
   }, [statements]);
+
+  useEffect(() => {
+    const from = new Date(filterFrom);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date(filterTo);
+    to.setHours(23, 59, 59, 999);
+    setFilteredPayments(
+      payments.filter(p => {
+        const d = new Date(p.payment_date);
+        const inRange = d >= from && d <= to;
+        const methodMatch = !filterMethod || p.payment_method === filterMethod;
+        return inRange && methodMatch;
+      })
+    );
+  }, [payments, filterFrom, filterTo, filterMethod]);
 
   const loadData = async () => {
     try {
@@ -995,19 +1019,21 @@ export default function GarageStatementsPayments({
 
         {(directPaymentMode || activeTab === 'payments') && (
           <div>
+            {/* Header row */}
             {!directPaymentMode && activeTab === 'payments' && (
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Client Payments</h3>
-              <button
-                onClick={() => setShowAddPayment(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                <Plus className="w-4 h-4" />
-                Add Payment
-              </button>
-            </div>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Client Payments</h3>
+                <button
+                  onClick={() => setShowAddPayment(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Payment
+                </button>
+              </div>
             )}
 
+            {/* Add payment form */}
             {showAddPayment && (
               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
                 <h4 className="font-semibold mb-4">Record Payment</h4>
@@ -1089,41 +1115,122 @@ export default function GarageStatementsPayments({
               </div>
             )}
 
+            {/* Filter bar */}
             {!directPaymentMode && (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Payment #</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reference</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {payments.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                        No payments recorded yet
-                      </td>
-                    </tr>
-                  ) : (
-                    payments.map((payment) => (
-                      <tr key={payment.id}>
-                        <td className="px-4 py-3 text-sm font-medium">{payment.payment_number}</td>
-                        <td className="px-4 py-3 text-sm">{new Date(payment.payment_date).toLocaleDateString('en-ZA')}</td>
-                        <td className="px-4 py-3 text-sm uppercase">{payment.payment_method}</td>
-                        <td className="px-4 py-3 text-sm">{payment.reference || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">R {payment.amount.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{payment.notes || '-'}</td>
-                      </tr>
-                    ))
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex items-center gap-1 text-sm font-medium text-gray-600 mr-1">
+                    <Search className="w-4 h-4" />
+                    Filter
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
+                    <input
+                      type="date"
+                      value={filterFrom}
+                      onChange={(e) => setFilterFrom(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
+                    <input
+                      type="date"
+                      value={filterTo}
+                      onChange={(e) => setFilterTo(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Method</label>
+                    <select
+                      value={filterMethod}
+                      onChange={(e) => setFilterMethod(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">All methods</option>
+                      <option value="eft">EFT</option>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="cheque">Cheque</option>
+                    </select>
+                  </div>
+                  {(filterMethod) && (
+                    <button
+                      onClick={() => setFilterMethod('')}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg hover:bg-white transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                      Clear
+                    </button>
                   )}
-                </tbody>
-              </table>
-            </div>
+                  <div className="ml-auto text-sm text-gray-500">
+                    {filteredPayments.length} payment{filteredPayments.length !== 1 ? 's' : ''}
+                    {filteredPayments.length > 0 && (
+                      <span className="ml-2 font-semibold text-green-700">
+                        = R {filteredPayments.reduce((s, p) => s + Number(p.amount), 0).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Payments list */}
+            {!directPaymentMode && (
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment #</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Method</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Reference</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredPayments.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">
+                          {payments.length === 0
+                            ? 'No payments recorded yet'
+                            : 'No payments found for the selected period'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredPayments.map((payment) => (
+                        <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{payment.payment_number}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{new Date(payment.payment_date).toLocaleDateString('en-ZA')}</td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 uppercase">
+                              {payment.payment_method}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{payment.reference || <span className="text-gray-300">—</span>}</td>
+                          <td className="px-4 py-3 text-sm text-right font-semibold text-green-600">R {Number(payment.amount).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{payment.notes || <span className="text-gray-300">—</span>}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {filteredPayments.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-gray-50 border-t-2 border-gray-200">
+                        <td colSpan={4} className="px-4 py-3 text-sm font-bold text-gray-700 text-right">
+                          Total
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-bold text-green-600">
+                          R {filteredPayments.reduce((s, p) => s + Number(p.amount), 0).toFixed(2)}
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
             )}
           </div>
         )}
