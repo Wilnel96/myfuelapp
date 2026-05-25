@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, CreditCard, Plus, Calendar, Download, Printer, Eye, ArrowLeft, DollarSign, Fuel, AlertCircle, Search, X } from 'lucide-react';
+import { FileText, CreditCard, Plus, Calendar, Download, Printer, Eye, ArrowLeft, DollarSign, Fuel, AlertCircle, Search, X, RefreshCw } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 interface Organization {
@@ -1017,6 +1017,26 @@ export default function GarageStatementsPayments({
                               title="Print Statement"
                             >
                               <Printer className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  setSaving(true);
+                                  const { error: calcError } = await supabase.rpc('calculate_statement_totals', { p_statement_id: statement.id });
+                                  if (calcError) throw calcError;
+                                  await loadData();
+                                  setSuccessMessage('Statement recalculated.');
+                                  setTimeout(() => setSuccessMessage(''), 3000);
+                                } catch (err: any) {
+                                  setError(err.message || 'Recalculation failed');
+                                } finally {
+                                  setSaving(false);
+                                }
+                              }}
+                              className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                              title="Recalculate Totals"
+                            >
+                              <RefreshCw className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
