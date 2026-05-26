@@ -2229,7 +2229,15 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                     <h3 className="text-sm font-semibold text-gray-900">Fee Invoices</h3>
                   </div>
                   <button
-                    onClick={() => { setFinancialSubView('menu'); setFeeInvoiceError(''); setFeeInvoiceSuccess(''); }}
+                    onClick={() => {
+                      setFeeInvoiceError('');
+                      setFeeInvoiceSuccess('');
+                      if (initialView === 'fee-invoices') {
+                        onBack?.();
+                      } else {
+                        setFinancialSubView('menu');
+                      }
+                    }}
                     className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"
                   >
                     <X className="w-4 h-4" />
