@@ -127,6 +127,23 @@ Deno.serve(async (req: Request) => {
     }
     if (!newOrg) throw new Error('Failed to create organization');
 
+    // If this org was created by a garage, create the garage account link immediately
+    if (organization.managing_garage_id) {
+      const { error: accountError } = await supabase
+        .from('organization_garage_accounts')
+        .insert({
+          organization_id: newOrg.id,
+          garage_id: organization.managing_garage_id,
+          is_active: true,
+        });
+
+      if (accountError) {
+        // Clean up org before throwing
+        await supabase.from('organizations').delete().eq('id', newOrg.id);
+        throw new Error(`Failed to create garage account link: ${accountError.message}`);
+      }
+    }
+
     const createdUsers = [];
 
     for (const userData of users) {
