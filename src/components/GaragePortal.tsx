@@ -355,7 +355,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                   {currentView === 'menu' ? 'Garage Portal' :
                    currentView === 'garage-info' ? 'Garage Organization Information' :
                    currentView === 'fuel-prices' ? 'Fuel Prices' :
-                   currentView === 'contact-management' ? 'Contact Management' :
+                   currentView === 'contact-management' ? 'Contact Persons & Users' :
                    currentView === 'local-accounts-menu' ? 'Local Account Clients' :
                    currentView === 'active-accounts' ? 'Active Accounts' :
                    currentView === 'view-invoices' ? 'View Fuel Invoices' :
@@ -420,15 +420,15 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
 
               <button
                 onClick={() => setCurrentView('contact-management')}
-                className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6 hover:border-purple-500 hover:shadow-md transition-all text-left group"
+                className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6 hover:border-blue-500 hover:shadow-md transition-all text-left group"
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-600 transition-colors">
-                    <Users className="w-6 h-6 text-purple-600 group-hover:text-white transition-colors" />
+                  <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-600 transition-colors">
+                    <Users className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Contact Management</h3>
-                    <p className="text-sm text-gray-600">Manage your garage contact persons and their information</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Contact Persons &amp; Users</h3>
+                    <p className="text-sm text-gray-600">Manage garage contacts and assign portal access permissions</p>
                   </div>
                 </div>
               </button>
@@ -886,6 +886,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
             garageName={garageName}
             garageEmail={garageEmail}
             garagePassword={garagePassword}
+            garageContacts={contactPersons}
             initialView={
               currentView === 'active-accounts' ? 'active' :
               currentView === 'view-invoices' ? 'view-invoices' :

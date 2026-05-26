@@ -92,16 +92,32 @@ interface FeeInvoice {
   organization?: { name: string };
 }
 
+interface GarageContactPerson {
+  name: string;
+  surname: string;
+  email: string;
+  is_primary?: boolean;
+  can_change_account_numbers?: boolean;
+  can_edit_client_info?: boolean;
+  can_view_invoices?: boolean;
+  can_create_invoices?: boolean;
+  can_manage_statements?: boolean;
+  can_manage_payments?: boolean;
+  can_add_clients?: boolean;
+  can_view_reports?: boolean;
+}
+
 interface GarageLocalAccountsProps {
   garageId: string;
   garageName: string;
   garageEmail: string;
   garagePassword: string;
+  garageContacts?: GarageContactPerson[];
   initialView?: 'active' | 'view-invoices' | 'create-statements' | 'payments' | 'add-client' | 'fee-invoices' | 'all';
   onBack?: () => void;
 }
 
-export default function GarageLocalAccounts({ garageId, garageName, garageEmail, garagePassword, initialView = 'all', onBack }: GarageLocalAccountsProps) {
+export default function GarageLocalAccounts({ garageId, garageName, garageEmail, garagePassword, garageContacts = [], initialView = 'all', onBack }: GarageLocalAccountsProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [localAccounts, setLocalAccounts] = useState<LocalAccount[]>([]);
   const [organizationUsers, setOrganizationUsers] = useState<Record<string, OrgUser[]>>({});
@@ -152,6 +168,16 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
   const [searchFilterTo, setSearchFilterTo] = useState(() => new Date().toISOString().split('T')[0]);
   const [searchFilterMethod, setSearchFilterMethod] = useState('');
   const isDraggingRef = useRef(false);
+
+  // Org info editing state (for managed clients)
+  const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
+  const [editingOrgTab, setEditingOrgTab] = useState<'account' | 'client-info'>('account');
+  const [orgEditFields, setOrgEditFields] = useState({
+    name: '', vat_number: '', company_registration_number: '',
+    address_line_1: '', address_line_2: '', city: '', province: '',
+    postal_code: '', country: '', phone_number: '',
+  });
+  const [savingOrgInfo, setSavingOrgInfo] = useState(false);
 
   // Fee invoices state
   const [feeInvoices, setFeeInvoices] = useState<FeeInvoice[]>([]);
@@ -416,13 +442,6 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
     return localAccounts.find(a => a.organization_id === organizationId);
   };
 
-  const handleEditAccount = (account: LocalAccount) => {
-    setEditingAccountId(account.id);
-    setAccountNumberInput(account.account_number || '');
-    setAccountLimitInput(account.monthly_spend_limit ? account.monthly_spend_limit.toString() : '');
-    setDepositInput(account.deposit_amount ? account.deposit_amount.toString() : '');
-  };
-
   const handleSaveAccount = async (accountId: string) => {
     try {
       setSaving(accountId);
@@ -473,9 +492,92 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
 
   const handleCancelEdit = () => {
     setEditingAccountId(null);
+    setEditingOrgId(null);
     setAccountNumberInput('');
     setAccountLimitInput('');
     setDepositInput('');
+  };
+
+  // Derive current user's permissions from contact_persons
+  const currentUserPermissions = (() => {
+    const contact = garageContacts.find(
+      c => c.email?.toLowerCase() === garageEmail?.toLowerCase()
+    );
+    if (!contact || contact.is_primary) {
+      return {
+        can_change_account_numbers: true,
+        can_edit_client_info: true,
+        can_view_invoices: true,
+        can_create_invoices: true,
+        can_manage_statements: true,
+        can_manage_payments: true,
+        can_add_clients: true,
+        can_view_reports: true,
+      };
+    }
+    return {
+      can_change_account_numbers: contact.can_change_account_numbers ?? false,
+      can_edit_client_info: contact.can_edit_client_info ?? false,
+      can_view_invoices: contact.can_view_invoices ?? true,
+      can_create_invoices: contact.can_create_invoices ?? false,
+      can_manage_statements: contact.can_manage_statements ?? false,
+      can_manage_payments: contact.can_manage_payments ?? false,
+      can_add_clients: contact.can_add_clients ?? false,
+      can_view_reports: contact.can_view_reports ?? true,
+    };
+  })();
+
+  const startEditAccount = (account: LocalAccount, org: Organization) => {
+    setEditingAccountId(account.id);
+    setEditingOrgId(org.id);
+    setEditingOrgTab('account');
+    setAccountNumberInput(account.account_number || '');
+    setAccountLimitInput(account.monthly_spend_limit ? account.monthly_spend_limit.toString() : '');
+    setDepositInput(account.deposit_amount ? account.deposit_amount.toString() : '');
+    setOrgEditFields({
+      name: org.name || '',
+      vat_number: org.vat_number || '',
+      company_registration_number: org.company_registration_number || '',
+      address_line_1: org.address_line_1 || '',
+      address_line_2: org.address_line_2 || '',
+      city: org.city || '',
+      province: org.province || '',
+      postal_code: org.postal_code || '',
+      country: org.country || 'South Africa',
+      phone_number: org.phone_number || '',
+    });
+  };
+
+  const handleSaveOrgInfo = async (organizationId: string) => {
+    setSavingOrgInfo(true);
+    setError('');
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/garage-local-accounts`;
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({
+          action: 'update-org-info',
+          garageEmail,
+          garagePassword,
+          organizationId,
+          orgData: orgEditFields,
+        }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to update client information');
+      }
+      setSuccessMessage('Client information updated successfully.');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSavingOrgInfo(false);
+    }
   };
 
   const loadOrganizationInvoices = async (organizationId: string) => {
@@ -1327,74 +1429,189 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
 
                       <div className="mt-3 ml-8 pl-3 border-l-2 border-green-300">
                         {isEditingAccount ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <label className="text-xs font-medium text-gray-700 w-28">Account Number:</label>
-                              <input
-                                type="text"
-                                value={accountNumberInput}
-                                onChange={(e) => setAccountNumberInput(e.target.value)}
-                                placeholder="Enter account number"
-                                className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-xs font-medium text-gray-700 w-28">Monthly Spend Limit:</label>
-                              <div className="flex-1 relative">
-                                <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">R</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={accountLimitInput}
-                                  onChange={(e) => setAccountLimitInput(e.target.value)}
-                                  placeholder="No limit"
-                                  className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <label className="text-xs font-medium text-gray-700 w-28">Deposit:</label>
-                              <div className="flex-1 relative">
-                                <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">R</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={depositInput}
-                                  onChange={(e) => setDepositInput(e.target.value)}
-                                  placeholder="0.00"
-                                  className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 justify-end">
+                          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm" onClick={e => e.stopPropagation()}>
+                            {/* Tab bar */}
+                            <div className="flex border-b border-gray-200 mb-4 gap-1">
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSaveAccount(account.id);
-                                }}
-                                disabled={isSaving}
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
+                                type="button"
+                                onClick={() => setEditingOrgTab('account')}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-t-lg transition-colors ${editingOrgTab === 'account' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
                               >
-                                <Save className="w-3.5 h-3.5" />
-                                Save
+                                Account Settings
                               </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCancelEdit();
-                                }}
-                                disabled={isSaving}
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-50"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                                Cancel
-                              </button>
+                              {org.is_garage_managed && org.managing_garage_id === garageId && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingOrgTab('client-info')}
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-t-lg transition-colors ${editingOrgTab === 'client-info' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'}`}
+                                >
+                                  Client Information
+                                </button>
+                              )}
                             </div>
+
+                            {editingOrgTab === 'account' && (
+                              <div className="space-y-3">
+                                {/* Account Number — gated by permission */}
+                                {currentUserPermissions.can_change_account_numbers ? (
+                                  <div className="flex items-center gap-2">
+                                    <label className="text-xs font-medium text-gray-700 w-32 flex-shrink-0">Account Number</label>
+                                    <input
+                                      type="text"
+                                      value={accountNumberInput}
+                                      onChange={(e) => setAccountNumberInput(e.target.value)}
+                                      placeholder="Enter account number"
+                                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                    Account number changes require the primary garage user.
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-2">
+                                  <label className="text-xs font-medium text-gray-700 w-32 flex-shrink-0">Monthly Spend Limit</label>
+                                  <div className="flex-1 relative">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">R</span>
+                                    <input
+                                      type="number" step="0.01" min="0"
+                                      value={accountLimitInput}
+                                      onChange={(e) => setAccountLimitInput(e.target.value)}
+                                      placeholder="No limit"
+                                      className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <label className="text-xs font-medium text-gray-700 w-32 flex-shrink-0">Deposit</label>
+                                  <div className="flex-1 relative">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">R</span>
+                                    <input
+                                      type="number" step="0.01" min="0"
+                                      value={depositInput}
+                                      onChange={(e) => setDepositInput(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 pt-1">
+                                  <button
+                                    onClick={() => handleSaveAccount(account.id)}
+                                    disabled={isSaving}
+                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+                                  >
+                                    <Save className="w-3.5 h-3.5" />
+                                    Save
+                                  </button>
+                                  <button
+                                    onClick={handleCancelEdit}
+                                    disabled={isSaving}
+                                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {editingOrgTab === 'client-info' && (
+                              <div className="space-y-3">
+                                {!currentUserPermissions.can_edit_client_info ? (
+                                  <div className="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                    You do not have permission to edit client information.
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Organisation Name</label>
+                                        <input type="text" value={orgEditFields.name}
+                                          onChange={e => setOrgEditFields(f => ({ ...f, name: e.target.value }))}
+                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number</label>
+                                        <input type="text" value={orgEditFields.phone_number}
+                                          onChange={e => setOrgEditFields(f => ({ ...f, phone_number: e.target.value }))}
+                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">VAT Number</label>
+                                        <input type="text" value={orgEditFields.vat_number}
+                                          onChange={e => setOrgEditFields(f => ({ ...f, vat_number: e.target.value }))}
+                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Company Reg. No.</label>
+                                        <input type="text" value={orgEditFields.company_registration_number}
+                                          onChange={e => setOrgEditFields(f => ({ ...f, company_registration_number: e.target.value }))}
+                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 mb-1">Address Line 1</label>
+                                      <input type="text" value={orgEditFields.address_line_1}
+                                        onChange={e => setOrgEditFields(f => ({ ...f, address_line_1: e.target.value }))}
+                                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs font-medium text-gray-700 mb-1">Address Line 2</label>
+                                      <input type="text" value={orgEditFields.address_line_2}
+                                        onChange={e => setOrgEditFields(f => ({ ...f, address_line_2: e.target.value }))}
+                                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3">
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">City</label>
+                                        <input type="text" value={orgEditFields.city}
+                                          onChange={e => setOrgEditFields(f => ({ ...f, city: e.target.value }))}
+                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Province</label>
+                                        <select value={orgEditFields.province}
+                                          onChange={e => setOrgEditFields(f => ({ ...f, province: e.target.value }))}
+                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                          <option value="">Select</option>
+                                          {['Eastern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpumalanga','Northern Cape','North West','Western Cape'].map(p => (
+                                            <option key={p} value={p}>{p}</option>
+                                          ))}
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Postal Code</label>
+                                        <input type="text" value={orgEditFields.postal_code}
+                                          onChange={e => setOrgEditFields(f => ({ ...f, postal_code: e.target.value }))}
+                                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 pt-1">
+                                      <button
+                                        onClick={() => handleSaveOrgInfo(org.id)}
+                                        disabled={savingOrgInfo}
+                                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+                                      >
+                                        <Save className="w-3.5 h-3.5" />
+                                        {savingOrgInfo ? 'Saving…' : 'Save Client Info'}
+                                      </button>
+                                      <button
+                                        onClick={handleCancelEdit}
+                                        className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -1447,7 +1664,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleEditAccount(account);
+                                  startEditAccount(account, org);
                                 }}
                                 className={`flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded ${account.account_number ? 'text-blue-700 bg-blue-100 hover:bg-blue-200' : 'text-red-700 bg-red-100 hover:bg-red-200 animate-pulse'}`}
                               >
