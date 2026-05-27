@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X } from 'lucide-react';
 
@@ -38,20 +38,18 @@ const PRINT_STYLES = `
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function GarageClientIntakeForm({ garageName, onClose }: GarageClientIntakeFormProps) {
-  const styleRef = useRef<HTMLStyleElement | null>(null);
-  const portalRoot = useRef<HTMLDivElement | null>(null);
+  const [portalRoot, setPortalRoot] = useState<HTMLDivElement | null>(null);
 
   // Inject print styles and portal container into <body>
   useEffect(() => {
     const style = document.createElement('style');
     style.textContent = PRINT_STYLES;
     document.head.appendChild(style);
-    styleRef.current = style;
 
     const div = document.createElement('div');
     div.id = 'intake-print-root';
     document.body.appendChild(div);
-    portalRoot.current = div;
+    setPortalRoot(div);
 
     return () => {
       style.remove();
@@ -62,8 +60,8 @@ export default function GarageClientIntakeForm({ garageName, onClose }: GarageCl
   const handlePrint = () => window.print();
 
   // Portal content — rendered directly into body so print CSS targets it
-  const printPortal = portalRoot.current
-    ? createPortal(<PrintableForm garageName={garageName} />, portalRoot.current)
+  const printPortal = portalRoot
+    ? createPortal(<PrintableForm garageName={garageName} />, portalRoot)
     : null;
 
   return (
