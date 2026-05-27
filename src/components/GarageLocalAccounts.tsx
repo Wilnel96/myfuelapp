@@ -193,6 +193,13 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
     loadData();
   }, [garageId]);
 
+  // Auto-open signup when navigated directly to add-client view
+  useEffect(() => {
+    if (initialView === 'add-client') {
+      setShowGarageClientSignup(true);
+    }
+  }, [initialView]);
+
   useEffect(() => {
     if (financialSubView === 'fee-invoices' && organizations.length > 0) {
       loadFeeInvoices();
@@ -1732,9 +1739,8 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
             </div>
           )}
 
-          {(initialView === 'add-client' || initialView === 'all') && (
+          {initialView === 'all' && (
           <div>
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Add Client to Local Account</h3>
             <button
               onClick={() => setShowGarageClientSignup(true)}
               className="w-full flex items-center gap-3 bg-white border-2 border-green-200 rounded-xl p-4 hover:border-green-400 hover:bg-green-50 transition-all group"

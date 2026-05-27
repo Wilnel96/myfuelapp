@@ -144,7 +144,7 @@ export default function GarageClientSignup({
           </button>
           <Building2 className="w-5 h-5" />
           <div>
-            <h2 className="text-base font-semibold">Link Existing Client</h2>
+            <h2 className="text-base font-semibold">Link MyFuelApp Registered Client</h2>
             <p className="text-xs text-green-100">{selectedOrg.name}</p>
           </div>
         </div>
@@ -244,8 +244,8 @@ export default function GarageClientSignup({
           </button>
           <Search className="w-5 h-5" />
           <div>
-            <h2 className="text-base font-semibold">Search Existing Clients</h2>
-            <p className="text-xs text-green-100">Select a client to link to {garageName}</p>
+            <h2 className="text-base font-semibold">Search MyFuelApp Registered Clients</h2>
+            <p className="text-xs text-green-100">Select a registered client to link to {garageName}</p>
           </div>
         </div>
 
@@ -343,9 +343,9 @@ export default function GarageClientSignup({
               <Users className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Existing Client</h3>
+              <h3 className="font-semibold text-gray-900">MyFuelApp Registered Client</h3>
               <p className="text-sm text-gray-600 mt-0.5">
-                Search and link a client already registered in the system
+                Search for a client already registered on MyFuelApp and link them to your local account
               </p>
             </div>
           </div>
