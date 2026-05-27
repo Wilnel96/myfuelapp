@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName, sortFuelTypes, AVAILABLE_FUEL_TYPES } from '../lib/fuelTypes';
-import { Store, LogOut, Save, MapPin, AlertCircle, X, Plus, Trash2, Building2, Users, Fuel, ShoppingBag, Home, ArrowLeft, Receipt, FileText, CreditCard } from 'lucide-react';
+import { Store, LogOut, Save, MapPin, AlertCircle, X, Plus, Trash2, Building2, Users, Fuel, ShoppingBag, Home, ArrowLeft, Receipt, FileText, CreditCard, Printer } from 'lucide-react';
 import GarageContactManagement from './GarageContactManagement';
 import GarageLocalAccounts from './GarageLocalAccounts';
+import GarageClientIntakeForm from './GarageClientIntakeForm';
 
 interface GaragePortalProps {
   garageId: string;
@@ -62,6 +63,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
   const [otherOfferings, setOtherOfferings] = useState<OtherOfferings>({});
   const [contactPersons, setContactPersons] = useState<ContactPerson[]>([]);
   const [newFuelType, setNewFuelType] = useState('');
+  const [showIntakeForm, setShowIntakeForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -876,8 +878,30 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                   </div>
                 </div>
               </button>
+
+              <button
+                onClick={() => setShowIntakeForm(true)}
+                className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6 hover:border-teal-500 hover:shadow-md transition-all text-left group"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-600 transition-colors">
+                    <Printer className="w-6 h-6 text-teal-600 group-hover:text-white transition-colors" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Client Intake Form</h3>
+                    <p className="text-sm text-gray-600">Print a blank form for new clients to complete their details, vehicles and drivers</p>
+                  </div>
+                </div>
+              </button>
             </div>
           </div>
+        )}
+
+        {showIntakeForm && (
+          <GarageClientIntakeForm
+            garageName={garageName}
+            onClose={() => setShowIntakeForm(false)}
+          />
         )}
 
         {(currentView === 'active-accounts' || currentView === 'view-invoices' || currentView === 'create-statements' || currentView === 'payments' || currentView === 'add-new-client' || currentView === 'fee-invoices' || currentView === 'local-accounts') && (
