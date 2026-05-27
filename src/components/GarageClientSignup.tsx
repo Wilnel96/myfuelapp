@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, Search, UserPlus, Users, ArrowLeft, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Building2, Search, UserPlus, Users, ArrowLeft, CheckCircle, AlertCircle, Loader2, Printer } from 'lucide-react';
 import GarageNewClientSetup from './GarageNewClientSetup';
+import GarageClientIntakeForm, { IntakeFormType } from './GarageClientIntakeForm';
 
 interface Organization {
   id: string;
@@ -53,6 +54,8 @@ export default function GarageClientSignup({
   const [linking, setLinking] = useState(false);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [showIntakeForm, setShowIntakeForm] = useState(false);
+  const [intakeFormType, setIntakeFormType] = useState<IntakeFormType>('organisation');
 
   useEffect(() => {
     if (step === 'search-existing') {
@@ -367,7 +370,35 @@ export default function GarageClientSignup({
             </div>
           </div>
         </button>
+
+        <div className="pt-2 border-t border-gray-100">
+          <p className="text-xs text-gray-500 mb-2">Print a blank intake form for the client to complete offline:</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setIntakeFormType('organisation'); setShowIntakeForm(true); }}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Organisation Form
+            </button>
+            <button
+              onClick={() => { setIntakeFormType('individual'); setShowIntakeForm(true); }}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Individual Form
+            </button>
+          </div>
+        </div>
       </div>
+
+      {showIntakeForm && (
+        <GarageClientIntakeForm
+          garageName={garageName}
+          formType={intakeFormType}
+          onClose={() => setShowIntakeForm(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Building2, User, Car, Users, Check,
-  Plus, Trash2, AlertCircle, CheckCircle, Loader2, Info,
+  Plus, Trash2, AlertCircle, CheckCircle, Loader2, Info, Printer,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import GarageClientIntakeForm from './GarageClientIntakeForm';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -158,6 +159,8 @@ export default function GarageNewClientSetup({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [createdOrgId, setCreatedOrgId] = useState<string | null>(null);
+  const [showIntakeForm, setShowIntakeForm] = useState(false);
+  const [intakeFormType, setIntakeFormType] = useState<'organisation' | 'individual'>('organisation');
 
   // Form state
   const [orgForm, setOrgForm] = useState<OrgForm>({
@@ -419,7 +422,25 @@ export default function GarageNewClientSetup({
         {/* ── STEP: Organisation ─────────────────────────────────────────── */}
         {step === 'org' && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">Enter the client's organisation details.</p>
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-sm text-gray-600">Enter the client's organisation details.</p>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => { setIntakeFormType('organisation'); setShowIntakeForm(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print Org Form
+                </button>
+                <button
+                  onClick={() => { setIntakeFormType('individual'); setShowIntakeForm(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print Individual Form
+                </button>
+              </div>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Organisation Name <span className="text-red-500">*</span></label>
               <input value={orgForm.name} onChange={e => setOrgForm(f => ({ ...f, name: e.target.value }))}
@@ -896,6 +917,14 @@ export default function GarageNewClientSetup({
           </div>
         </div>
       </div>
+
+      {showIntakeForm && (
+        <GarageClientIntakeForm
+          garageName={garageName}
+          formType={intakeFormType}
+          onClose={() => setShowIntakeForm(false)}
+        />
+      )}
     </div>
   );
 }
