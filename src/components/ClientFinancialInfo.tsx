@@ -40,9 +40,11 @@ interface Organization {
 
 interface ClientFinancialInfoProps {
   onNavigate?: (view: string) => void;
+  /** When true, loads only the logged-in user's own organisation instead of the full list */
+  clientSelfMode?: boolean;
 }
 
-export default function ClientFinancialInfo({ onNavigate }: ClientFinancialInfoProps) {
+export default function ClientFinancialInfo({ onNavigate, clientSelfMode = false }: ClientFinancialInfoProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [filteredOrganizations, setFilteredOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,17 +76,37 @@ export default function ClientFinancialInfo({ onNavigate }: ClientFinancialInfoP
   const loadOrganizations = async () => {
     try {
       setLoading(true);
-      const { data: orgs, error: orgsError } = await supabase
-        .from('organizations')
-        .select('id, name, monthly_fee_per_vehicle, monthly_fee_per_driver, daily_spending_limit, monthly_spending_limit, month_end_day, year_end_month, year_end_day, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, bank_name_2, bank_account_holder_2, bank_account_number_2, bank_branch_code_2, bank_account_type_2, payment_method, payment_terms, payment_date, debit_order_lead_days, late_payment_interest_rate, enable_prorata_billing, vat_reporting_basis, credit_control_enabled, suspend_services_after_days, payment_option, fuel_payment_terms, fuel_payment_interest_rate')
-        .eq('organization_type', 'client')
-        .neq('name', 'My Organization')
-        .neq('name', 'FUEL EMPOWERMENT SYSTEMS (PTY) LTD')
-        .order('name');
+
+      const cols = 'id, name, monthly_fee_per_vehicle, monthly_fee_per_driver, daily_spending_limit, monthly_spending_limit, month_end_day, year_end_month, year_end_day, bank_name, bank_account_holder, bank_account_number, bank_branch_code, bank_account_type, bank_name_2, bank_account_holder_2, bank_account_number_2, bank_branch_code_2, bank_account_type_2, payment_method, payment_terms, payment_date, debit_order_lead_days, late_payment_interest_rate, enable_prorata_billing, vat_reporting_basis, credit_control_enabled, suspend_services_after_days, payment_option, fuel_payment_terms, fuel_payment_interest_rate';
+
+      let query = supabase.from('organizations').select(cols);
+
+      if (clientSelfMode) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+        const { data: profile } = await supabase
+          .from('profiles').select('organization_id').eq('id', user.id).maybeSingle();
+        if (!profile?.organization_id) throw new Error('No organisation found for your account');
+        query = query.eq('id', profile.organization_id);
+      } else {
+        query = query
+          .eq('organization_type', 'client')
+          .neq('name', 'My Organization')
+          .neq('name', 'FUEL EMPOWERMENT SYSTEMS (PTY) LTD')
+          .order('name');
+      }
+
+      const { data: orgs, error: orgsError } = await query;
 
       if (orgsError) throw orgsError;
       setOrganizations(orgs || []);
       setFilteredOrganizations(orgs || []);
+
+      // In clientSelfMode, auto-open the single org for editing
+      if (clientSelfMode && orgs && orgs.length === 1) {
+        setEditingId(orgs[0].id);
+        setEditForm(orgs[0]);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

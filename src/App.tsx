@@ -977,11 +977,15 @@ function App() {
         ) : currentView === 'create-client-org' ? (
           <CreateClientOrganization key="create-client-org" onNavigate={setCurrentView} />
         ) : currentView === 'client-org-info' ? (
-          <ClientOrgInfo key="client-org-info" onNavigate={setCurrentView} />
+          userRole === 'super_admin'
+            ? <ClientOrgInfo key="client-org-info" onNavigate={setCurrentView} />
+            : <ClientOrgInfo key="client-org-info-self" onNavigate={setCurrentView} clientSelfMode={true} />
         ) : currentView === 'client-user-info' ? (
           <UserManagement key="client-user-info" onNavigate={setCurrentView} />
         ) : currentView === 'client-financial-info' ? (
-          <ClientFinancialInfo key="client-financial-info" onNavigate={setCurrentView} />
+          userRole === 'super_admin'
+            ? <ClientFinancialInfo key="client-financial-info" onNavigate={setCurrentView} />
+            : <ClientFinancialInfo key="client-financial-info-self" onNavigate={setCurrentView} clientSelfMode={true} />
         ) : currentView === 'vehicles' ? (
           <VehicleManagement key="vehicles" onNavigate={setCurrentView} />
         ) : currentView === 'garages' ? (

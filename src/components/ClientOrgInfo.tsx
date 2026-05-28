@@ -35,9 +35,11 @@ interface ClientOrganization {
 
 interface ClientOrgInfoProps {
   onNavigate?: (view: string) => void;
+  /** When true, loads only the logged-in user's own organisation instead of the full list */
+  clientSelfMode?: boolean;
 }
 
-export default function ClientOrgInfo({ onNavigate }: ClientOrgInfoProps) {
+export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: ClientOrgInfoProps) {
   const [organizations, setOrganizations] = useState<ClientOrganization[]>([]);
   const [filteredOrganizations, setFilteredOrganizations] = useState<ClientOrganization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,13 +74,25 @@ export default function ClientOrgInfo({ onNavigate }: ClientOrgInfoProps) {
   const loadOrganizations = async () => {
     try {
       setLoading(true);
-      const { data: orgs, error: orgsError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('organization_type', 'client')
-        .neq('name', 'My Organization')
-        .neq('name', 'FUEL EMPOWERMENT SYSTEMS (PTY) LTD')
-        .order('name');
+
+      let query = supabase.from('organizations').select('*');
+
+      if (clientSelfMode) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+        const { data: profile } = await supabase
+          .from('profiles').select('organization_id').eq('id', user.id).maybeSingle();
+        if (!profile?.organization_id) throw new Error('No organisation found for your account');
+        query = query.eq('id', profile.organization_id);
+      } else {
+        query = query
+          .eq('organization_type', 'client')
+          .neq('name', 'My Organization')
+          .neq('name', 'FUEL EMPOWERMENT SYSTEMS (PTY) LTD')
+          .order('name');
+      }
+
+      const { data: orgs, error: orgsError } = await query;
 
       if (orgsError) throw orgsError;
 
@@ -115,6 +129,11 @@ export default function ClientOrgInfo({ onNavigate }: ClientOrgInfoProps) {
 
       setOrganizations(orgsWithUsers);
       setFilteredOrganizations(orgsWithUsers);
+
+      // In clientSelfMode, automatically open the single org for viewing
+      if (clientSelfMode && orgsWithUsers.length === 1) {
+        setViewingId(orgsWithUsers[0].id);
+      }
 
       // Check card configuration for organizations with Card Payment option
       if (orgs) {
