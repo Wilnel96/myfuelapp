@@ -15,6 +15,7 @@ interface BackOfficeProps {
   userRole?: string;
   paymentOption?: string | null;
   onNavigateToMain?: () => void;
+  onNavigate?: (view: string) => void;
 }
 
 interface MgmtPermissions {
@@ -33,7 +34,7 @@ interface MgmtPermissions {
 
 type BackOfficeView = 'menu' | 'management-org-menu' | 'org-info' | 'user-info' | 'financial-info' | 'fee-structure' | 'fuel-price-update' | 'invoice-management' | 'local-accounts' | 'payment-card' | 'client-standard-settings';
 
-export default function BackOffice({ userRole, paymentOption, onNavigateToMain }: BackOfficeProps) {
+export default function BackOffice({ userRole, paymentOption, onNavigateToMain, onNavigate }: BackOfficeProps) {
   const [currentView, setCurrentView] = useState<BackOfficeView>('menu');
   const [organizationId, setOrganizationId] = useState<string>('');
   const [organizationName, setOrganizationName] = useState<string>('');
@@ -367,6 +368,28 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain }
       icon: Building2,
       color: 'blue',
     }] : []),
+    // Client org items — always shown for non-management users
+    ...(!isMgmtOrg ? [{
+      id: 'client-org-info',
+      title: 'Organization Details',
+      description: 'View and update your organization information',
+      icon: Building2,
+      color: 'blue',
+    }] : []),
+    ...(!isMgmtOrg ? [{
+      id: 'client-user-info',
+      title: 'User Management',
+      description: 'Manage users and their access permissions',
+      icon: Users,
+      color: 'green',
+    }] : []),
+    ...(!isMgmtOrg ? [{
+      id: 'client-financial-info',
+      title: 'Financial Information',
+      description: 'Manage your payment card and financial settings',
+      icon: DollarSign,
+      color: 'emerald',
+    }] : []),
     // Client org payment options
     ...(!isMgmtOrg && paymentOption === 'Card Payment' ? [{
       id: 'payment-card',
@@ -410,6 +433,7 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain }
     const colors: Record<string, { bg: string; hover: string; icon: string }> = {
       blue: { bg: 'bg-blue-50', hover: 'hover:bg-blue-100 hover:border-blue-300', icon: 'text-blue-600' },
       green: { bg: 'bg-green-50', hover: 'hover:bg-green-100 hover:border-green-300', icon: 'text-green-600' },
+      emerald: { bg: 'bg-emerald-50', hover: 'hover:bg-emerald-100 hover:border-emerald-300', icon: 'text-emerald-600' },
       teal: { bg: 'bg-teal-50', hover: 'hover:bg-teal-100 hover:border-teal-300', icon: 'text-teal-600' },
       amber: { bg: 'bg-amber-50', hover: 'hover:bg-amber-100 hover:border-amber-300', icon: 'text-amber-600' },
       slate: { bg: 'bg-slate-50', hover: 'hover:bg-slate-100 hover:border-slate-300', icon: 'text-slate-600' },
@@ -452,7 +476,14 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain }
             return (
               <button
                 key={item.id}
-                onClick={() => setCurrentView(item.id as BackOfficeView)}
+                onClick={() => {
+                  const clientNavItems = ['client-org-info', 'client-user-info', 'client-financial-info'];
+                  if (clientNavItems.includes(item.id) && onNavigate) {
+                    onNavigate(item.id);
+                  } else {
+                    setCurrentView(item.id as BackOfficeView);
+                  }
+                }}
                 className={`w-full ${colors.bg} ${colors.hover} border border-gray-200 rounded-lg p-2 text-left transition-all duration-200 hover:shadow-md flex items-center gap-3`}
               >
                 <div className={`${colors.icon} flex-shrink-0`}>

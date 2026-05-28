@@ -833,7 +833,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
 
                 {/* Monthly fees */}
                 <div className="bg-white border border-blue-200 rounded p-3 space-y-1">
-                  <p className="text-xs font-semibold text-blue-900">Monthly Management Fees (debit order)</p>
+                  <p className="text-xs font-semibold text-blue-900">Monthly Management Fees</p>
                   <div className="grid grid-cols-2 gap-x-4 text-xs text-blue-800">
                     <span>Per vehicle:</span>
                     <span className="font-medium">R{formData.monthly_fee_per_vehicle > 0 ? formData.monthly_fee_per_vehicle.toFixed(2) : '—'} / month</span>
@@ -845,24 +845,15 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                   </p>
                 </div>
 
-                {/* Bank details */}
+                {/* Direct debit notice */}
                 <div className="bg-white border border-blue-200 rounded p-3 space-y-1">
-                  <p className="text-xs font-semibold text-blue-900">Debit Order — Banking Details</p>
-                  <div className="grid grid-cols-2 gap-x-4 text-xs text-blue-800">
-                    <span>Account holder:</span>
-                    <span className="font-medium">{bankDetails.bank_account_holder || bankDetails.company_name}</span>
-                    <span>Bank:</span>
-                    <span className="font-medium">{bankDetails.bank_name || '—'}</span>
-                    <span>Account number:</span>
-                    <span className="font-medium">{bankDetails.bank_account_number || '—'}</span>
-                    <span>Branch code:</span>
-                    <span className="font-medium">{bankDetails.bank_branch_code || '—'}</span>
-                    <span>Account type:</span>
-                    <span className="font-medium">{bankDetails.bank_account_type || '—'}</span>
-                  </div>
+                  <p className="text-xs font-semibold text-blue-900">Fee Collection — Direct Debit</p>
+                  <p className="text-xs text-blue-800">
+                    Monthly management fees are collected by direct debit raised by <span className="font-semibold">{bankDetails.company_name}</span> against your registered bank account. No action is required from you — the debit will appear on your bank statement each month.
+                  </p>
                 </div>
 
-                {/* Debit order authorisation */}
+                {/* Direct debit authorisation */}
                 {publicMode && (
                   <label className="flex items-start gap-2 cursor-pointer">
                     <input
@@ -872,7 +863,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                       className="mt-0.5 h-4 w-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500 shrink-0"
                     />
                     <span className="text-xs text-blue-900">
-                      I authorise <span className="font-semibold">{bankDetails.company_name}</span> to debit my account monthly for vehicle and driver management fees as set out above, and confirm that I have read and understood the fee structure.
+                      I authorise <span className="font-semibold">{bankDetails.company_name}</span> to raise a direct debit against my account monthly for vehicle and driver management fees as set out above, and confirm that I have read and understood the fee structure.
                     </span>
                   </label>
                 )}
