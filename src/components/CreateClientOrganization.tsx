@@ -793,7 +793,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
             {(formData.payment_option === 'Card Payment' || (publicMode && accountType === 'individual')) && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-900 font-medium">
-                  Once your account is created, log in to the Client Portal with your email and password and enter your Credit/Debit card details under Financial Information. Your card is securely stored and used by drivers via PIN + NFC to authorise fuel payments at garages. You pay garages directly via your card and only pay MyFuelApp for management fees.
+                  Once your account is created, log in to the Client Portal with your email and password and enter your Credit/Debit card details under Financial Information. Your card is securely stored and used by drivers via PIN + NFC to authorise fuel payments at garages. You pay garages directly via your card. Monthly vehicle and driver management fees are payable to MyFuelApp via debit order.
                 </p>
                 {!publicMode && (
                   <p className="text-xs text-blue-800 mt-2">
