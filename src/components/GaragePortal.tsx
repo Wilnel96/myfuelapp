@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName, sortFuelTypes, AVAILABLE_FUEL_TYPES } from '../lib/fuelTypes';
-import { Store, LogOut, Save, MapPin, AlertCircle, X, Plus, Trash2, Building2, Users, Fuel, ShoppingBag, Home, ArrowLeft, Receipt, FileText, CreditCard, Printer } from 'lucide-react';
+import { Store, LogOut, Save, MapPin, AlertCircle, X, Plus, Trash2, Building2, Users, User, Fuel, ShoppingBag, Home, ArrowLeft, Receipt, FileText, CreditCard, Printer } from 'lucide-react';
 import GarageContactManagement from './GarageContactManagement';
 import GarageLocalAccounts from './GarageLocalAccounts';
 import GarageClientIntakeForm from './GarageClientIntakeForm';
@@ -63,7 +63,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
   const [otherOfferings, setOtherOfferings] = useState<OtherOfferings>({});
   const [contactPersons, setContactPersons] = useState<ContactPerson[]>([]);
   const [newFuelType, setNewFuelType] = useState('');
-  const [showIntakeForm, setShowIntakeForm] = useState(false);
+  const [intakeFormType, setIntakeFormType] = useState<'organisation' | 'individual' | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -879,28 +879,48 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                 </div>
               </button>
 
-              <button
-                onClick={() => setShowIntakeForm(true)}
-                className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6 hover:border-teal-500 hover:shadow-md transition-all text-left group"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-600 transition-colors">
-                    <Printer className="w-6 h-6 text-teal-600 group-hover:text-white transition-colors" />
+              <div className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="flex-shrink-0 w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
+                    <Printer className="w-6 h-6 text-teal-600" />
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">Client Setup Form</h3>
                     <p className="text-sm text-gray-600">Print a blank form for new clients to complete their details, vehicles and drivers</p>
                   </div>
                 </div>
-              </button>
+                <div className="flex gap-3 pl-16">
+                  <button
+                    onClick={() => setIntakeFormType('organisation')}
+                    className="flex-1 flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-600 hover:border-teal-600 hover:text-white transition-all text-left group"
+                  >
+                    <Building2 className="w-4 h-4 text-teal-600 group-hover:text-white flex-shrink-0 transition-colors" />
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800 group-hover:text-white transition-colors">Organisation</div>
+                      <div className="text-xs text-gray-500 group-hover:text-teal-100 transition-colors">Company / business account</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setIntakeFormType('individual')}
+                    className="flex-1 flex items-center gap-2 px-4 py-2.5 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-600 hover:border-teal-600 hover:text-white transition-all text-left group"
+                  >
+                    <User className="w-4 h-4 text-teal-600 group-hover:text-white flex-shrink-0 transition-colors" />
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800 group-hover:text-white transition-colors">Individual</div>
+                      <div className="text-xs text-gray-500 group-hover:text-teal-100 transition-colors">Personal / private account</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {showIntakeForm && (
+        {intakeFormType && (
           <GarageClientIntakeForm
             garageName={garageName}
-            onClose={() => setShowIntakeForm(false)}
+            formType={intakeFormType}
+            onClose={() => setIntakeFormType(null)}
           />
         )}
 
