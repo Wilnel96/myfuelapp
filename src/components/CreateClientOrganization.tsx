@@ -609,6 +609,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
           <div className="grid grid-cols-2 gap-3">
             {accountType === 'individual' ? (
               <>
+                {/* ── Personal Info ── */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-0.5">
                     Name <span className="text-red-500">*</span>
@@ -673,9 +674,189 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                     />
                     <div>
                       <p className="text-sm font-medium text-gray-900">I am the Main User / Account Holder</p>
-                      <p className="text-xs text-gray-500">Your name will be used for the main user login and bank account holder fields</p>
+                      <p className="text-xs text-gray-500">Tick this if the individual signing up will be the system login and the bank account holder</p>
                     </div>
                   </label>
+                </div>
+
+                {/* ── Bank Account Details ── */}
+                <div className="col-span-2 pt-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-semibold text-gray-800">Bank Account Details</h4>
+                    <span className="text-xs text-red-500 font-medium">Required for debit order</span>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3">
+                    <p className="text-xs text-amber-900">
+                      Monthly vehicle and driver management fees are collected via debit order. Provide the individual's bank account below.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Bank <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={clientBankDetails.bank_name}
+                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_name: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      >
+                        <option value="">-- Select Bank --</option>
+                        <option value="Absa">Absa</option>
+                        <option value="African Bank">African Bank</option>
+                        <option value="Capitec">Capitec</option>
+                        <option value="Discovery Bank">Discovery Bank</option>
+                        <option value="FNB">FNB</option>
+                        <option value="Investec">Investec</option>
+                        <option value="Nedbank">Nedbank</option>
+                        <option value="Standard Bank">Standard Bank</option>
+                        <option value="Tyme Bank">Tyme Bank</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Account Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={clientBankDetails.bank_account_type}
+                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_type: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      >
+                        <option value="">-- Select Type --</option>
+                        <option value="Current">Current / Cheque</option>
+                        <option value="Savings">Savings</option>
+                        <option value="Transmission">Transmission</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Account Holder Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={clientBankDetails.bank_account_holder}
+                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
+                        readOnly={mainUserIsIndividual}
+                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                        placeholder="As it appears on the account"
+                      />
+                      {mainUserIsIndividual && (
+                        <p className="text-xs text-green-600 mt-0.5">Auto-filled from individual's name</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Account Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={clientBankDetails.bank_account_number}
+                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Account number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Branch Code <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={clientBankDetails.bank_branch_code}
+                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="e.g. 250655"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Main User / Login Details ── */}
+                <div className="col-span-2 pt-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-semibold text-gray-800">Main User &amp; Login Details</h4>
+                    {mainUserIsIndividual && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                        <User className="w-3 h-3" />
+                        Linked to Individual
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={mainUser.name}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, name: e.target.value.toUpperCase() })}
+                        readOnly={mainUserIsIndividual}
+                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Surname <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={mainUser.surname}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, surname: e.target.value.toUpperCase() })}
+                        readOnly={mainUserIsIndividual}
+                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={mainUser.email}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, email: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Password <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={mainUser.password}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, password: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Office Number</label>
+                      <input
+                        type="text"
+                        value={mainUser.phone_office}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, phone_office: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Number</label>
+                      <input
+                        type="text"
+                        value={mainUser.phone_mobile}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, phone_mobile: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-xs text-blue-900 font-medium">
+                        The main user has full access to all features including fleet management, fuel transactions, reports, and user administration.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </>
             ) : (
@@ -849,100 +1030,6 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
           </div>
         </div>
 
-        {accountType === 'individual' && (
-          <div className="border-t pt-3">
-            <div className="flex items-center gap-2 mb-3">
-              <h3 className="text-base font-semibold text-gray-900">Bank Account Details</h3>
-              <span className="text-xs text-red-500 font-medium">Required for debit order</span>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
-              <p className="text-xs text-amber-900">
-                Monthly vehicle and driver management fees are collected via debit order against this account.
-                Please provide the individual's banking details below.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                  Bank Name <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={clientBankDetails.bank_name}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_name: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">-- Select Bank --</option>
-                  <option value="Absa">Absa</option>
-                  <option value="African Bank">African Bank</option>
-                  <option value="Capitec">Capitec</option>
-                  <option value="Discovery Bank">Discovery Bank</option>
-                  <option value="FNB">FNB</option>
-                  <option value="Investec">Investec</option>
-                  <option value="Nedbank">Nedbank</option>
-                  <option value="Standard Bank">Standard Bank</option>
-                  <option value="Tyme Bank">Tyme Bank</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                  Account Holder Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={clientBankDetails.bank_account_holder}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
-                  readOnly={mainUserIsIndividual}
-                  className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
-                  placeholder="As it appears on the account"
-                />
-                {mainUserIsIndividual && (
-                  <p className="text-xs text-green-600 mt-0.5">Auto-filled from individual's name</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                  Account Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={clientBankDetails.bank_account_number}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Account number"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                  Branch Code <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={clientBankDetails.bank_branch_code}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g. 250655"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                  Account Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={clientBankDetails.bank_account_type}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_type: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                >
-                  <option value="">-- Select Type --</option>
-                  <option value="Current">Current / Cheque</option>
-                  <option value="Savings">Savings</option>
-                  <option value="Transmission">Transmission</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="border-t pt-3">
           <h3 className="text-base font-semibold text-gray-900 mb-2">Payment Configuration</h3>
           <div className="space-y-3">
@@ -1059,39 +1146,9 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
           </div>
         </div>
 
-        <div className="border-t pt-3">
+        {accountType !== 'individual' && <div className="border-t pt-3">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-semibold text-gray-900">Main User & Contact Person</h3>
-              {accountType === 'individual' && mainUserIsIndividual && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
-                  <User className="w-3 h-3" />
-                  Linked to Individual
-                </span>
-              )}
-            </div>
-            {accountType === 'individual' && !mainUserIsIndividual && (individualName || individualSurname) && (
-              <button
-                type="button"
-                onClick={() => {
-                  safeSetMainUser({
-                    ...mainUser,
-                    name: individualName,
-                    surname: individualSurname,
-                  });
-                  if (!clientBankDetails.bank_account_holder) {
-                    setClientBankDetails({
-                      ...clientBankDetails,
-                      bank_account_holder: `${individualName} ${individualSurname}`.trim(),
-                    });
-                  }
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                <User className="w-3.5 h-3.5" />
-                Use individual's details
-              </button>
-            )}
+            <h3 className="text-base font-semibold text-gray-900">Main User &amp; Contact Person</h3>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1103,8 +1160,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 required
                 value={mainUser.name}
                 onChange={(e) => safeSetMainUser({ ...mainUser, name: e.target.value.toUpperCase() })}
-                readOnly={accountType === 'individual' && mainUserIsIndividual}
-                className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${accountType === 'individual' && mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
               />
             </div>
             <div>
@@ -1116,8 +1172,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 required
                 value={mainUser.surname}
                 onChange={(e) => safeSetMainUser({ ...mainUser, surname: e.target.value.toUpperCase() })}
-                readOnly={accountType === 'individual' && mainUserIsIndividual}
-                className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${accountType === 'individual' && mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
               />
             </div>
             <div>
@@ -1168,7 +1223,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               </p>
             </div>
           </div>
-        </div>
+        </div>}
 
         {!(publicMode && accountType === 'individual') && <div className="border-t pt-3">
           <div className="flex items-center justify-between mb-2">
