@@ -53,6 +53,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
 
   const [individualName, setIndividualName] = useState('');
   const [individualSurname, setIndividualSurname] = useState('');
+  const [mainUserIsIndividual, setMainUserIsIndividual] = useState(false);
   const [garageAccountNumber, setGarageAccountNumber] = useState('');
   const [debitOrderAuthorised, setDebitOrderAuthorised] = useState(false);
   const [bankDetails, setBankDetails] = useState({
@@ -616,7 +617,14 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                     type="text"
                     required
                     value={individualName}
-                    onChange={(e) => setIndividualName(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setIndividualName(val);
+                      if (mainUserIsIndividual) {
+                        safeSetMainUser((prev: any) => ({ ...prev, name: val }));
+                        setClientBankDetails((prev: any) => ({ ...prev, bank_account_holder: `${val} ${individualSurname}`.trim() }));
+                      }
+                    }}
                     className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
                     placeholder="E.G., JOHN"
                   />
@@ -629,10 +637,45 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                     type="text"
                     required
                     value={individualSurname}
-                    onChange={(e) => setIndividualSurname(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setIndividualSurname(val);
+                      if (mainUserIsIndividual) {
+                        safeSetMainUser((prev: any) => ({ ...prev, surname: val }));
+                        setClientBankDetails((prev: any) => ({ ...prev, bank_account_holder: `${individualName} ${val}`.trim() }));
+                      }
+                    }}
                     className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
                     placeholder="E.G., SMITH"
                   />
+                </div>
+                <div className="col-span-2">
+                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${mainUserIsIndividual ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}>
+                    <input
+                      type="checkbox"
+                      checked={mainUserIsIndividual}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setMainUserIsIndividual(checked);
+                        if (checked) {
+                          safeSetMainUser((prev: any) => ({
+                            ...prev,
+                            name: individualName,
+                            surname: individualSurname,
+                          }));
+                          setClientBankDetails((prev: any) => ({
+                            ...prev,
+                            bank_account_holder: `${individualName} ${individualSurname}`.trim(),
+                          }));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">I am the Main User / Account Holder</p>
+                      <p className="text-xs text-gray-500">Your name will be used for the main user login and bank account holder fields</p>
+                    </div>
+                  </label>
                 </div>
               </>
             ) : (
@@ -849,9 +892,13 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                   type="text"
                   value={clientBankDetails.bank_account_holder}
                   onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  readOnly={mainUserIsIndividual}
+                  className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
                   placeholder="As it appears on the account"
                 />
+                {mainUserIsIndividual && (
+                  <p className="text-xs text-green-600 mt-0.5">Auto-filled from individual's name</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">
@@ -1014,8 +1061,16 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
 
         <div className="border-t pt-3">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-base font-semibold text-gray-900">Main User & Contact Person</h3>
-            {accountType === 'individual' && (individualName || individualSurname) && (
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-semibold text-gray-900">Main User & Contact Person</h3>
+              {accountType === 'individual' && mainUserIsIndividual && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                  <User className="w-3 h-3" />
+                  Linked to Individual
+                </span>
+              )}
+            </div>
+            {accountType === 'individual' && !mainUserIsIndividual && (individualName || individualSurname) && (
               <button
                 type="button"
                 onClick={() => {
@@ -1034,7 +1089,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <User className="w-3.5 h-3.5" />
-                Use my details as Main User
+                Use individual's details
               </button>
             )}
           </div>
@@ -1048,7 +1103,8 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 required
                 value={mainUser.name}
                 onChange={(e) => safeSetMainUser({ ...mainUser, name: e.target.value.toUpperCase() })}
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                readOnly={accountType === 'individual' && mainUserIsIndividual}
+                className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${accountType === 'individual' && mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
               />
             </div>
             <div>
@@ -1060,7 +1116,8 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 required
                 value={mainUser.surname}
                 onChange={(e) => safeSetMainUser({ ...mainUser, surname: e.target.value.toUpperCase() })}
-                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                readOnly={accountType === 'individual' && mainUserIsIndividual}
+                className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${accountType === 'individual' && mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
               />
             </div>
             <div>
