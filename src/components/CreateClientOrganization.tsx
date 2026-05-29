@@ -16,6 +16,7 @@ interface CreateClientOrganizationProps {
 export default function CreateClientOrganization({ onNavigate, publicMode = false, lockedPaymentOption, managingGarageId }: CreateClientOrganizationProps) {
   const [step, setStep] = useState<'type-selection' | 'details'>('type-selection');
   const [accountType, setAccountType] = useState<'organization' | 'individual' | null>(null);
+  const [individualPaymentType, setIndividualPaymentType] = useState<'local-account' | 'card-payment' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -483,41 +484,90 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                   </button>
                 </div>
 
-                {/* Individual card */}
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => {
-                      setAccountType('individual');
-                      setStep('details');
-                    }}
-                    className="flex-1 p-6 border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
-                        <User className="w-8 h-8 text-blue-600" />
-                      </div>
-                      <h4 className="text-lg font-semibold text-gray-900 mb-2">Individual</h4>
-                      <p className="text-sm text-gray-600">
-                        For personal accounts using an ID number instead of company registration
-                      </p>
-                      {publicMode && (
+                {/* Individual — splits into two sub-options in admin mode */}
+                {publicMode ? (
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={() => {
+                        setAccountType('individual');
+                        setIndividualPaymentType('card-payment');
+                        setStep('details');
+                      }}
+                      className="flex-1 p-6 border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
+                    >
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
+                          <User className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Individual</h4>
+                        <p className="text-sm text-gray-600">Personal account — pays by Credit/Debit Card</p>
                         <div className="mt-3 flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
                           <CreditCard className="w-3.5 h-3.5 flex-shrink-0" />
                           Pays by Credit/Debit Card
                         </div>
-                      )}
-                    </div>
-                  </button>
-                  {!publicMode && (
-                    <button
-                      onClick={() => { setIntakeFormType('individual'); setShowIntakeForm(true); }}
-                      className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      <Printer className="w-4 h-4" />
-                      Print Individual Setup Form
+                      </div>
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <div className="text-center">
+                      <h4 className="text-base font-semibold text-gray-900 mb-1">Individual</h4>
+                      <p className="text-xs text-gray-500 mb-3">Select how the individual will pay for fuel</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAccountType('individual');
+                        setIndividualPaymentType('local-account');
+                        setStep('details');
+                      }}
+                      className="p-4 border-2 border-gray-300 rounded-xl hover:border-teal-500 hover:bg-teal-50 transition-all group text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-teal-200 transition-colors">
+                          <Building2 className="w-5 h-5 text-teal-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">Individual — Local Account</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Garage manages the account. Client pays via a local fuel account at this garage.</div>
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAccountType('individual');
+                        setIndividualPaymentType('card-payment');
+                        setStep('details');
+                      }}
+                      className="p-4 border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
+                          <CreditCard className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">Individual — Card Payment</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Client pays for fuel directly via their Credit/Debit card using PIN + NFC at garages.</div>
+                        </div>
+                      </div>
+                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setIntakeFormType('individual'); setShowIntakeForm(true); }}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
+                      >
+                        <Printer className="w-4 h-4" />
+                        Print Local Account Form
+                      </button>
+                      <button
+                        onClick={() => { setIntakeFormType('individual-card'); setShowIntakeForm(true); }}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        <Printer className="w-4 h-4" />
+                        Print Card Payment Form
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -541,7 +591,8 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
           <div className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-green-600" />
             <h2 className="text-lg font-semibold text-gray-900">
-              {publicMode ? 'New Client Signup' : 'Create New Client'} - {accountType === 'organization' ? 'Organization' : 'Individual'}
+              {publicMode ? 'New Client Signup' : 'Create New Client'} —{' '}
+              {accountType === 'organization' ? 'Organization' : individualPaymentType === 'card-payment' ? 'Individual (Card Payment)' : 'Individual (Local Account)'}
             </h2>
           </div>
           <div className="flex items-center gap-3">
@@ -550,6 +601,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               onClick={() => {
                 setStep('type-selection');
                 setAccountType(null);
+                setIndividualPaymentType(null);
               }}
               className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 font-medium"
             >
@@ -602,437 +654,546 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
 
         {!componentError && (
         <form id="create-client-form" onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <h3 className="text-base font-semibold text-gray-900 mb-2">
-            {accountType === 'organization' ? 'Organization Details' : 'Individual Details'}
-          </h3>
-          <div className="grid grid-cols-2 gap-3">
-            {accountType === 'individual' ? (
-              <>
-                {/* ── Personal Info ── */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                    Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={individualName}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      setIndividualName(val);
-                      if (mainUserIsIndividual) {
-                        safeSetMainUser((prev: any) => ({ ...prev, name: val }));
-                        setClientBankDetails((prev: any) => ({ ...prev, bank_account_holder: `${val} ${individualSurname}`.trim() }));
-                      }
-                    }}
-                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
-                    placeholder="E.G., JOHN"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                    Surname <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={individualSurname}
-                    onChange={(e) => {
-                      const val = e.target.value.toUpperCase();
-                      setIndividualSurname(val);
-                      if (mainUserIsIndividual) {
-                        safeSetMainUser((prev: any) => ({ ...prev, surname: val }));
-                        setClientBankDetails((prev: any) => ({ ...prev, bank_account_holder: `${individualName} ${val}`.trim() }));
-                      }
-                    }}
-                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
-                    placeholder="E.G., SMITH"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                    ID Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.company_registration_number}
-                    onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
-                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="e.g., 8001015009087"
-                    maxLength={13}
-                  />
-                </div>
-
-                {/* ── Address ── */}
-                <div className="col-span-2 pt-2">
-                  <h4 className="text-sm font-semibold text-gray-800 mb-2">Address</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 1</label>
-                      <input
-                        type="text"
-                        value={formData.address_line_1}
-                        onChange={(e) => safeSetFormData({ ...formData, address_line_1: e.target.value.toUpperCase() })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 2</label>
-                      <input
-                        type="text"
-                        value={formData.address_line_2}
-                        onChange={(e) => safeSetFormData({ ...formData, address_line_2: e.target.value.toUpperCase() })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">City</label>
-                      <input
-                        type="text"
-                        value={formData.city}
-                        onChange={(e) => safeSetFormData({ ...formData, city: e.target.value.toUpperCase() })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Province</label>
-                      <select
-                        value={formData.province}
-                        onChange={(e) => safeSetFormData({ ...formData, province: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      >
-                        <option value="">-- Select Province --</option>
-                        <option value="Eastern Cape">Eastern Cape</option>
-                        <option value="Free State">Free State</option>
-                        <option value="Gauteng">Gauteng</option>
-                        <option value="KwaZulu-Natal">KwaZulu-Natal</option>
-                        <option value="Limpopo">Limpopo</option>
-                        <option value="Mpumalanga">Mpumalanga</option>
-                        <option value="Northern Cape">Northern Cape</option>
-                        <option value="North West">North West</option>
-                        <option value="Western Cape">Western Cape</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Postal Code</label>
-                      <input
-                        type="text"
-                        value={formData.postal_code}
-                        onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Country</label>
-                      <input
-                        type="text"
-                        value={formData.country}
-                        onChange={(e) => safeSetFormData({ ...formData, country: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Main User toggle ── */}
-                <div className="col-span-2 pt-2">
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${mainUserIsIndividual ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}>
-                    <input
-                      type="checkbox"
-                      checked={mainUserIsIndividual}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setMainUserIsIndividual(checked);
-                        if (checked) {
-                          safeSetMainUser((prev: any) => ({
-                            ...prev,
-                            name: individualName,
-                            surname: individualSurname,
-                          }));
-                          setClientBankDetails((prev: any) => ({
-                            ...prev,
-                            bank_account_holder: `${individualName} ${individualSurname}`.trim(),
-                          }));
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">I am the Main User / Account Holder</p>
-                      <p className="text-xs text-gray-500">Tick this if the individual signing up will be the system login and the bank account holder</p>
-                    </div>
-                  </label>
-                </div>
-
-                {/* ── Main User / Login Details ── */}
-                <div className="col-span-2 pt-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-semibold text-gray-800">Main User &amp; Login Details</h4>
-                    {mainUserIsIndividual && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
-                        <User className="w-3 h-3" />
-                        Linked to Individual
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={mainUser.name}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, name: e.target.value.toUpperCase() })}
-                        readOnly={mainUserIsIndividual}
-                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Surname <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={mainUser.surname}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, surname: e.target.value.toUpperCase() })}
-                        readOnly={mainUserIsIndividual}
-                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Email <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={mainUser.email}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, email: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Password <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        value={mainUser.password}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, password: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Office Number</label>
-                      <input
-                        type="text"
-                        value={mainUser.phone_office}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, phone_office: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Number</label>
-                      <input
-                        type="text"
-                        value={mainUser.phone_mobile}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, phone_mobile: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-xs text-blue-900 font-medium">
-                        The main user has full access to all features including fleet management, fuel transactions, reports, and user administration.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Bank Account Details ── */}
-                <div className="col-span-2 pt-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-semibold text-gray-800">Bank Account Details</h4>
-                    <span className="text-xs text-red-500 font-medium">Required for debit order</span>
-                  </div>
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3">
-                    <p className="text-xs text-amber-900">
-                      Monthly vehicle and driver management fees are collected via debit order. Provide the individual's bank account below.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Bank <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={clientBankDetails.bank_name}
-                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_name: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      >
-                        <option value="">-- Select Bank --</option>
-                        <option value="Absa">Absa</option>
-                        <option value="African Bank">African Bank</option>
-                        <option value="Capitec">Capitec</option>
-                        <option value="Discovery Bank">Discovery Bank</option>
-                        <option value="FNB">FNB</option>
-                        <option value="Investec">Investec</option>
-                        <option value="Nedbank">Nedbank</option>
-                        <option value="Standard Bank">Standard Bank</option>
-                        <option value="Tyme Bank">Tyme Bank</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Account Type <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        value={clientBankDetails.bank_account_type}
-                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_type: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      >
-                        <option value="">-- Select Type --</option>
-                        <option value="Current">Current / Cheque</option>
-                        <option value="Savings">Savings</option>
-                        <option value="Transmission">Transmission</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Account Holder Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={clientBankDetails.bank_account_holder}
-                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
-                        readOnly={mainUserIsIndividual}
-                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
-                        placeholder="As it appears on the account"
-                      />
-                      {mainUserIsIndividual && (
-                        <p className="text-xs text-green-600 mt-0.5">Auto-filled from individual's name</p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Account Number <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={clientBankDetails.bank_account_number}
-                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        placeholder="Account number"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Branch Code <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={clientBankDetails.bank_branch_code}
-                        onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        placeholder="e.g. 250655"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
+        {/* INDIVIDUAL — CARD PAYMENT */}
+        {accountType === 'individual' && individualPaymentType === 'card-payment' && (
+        <div className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-xs text-green-900">
+              <strong>Instructions:</strong> Complete all fields marked <span className="text-red-600 font-bold">*</span>. Use block letters.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Personal Details</h3>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                  Organization Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Name <span className="text-red-500">*</span></label>
+                <input type="text" required value={individualName}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    setIndividualName(val);
+                    safeSetMainUser((prev: any) => ({ ...prev, name: val }));
+                    setClientBankDetails((prev: any) => ({ ...prev, bank_account_holder: `${val} ${individualSurname}`.trim() }));
+                  }}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                  placeholder="E.G., JOHN"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Surname <span className="text-red-500">*</span></label>
+                <input type="text" required value={individualSurname}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    setIndividualSurname(val);
+                    safeSetMainUser((prev: any) => ({ ...prev, surname: val }));
+                    setClientBankDetails((prev: any) => ({ ...prev, bank_account_holder: `${individualName} ${val}`.trim() }));
+                  }}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                  placeholder="E.G., SMITH"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">SA ID Number <span className="text-red-500">*</span></label>
+                <input type="text" required maxLength={13} value={formData.company_registration_number}
+                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., 8001015009087"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Number</label>
+                <input type="text" value={mainUser.phone_mobile}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, phone_mobile: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Office Number</label>
+                <input type="text" value={mainUser.phone_office}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, phone_office: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="border-t pt-3">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Address</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 1</label>
+                <input type="text" value={formData.address_line_1}
+                  onChange={(e) => safeSetFormData({ ...formData, address_line_1: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 2</label>
+                <input type="text" value={formData.address_line_2}
+                  onChange={(e) => safeSetFormData({ ...formData, address_line_2: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">City</label>
+                <input type="text" value={formData.city}
+                  onChange={(e) => safeSetFormData({ ...formData, city: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Province</label>
+                <select value={formData.province} onChange={(e) => safeSetFormData({ ...formData, province: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">-- Select Province --</option>
+                  <option value="Eastern Cape">Eastern Cape</option>
+                  <option value="Free State">Free State</option>
+                  <option value="Gauteng">Gauteng</option>
+                  <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                  <option value="Limpopo">Limpopo</option>
+                  <option value="Mpumalanga">Mpumalanga</option>
+                  <option value="Northern Cape">Northern Cape</option>
+                  <option value="North West">North West</option>
+                  <option value="Western Cape">Western Cape</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Postal Code</label>
+                <input type="text" value={formData.postal_code}
+                  onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Country</label>
+                <input type="text" value={formData.country}
+                  onChange={(e) => safeSetFormData({ ...formData, country: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="border-t pt-3">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Login Details</h3>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+              <p className="text-xs text-blue-900 font-medium mb-1">You are the Main User and Billing User by default.</p>
+              <p className="text-xs text-blue-800">
+                These roles can be changed after signup by logging in to the <strong>Client Portal</strong> and selecting <strong>Client User Management</strong>. You can assign a different Main User or Billing User at any time.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Email Address <span className="text-red-500">*</span></label>
+                <input type="email" required value={mainUser.email}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, email: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Used to sign in to the Client Portal"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Password <span className="text-red-500">*</span></label>
+                <input type="password" required value={mainUser.password}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, password: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Minimum 6 characters"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="border-t pt-3">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-base font-semibold text-gray-900">Bank Account Details</h3>
+              <span className="text-xs text-red-500 font-medium">Required for debit order</span>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3">
+              <p className="text-xs text-amber-900">
+                Monthly vehicle and driver management fees are collected via debit order. The account holder name has been pre-filled from your name above — edit if different.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Bank <span className="text-red-500">*</span></label>
+                <select value={clientBankDetails.bank_name}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_name: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">-- Select Bank --</option>
+                  <option value="Absa">Absa</option>
+                  <option value="African Bank">African Bank</option>
+                  <option value="Capitec">Capitec</option>
+                  <option value="Discovery Bank">Discovery Bank</option>
+                  <option value="FNB">FNB</option>
+                  <option value="Investec">Investec</option>
+                  <option value="Nedbank">Nedbank</option>
+                  <option value="Standard Bank">Standard Bank</option>
+                  <option value="Tyme Bank">Tyme Bank</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Type <span className="text-red-500">*</span></label>
+                <select value={clientBankDetails.bank_account_type}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_type: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">-- Select Type --</option>
+                  <option value="Current">Current / Cheque</option>
+                  <option value="Savings">Savings</option>
+                  <option value="Transmission">Transmission</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Holder Name <span className="text-red-500">*</span></label>
+                <input type="text" value={clientBankDetails.bank_account_holder}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="As it appears on the account"
+                />
+                <p className="text-xs text-green-600 mt-0.5">Auto-filled from your name — edit if different</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Number <span className="text-red-500">*</span></label>
+                <input type="text" value={clientBankDetails.bank_account_number}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Account number"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Branch Code <span className="text-red-500">*</span></label>
+                <input type="text" value={clientBankDetails.bank_branch_code}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g. 250655"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
+
+        {/* INDIVIDUAL — LOCAL ACCOUNT */}
+        {accountType === 'individual' && individualPaymentType === 'local-account' && (
+        <div className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-xs text-green-900">
+              <strong>Instructions:</strong> Complete all fields marked <span className="text-red-600 font-bold">*</span>. Use block letters. Return this form to the garage to have your personal fuel account set up.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Personal Details</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Name <span className="text-red-500">*</span></label>
+                <input type="text" required value={individualName}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    setIndividualName(val);
+                    if (mainUserIsIndividual) {
+                      safeSetMainUser((prev: any) => ({ ...prev, name: val }));
+                      setClientBankDetails((prev: any) => ({ ...prev, bank_account_holder: `${val} ${individualSurname}`.trim() }));
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                  placeholder="E.G., JOHN"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Surname <span className="text-red-500">*</span></label>
+                <input type="text" required value={individualSurname}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    setIndividualSurname(val);
+                    if (mainUserIsIndividual) {
+                      safeSetMainUser((prev: any) => ({ ...prev, surname: val }));
+                      setClientBankDetails((prev: any) => ({ ...prev, bank_account_holder: `${individualName} ${val}`.trim() }));
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                  placeholder="E.G., SMITH"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">SA ID Number <span className="text-red-500">*</span></label>
+                <input type="text" required maxLength={13} value={formData.company_registration_number}
+                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g., 8001015009087"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="border-t pt-3">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Address</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 1</label>
+                <input type="text" value={formData.address_line_1}
+                  onChange={(e) => safeSetFormData({ ...formData, address_line_1: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 2</label>
+                <input type="text" value={formData.address_line_2}
+                  onChange={(e) => safeSetFormData({ ...formData, address_line_2: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">City</label>
+                <input type="text" value={formData.city}
+                  onChange={(e) => safeSetFormData({ ...formData, city: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Province</label>
+                <select value={formData.province} onChange={(e) => safeSetFormData({ ...formData, province: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">-- Select Province --</option>
+                  <option value="Eastern Cape">Eastern Cape</option>
+                  <option value="Free State">Free State</option>
+                  <option value="Gauteng">Gauteng</option>
+                  <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                  <option value="Limpopo">Limpopo</option>
+                  <option value="Mpumalanga">Mpumalanga</option>
+                  <option value="Northern Cape">Northern Cape</option>
+                  <option value="North West">North West</option>
+                  <option value="Western Cape">Western Cape</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Postal Code</label>
+                <input type="text" value={formData.postal_code}
+                  onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Country</label>
+                <input type="text" value={formData.country}
+                  onChange={(e) => safeSetFormData({ ...formData, country: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="border-t pt-3">
+            <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${mainUserIsIndividual ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}>
+              <input type="checkbox" checked={mainUserIsIndividual}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setMainUserIsIndividual(checked);
+                  if (checked) {
+                    safeSetMainUser((prev: any) => ({ ...prev, name: individualName, surname: individualSurname }));
+                    setClientBankDetails((prev: any) => ({ ...prev, bank_account_holder: `${individualName} ${individualSurname}`.trim() }));
+                  }
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-900">I am the Main User / Account Holder</p>
+                <p className="text-xs text-gray-500">Tick this if the individual signing up will be the system login and the bank account holder</p>
+              </div>
+            </label>
+          </div>
+          <div className="border-t pt-3">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-base font-semibold text-gray-900">Main User &amp; Login Details</h3>
+              {mainUserIsIndividual && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                  <User className="w-3 h-3" />
+                  Linked to Individual
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Name <span className="text-red-500">*</span></label>
+                <input type="text" required value={mainUser.name}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, name: e.target.value.toUpperCase() })}
+                  readOnly={mainUserIsIndividual}
+                  className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Surname <span className="text-red-500">*</span></label>
+                <input type="text" required value={mainUser.surname}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, surname: e.target.value.toUpperCase() })}
+                  readOnly={mainUserIsIndividual}
+                  className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Email <span className="text-red-500">*</span></label>
+                <input type="email" required value={mainUser.email}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, email: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Password <span className="text-red-500">*</span></label>
+                <input type="password" required value={mainUser.password}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, password: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Office Number</label>
+                <input type="text" value={mainUser.phone_office}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, phone_office: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Number</label>
+                <input type="text" value={mainUser.phone_mobile}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, phone_mobile: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-900 font-medium">
+                  The main user has full access to all features including fleet management, fuel transactions, reports, and user administration.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="border-t pt-3">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-base font-semibold text-gray-900">Bank Account Details</h3>
+              <span className="text-xs text-red-500 font-medium">Required for debit order</span>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3">
+              <p className="text-xs text-amber-900">Monthly vehicle and driver management fees are collected via debit order. Provide the individual's bank account below.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Bank <span className="text-red-500">*</span></label>
+                <select value={clientBankDetails.bank_name}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_name: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">-- Select Bank --</option>
+                  <option value="Absa">Absa</option>
+                  <option value="African Bank">African Bank</option>
+                  <option value="Capitec">Capitec</option>
+                  <option value="Discovery Bank">Discovery Bank</option>
+                  <option value="FNB">FNB</option>
+                  <option value="Investec">Investec</option>
+                  <option value="Nedbank">Nedbank</option>
+                  <option value="Standard Bank">Standard Bank</option>
+                  <option value="Tyme Bank">Tyme Bank</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Type <span className="text-red-500">*</span></label>
+                <select value={clientBankDetails.bank_account_type}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_type: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">-- Select Type --</option>
+                  <option value="Current">Current / Cheque</option>
+                  <option value="Savings">Savings</option>
+                  <option value="Transmission">Transmission</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Holder Name <span className="text-red-500">*</span></label>
+                <input type="text" value={clientBankDetails.bank_account_holder}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
+                  readOnly={mainUserIsIndividual}
+                  className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                  placeholder="As it appears on the account"
+                />
+                {mainUserIsIndividual && <p className="text-xs text-green-600 mt-0.5">Auto-filled from individual's name</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Number <span className="text-red-500">*</span></label>
+                <input type="text" value={clientBankDetails.bank_account_number}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="Account number"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Branch Code <span className="text-red-500">*</span></label>
+                <input type="text" value={clientBankDetails.bank_branch_code}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g. 250655"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
+
+        {/* ORGANIZATION DETAILS */}
+        {accountType === 'organization' && (
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Organization Details</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Organization Name <span className="text-red-500">*</span></label>
+                <input type="text" required value={formData.name}
                   onChange={(e) => safeSetFormData({ ...formData, name: e.target.value.toUpperCase().trim() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
                   placeholder="e.g., ACME TRANSPORT LTD"
                 />
               </div>
-            )}
-            {accountType === 'organization' ? (
-              <>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Entity Type <span className="text-red-500">*</span></label>
+                <select required value={formData.entity_type}
+                  onChange={(e) => safeSetFormData({ ...formData, entity_type: e.target.value, entity_type_other: '' })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+                  <option value="">-- Select Entity Type --</option>
+                  <option value="Company">Company</option>
+                  <option value="Closed Corporation">Closed Corporation</option>
+                  <option value="Trust">Trust</option>
+                  <option value="Partnership">Partnership</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              {formData.entity_type === 'Other' && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                    Entity Type <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    required
-                    value={formData.entity_type}
-                    onChange={(e) => safeSetFormData({ ...formData, entity_type: e.target.value, entity_type_other: '' })}
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Please Specify <span className="text-red-500">*</span></label>
+                  <input type="text" required value={formData.entity_type_other}
+                    onChange={(e) => safeSetFormData({ ...formData, entity_type_other: e.target.value })}
                     className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">-- Select Entity Type --</option>
-                    <option value="Company">Company</option>
-                    <option value="Closed Corporation">Closed Corporation</option>
-                    <option value="Trust">Trust</option>
-                    <option value="Partnership">Partnership</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                {formData.entity_type === 'Other' && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                      Please Specify <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.entity_type_other}
-                      onChange={(e) => safeSetFormData({ ...formData, entity_type_other: e.target.value })}
-                      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="e.g., Non-profit Organisation"
-                    />
-                  </div>
-                )}
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                    Registration Number
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.company_registration_number}
-                    onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
-                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="e.g., Non-profit Organisation"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">VAT Number</label>
-                  <input
-                    type="text"
-                    value={formData.vat_number}
-                    onChange={(e) => safeSetFormData({ ...formData, vat_number: e.target.value })}
-                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Website</label>
-                  <input
-                    type="text"
-                    value={formData.website}
-                    onChange={(e) => safeSetFormData({ ...formData, website: e.target.value })}
-                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  />
-                </div>
-              </>
-            ) : (
-              null
-            )}
+              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Registration Number</label>
+                <input type="text" value={formData.company_registration_number}
+                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">VAT Number</label>
+                <input type="text" value={formData.vat_number}
+                  onChange={(e) => safeSetFormData({ ...formData, vat_number: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Website</label>
+                <input type="text" value={formData.website}
+                  onChange={(e) => safeSetFormData({ ...formData, website: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
           </div>
-        </div>
 
-        {accountType === 'organization' && <div className="border-t pt-3">
+          <div className="border-t pt-3">
           <h3 className="text-base font-semibold text-gray-900 mb-2">Organization Address</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1100,7 +1261,9 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               />
             </div>
           </div>
-        </div>}
+        </div>
+        </div>
+        )}
 
         <div className="border-t pt-3">
           <h3 className="text-base font-semibold text-gray-900 mb-2">Payment Configuration</h3>

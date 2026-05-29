@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X } from 'lucide-react';
 
-export type IntakeFormType = 'organisation' | 'individual';
+export type IntakeFormType = 'organisation' | 'individual' | 'individual-card';
 
 interface GarageClientIntakeFormProps {
   garageName?: string;
@@ -56,13 +56,13 @@ export default function GarageClientIntakeForm({ garageName, formType = 'organis
 
   const handlePrint = () => window.print();
 
-  const Form = formType === 'individual' ? IndividualPrintableForm : OrgPrintableForm;
+  const Form = formType === 'individual' ? IndividualPrintableForm : formType === 'individual-card' ? IndividualCardPrintableForm : OrgPrintableForm;
 
   const printPortal = portalRoot
     ? createPortal(<Form garageName={garageName} />, portalRoot)
     : null;
 
-  const title = formType === 'individual' ? 'Individual Client Setup Form' : 'Organisation Client Setup Form';
+  const title = formType === 'individual' ? 'Individual Local Account Setup Form' : formType === 'individual-card' ? 'Individual Card Payment Setup Form' : 'Organisation Client Setup Form';
 
   return (
     <>
@@ -616,6 +616,159 @@ function IndividualPrintableForm({ garageName }: { garageName?: string }) {
         <DriverBlock index={2} />
         <TemplateNote>Up to 2 authorised drivers. Photocopy this page if you have more than 2 drivers.</TemplateNote>
 
+        <Footer today={today} page={2} pages={2} />
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INDIVIDUAL — CARD PAYMENT FORM
+// ══════════════════════════════════════════════════════════════════════════════
+
+function IndividualCardPrintableForm({ garageName }: { garageName?: string }) {
+  const today = new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' });
+  const pageStyle: React.CSSProperties = {
+    fontFamily: 'Arial, Helvetica, sans-serif',
+    fontSize: '8.5pt',
+    color: '#111',
+    lineHeight: '1.3',
+    width: '100%',
+  };
+
+  return (
+    <div style={pageStyle}>
+      <div style={{ padding: '3mm 2mm' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '5px', borderBottom: '2.5px solid #0d9488', marginBottom: '7px' }}>
+          <img src="/MyFuelApp_logo.png" alt="MyFuelApp" style={{ height: '36px', width: 'auto' }} />
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '13pt', fontWeight: 'bold', color: '#0d9488', letterSpacing: '0.2px' }}>
+              CARD PAYMENT — INDIVIDUAL CLIENT SETUP FORM
+            </div>
+            <div style={{ fontSize: '8px', color: '#555', marginTop: '1px' }}>
+              Personal Account Setup — Fuel paid by Credit/Debit Card via PIN + NFC
+            </div>
+            <div style={{ fontSize: '7.5px', color: '#9ca3af', marginTop: '1px' }}>Date: {today}</div>
+          </div>
+        </div>
+
+        {/* Instructions */}
+        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '3px', padding: '3px 8px', marginBottom: '7px', fontSize: '8pt', color: '#166534' }}>
+          <strong>Instructions:</strong> Complete all fields marked <span style={{ color: '#dc2626' }}>*</span>. Use block letters.
+        </div>
+
+        {/* Portal note */}
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '3px', padding: '4px 8px', marginBottom: '8px', fontSize: '7.5pt', color: '#1e40af' }}>
+          <strong>Note:</strong> You are the <strong>Main User</strong> and <strong>Billing User</strong> by default. These roles can be changed by logging in to the <strong>Client Portal</strong> and selecting <strong>Client User Management</strong>.
+        </div>
+
+        {/* Section 1 — Personal Details */}
+        <Section number="1" title="Personal Details" subtitle="Account holder information">
+          <Grid cols={4}>
+            <F label="Title" hint="Mr / Mrs / Ms / Dr" />
+            <F label="First Name" required />
+            <F label="Surname" required />
+            <F label="SA ID Number" required hint="13-digit" />
+            <F label="Date of Birth" hint="DD/MM/YYYY" />
+            <F label="Mobile Number" required />
+            <F label="Office / Work Number" />
+            <F label="Email Address" required hint="Portal login" />
+          </Grid>
+          <Divider label="Password" />
+          <Grid cols={2}>
+            <F label="Password" required hint="Min 6 characters — for portal sign-in" />
+            <F label="Confirm Password" required />
+          </Grid>
+          <Divider label="Residential Address" />
+          <Grid cols={4}>
+            <F label="Address Line 1" required wide />
+            <F label="City / Town" required />
+            <F label="Postal Code" />
+          </Grid>
+          <Grid cols={4} style={{ marginTop: '4px' }}>
+            <F label="Address Line 2" wide />
+            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div style={labelStyle}>Province <span style={{ color: '#dc2626' }}>*</span></div>
+              <Row>
+                {['Eastern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpumalanga','N. Cape','North West','Western Cape'].map(p => (
+                  <CB key={p} label={p} />
+                ))}
+              </Row>
+            </div>
+          </Grid>
+        </Section>
+
+        {/* Section 2 — Bank Account for Debit Order */}
+        <Section number="2" title="Bank Account Details" subtitle="For monthly management fee debit order">
+          <Note>Monthly vehicle and driver management fees are collected via debit order against this account.</Note>
+          <div style={{ marginTop: '6px' }}>
+            <Grid cols={4}>
+              <div style={{ gridColumn: 'span 2' }}>
+                <div style={labelStyle}>Bank Name <span style={{ color: '#dc2626' }}>*</span></div>
+                <Row>
+                  {['Absa','African Bank','Capitec','Discovery','FNB','Investec','Nedbank','Standard Bank','Tyme Bank','Other'].map(b => (
+                    <CB key={b} label={b} />
+                  ))}
+                </Row>
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <div style={labelStyle}>Account Type <span style={{ color: '#dc2626' }}>*</span></div>
+                <Row>
+                  <CB label="Current / Cheque" />
+                  <CB label="Savings" />
+                  <CB label="Transmission" />
+                </Row>
+              </div>
+              <F label="Account Holder Name" required wide hint="As it appears on the account" />
+              <F label="Account Number" required />
+              <F label="Branch Code" required hint="e.g. 250655" />
+            </Grid>
+          </div>
+        </Section>
+
+        {/* Section 3 — Declaration */}
+        <Section number="3" title="Declaration &amp; Signature">
+          <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
+            I, the undersigned, confirm that the information provided is accurate and complete. I authorise Fuel Empowerment Systems (Pty) Ltd to raise a monthly debit order against my registered bank account for vehicle and driver management fees. I understand that my card details and account information can be managed via the Client Portal and that I am designated as the Main User and Billing User by default, which I may change via Client User Management.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
+            <SigBlock label="Signature — Account Holder" />
+            <SigBlock label="Date" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+            <SigBlock label="Print Name" short />
+            <SigBlock label="SA ID Number" short />
+            <SigBlock label="Date of Birth" short />
+          </div>
+        </Section>
+
+        <Footer today={today} page={1} pages={2} />
+      </div>
+
+      {/* PAGE 2 — Vehicles & Drivers */}
+      <div style={{ padding: '3mm 2mm', pageBreakBefore: 'always' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '4px', borderBottom: '2px solid #0d9488', marginBottom: '6px' }}>
+          <img src="/MyFuelApp_logo.png" alt="MyFuelApp" style={{ height: '28px', width: 'auto' }} />
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '10pt', fontWeight: 'bold', color: '#0d9488' }}>CARD PAYMENT — INDIVIDUAL CLIENT SETUP FORM</div>
+            <div style={{ fontSize: '7.5px', color: '#555' }}>Vehicles &amp; Drivers — Page 2</div>
+          </div>
+        </div>
+        <div style={{ fontSize: '8pt', fontWeight: 'bold', color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px', borderBottom: '1.5px solid #0d9488', paddingBottom: '2px' }}>
+          Vehicles
+        </div>
+        <VehicleBlock index={1} />
+        <VehicleBlock index={2} />
+        <VehicleBlock index={3} />
+        <TemplateNote>Up to 3 vehicles. Photocopy this page if you have more than 3 vehicles.</TemplateNote>
+        <div style={{ fontSize: '8pt', fontWeight: 'bold', color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '6px 0 4px', borderBottom: '1.5px solid #0d9488', paddingBottom: '2px' }}>
+          Authorised Drivers
+        </div>
+        <DriverBlock index={1} />
+        <DriverBlock index={2} />
+        <TemplateNote>Up to 2 authorised drivers. Photocopy this page if you have more than 2 drivers.</TemplateNote>
         <Footer today={today} page={2} pages={2} />
       </div>
     </div>
