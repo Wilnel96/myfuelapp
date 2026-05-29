@@ -349,20 +349,13 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Organization Name</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                      {editForm.entity_type === 'Individual' ? 'Full Name' : 'Organization Name'}
+                    </label>
                     <input
                       type="text"
                       value={editForm.name || ''}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-0.5">Registration Number</label>
-                    <input
-                      type="text"
-                      value={editForm.company_registration_number || ''}
-                      onChange={(e) => setEditForm({ ...editForm, company_registration_number: e.target.value })}
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                     />
                   </div>
@@ -374,6 +367,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                     >
                       <option value="">-- Select --</option>
+                      <option value="Individual">Individual</option>
                       <option value="Company">Company</option>
                       <option value="Closed Corporation">Closed Corporation</option>
                       <option value="Trust">Trust</option>
@@ -381,7 +375,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
                       <option value="Other">Other</option>
                     </select>
                   </div>
-                  {editForm.entity_type === 'Other' ? (
+                  {editForm.entity_type === 'Other' && (
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-0.5">Please Specify</label>
                       <input
@@ -392,16 +386,29 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
                         placeholder="e.g., Non-profit Organisation"
                       />
                     </div>
-                  ) : <div />}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-0.5">VAT Number</label>
-                    <input
-                      type="text"
-                      value={editForm.vat_number || ''}
-                      onChange={(e) => setEditForm({ ...editForm, vat_number: e.target.value })}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
-                    />
-                  </div>
+                  )}
+                  {editForm.entity_type !== 'Individual' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Registration Number</label>
+                      <input
+                        type="text"
+                        value={editForm.company_registration_number || ''}
+                        onChange={(e) => setEditForm({ ...editForm, company_registration_number: e.target.value })}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                      />
+                    </div>
+                  )}
+                  {editForm.entity_type !== 'Individual' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">VAT Number</label>
+                      <input
+                        type="text"
+                        value={editForm.vat_number || ''}
+                        onChange={(e) => setEditForm({ ...editForm, vat_number: e.target.value })}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">Website</label>
                     <input
@@ -663,6 +670,15 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
                   >
                     <div className="flex items-center gap-2">
                       <h3 className="text-base font-semibold text-gray-900">{org.name}</h3>
+                      {org.entity_type && (
+                        <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
+                          org.entity_type === 'Individual'
+                            ? 'bg-teal-100 text-teal-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {org.entity_type}
+                        </span>
+                      )}
                       <span
                         className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
                           org.status === 'active'
@@ -683,7 +699,9 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
                       )}
                     </div>
                     <p className="text-xs text-gray-500">
-                      Reg No: {org.company_registration_number || 'N/A'}
+                      {org.entity_type === 'Individual'
+                        ? `Individual Account`
+                        : `Reg No: ${org.company_registration_number || 'N/A'}`}
                       {!org.payment_option && <span className="text-red-600 font-medium ml-2">⚠ Payment not configured</span>}
                     </p>
                   </div>
@@ -713,7 +731,9 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-0.5">Organization Name</label>
+                        <label className="block text-xs font-medium text-gray-500 mb-0.5">
+                          {org.entity_type === 'Individual' ? 'Full Name' : 'Organization Name'}
+                        </label>
                         <p className="text-gray-900">{org.name}</p>
                       </div>
                       <div>
@@ -726,14 +746,18 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
                             : 'N/A'}
                         </p>
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-0.5">Registration Number</label>
-                        <p className="text-gray-900">{org.company_registration_number || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-500 mb-0.5">VAT Number</label>
-                        <p className="text-gray-900">{org.vat_number || 'N/A'}</p>
-                      </div>
+                      {org.entity_type !== 'Individual' && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-0.5">Registration Number</label>
+                          <p className="text-gray-900">{org.company_registration_number || 'N/A'}</p>
+                        </div>
+                      )}
+                      {org.entity_type !== 'Individual' && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-0.5">VAT Number</label>
+                          <p className="text-gray-900">{org.vat_number || 'N/A'}</p>
+                        </div>
+                      )}
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-0.5">Website</label>
                         <p className="text-gray-900">{org.website || 'N/A'}</p>
