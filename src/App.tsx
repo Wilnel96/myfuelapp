@@ -19,8 +19,6 @@ import CreateClientOrganization from './components/CreateClientOrganization';
 import ConsolidatedReports from './components/ConsolidatedReports';
 import ReportsDashboard from './components/ReportsDashboard';
 import ClientDashboard from './components/ClientDashboard';
-import ClientCardDashboard from './components/ClientCardDashboard';
-import ClientAccountDashboard from './components/ClientAccountDashboard';
 import ClientPortalSelection from './components/ClientPortalSelection';
 import ClientSignup from './components/ClientSignup';
 import GarageSignup from './components/GarageSignup';
@@ -39,7 +37,7 @@ import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3,
 import { DriverData } from './components/DriverAuth';
 
 type UserMode = 'admin' | 'driver' | 'garage' | null;
-type ClientPortalType = 'card' | 'account' | null;
+type ClientPortalType = 'card' | 'account' | 'both' | null;
 
 function App() {
   const [session, setSession] = useState<any>(null);
@@ -322,6 +320,7 @@ function App() {
               if (!isManagementUser) {
                 if (po === 'Card Payment') setClientPortalType('card');
                 else if (po === 'Local Account') setClientPortalType('account');
+                else if (po === 'Both') setClientPortalType('both');
               }
             }
 
@@ -470,6 +469,7 @@ function App() {
               if (!isManagementUser) {
                 if (po === 'Card Payment') setClientPortalType('card');
                 else if (po === 'Local Account') setClientPortalType('account');
+                else if (po === 'Both') setClientPortalType('both');
               }
             }
 
@@ -943,10 +943,6 @@ function App() {
         {!currentView ? (
           userRole === 'super_admin' ? (
             <SuperAdminDashboard key="dashboard-super" onNavigate={setCurrentView} />
-          ) : clientPortalType === 'card' ? (
-            <ClientCardDashboard key="dashboard-card" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} />
-          ) : clientPortalType === 'account' ? (
-            <ClientAccountDashboard key="dashboard-account" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} />
           ) : (
             <ClientDashboard key="dashboard-client" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} paymentOption={paymentOption} />
           )
@@ -991,12 +987,16 @@ function App() {
         ) : currentView === 'garages' ? (
           userRole === 'super_admin' ? (
             <GarageManagement key="garages" onNavigate={setCurrentView} />
-          ) : clientPortalType === 'account' ? (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900">Local Garage Accounts</h2>
-              <p className="text-gray-600">Manage your local accounts with garages where you can refuel</p>
+          ) : paymentOption === 'Local Account' || paymentOption === 'Both' ? (
+            <div className="space-y-6">
               {organizationId && organizationName && (
                 <ClientGarageAccounts organizationId={organizationId} organizationName={organizationName} />
+              )}
+              {paymentOption === 'Both' && (
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900 mb-3">Garage Directory</h2>
+                  <ClientGaragesView key="garages-dir" onNavigate={setCurrentView} />
+                </div>
               )}
             </div>
           ) : (
@@ -1007,13 +1007,7 @@ function App() {
         ) : currentView === 'invoices' ? (
           userRole === 'super_admin' ? <BackOffice key="backoffice-invoices" userRole={userRole} paymentOption={paymentOption} onNavigateToMain={() => setCurrentView(null)} /> : <ClientInvoices key="invoices" />
         ) : currentView === 'invoices-menu' ? (
-          clientPortalType === 'card' ? (
-            <ClientCardDashboard key="invoices-menu-card" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="invoices" />
-          ) : clientPortalType === 'account' ? (
-            <ClientAccountDashboard key="invoices-menu-account" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="invoices" />
-          ) : (
-            <ClientDashboard key="invoices-menu" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="invoices" paymentOption={paymentOption} />
-          )
+          <ClientDashboard key="invoices-menu" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="invoices" paymentOption={paymentOption} />
         ) : currentView === 'fee-invoices' ? (
           <ClientInvoices key="fee-invoices" onNavigate={setCurrentView} />
         ) : currentView === 'fuel-invoices' ? (
@@ -1021,13 +1015,7 @@ function App() {
             ? <FuelInvoicesPage key="fuel-invoices-admin" onBack={() => setCurrentView(null)} />
             : <ClientFuelInvoices key="fuel-invoices" onNavigate={setCurrentView} />
         ) : currentView === 'reports-menu' ? (
-          clientPortalType === 'card' ? (
-            <ClientCardDashboard key="reports-menu-card" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="reports" />
-          ) : clientPortalType === 'account' ? (
-            <ClientAccountDashboard key="reports-menu-account" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="reports" />
-          ) : (
-            <ClientDashboard key="reports-menu" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="reports" paymentOption={paymentOption} />
-          )
+          <ClientDashboard key="reports-menu" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="reports" paymentOption={paymentOption} />
         ) : currentView === 'reports' ? (
           userRole === 'super_admin' ? <ConsolidatedReports key="reports" onNavigate={setCurrentView} /> : <ReportsDashboard key="reports" onNavigate={setCurrentView} />
         ) : currentView === 'backoffice' ? (

@@ -401,14 +401,14 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
       color: 'emerald',
     }] : []),
     // Client org payment options
-    ...(!isMgmtOrg && paymentOption === 'Card Payment' ? [{
+    ...(!isMgmtOrg && (paymentOption === 'Card Payment' || paymentOption === 'Both') ? [{
       id: 'payment-card',
       title: 'Payment Card Management',
       description: 'Configure your credit/debit card for fuel payments',
       icon: CreditCard,
       color: 'teal',
     }] : []),
-    ...(!isMgmtOrg && paymentOption === 'Local Account' ? [{
+    ...(!isMgmtOrg && (paymentOption === 'Local Account' || paymentOption === 'Both') ? [{
       id: 'local-accounts',
       title: 'Local Garage Accounts',
       description: 'Manage local accounts with garages where you can refuel',
