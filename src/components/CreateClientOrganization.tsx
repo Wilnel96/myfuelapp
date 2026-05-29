@@ -651,6 +651,93 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                   />
                 </div>
                 <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                    ID Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.company_registration_number}
+                    onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="e.g., 8001015009087"
+                    maxLength={13}
+                  />
+                </div>
+
+                {/* ── Address ── */}
+                <div className="col-span-2 pt-2">
+                  <h4 className="text-sm font-semibold text-gray-800 mb-2">Address</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 1</label>
+                      <input
+                        type="text"
+                        value={formData.address_line_1}
+                        onChange={(e) => safeSetFormData({ ...formData, address_line_1: e.target.value.toUpperCase() })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 2</label>
+                      <input
+                        type="text"
+                        value={formData.address_line_2}
+                        onChange={(e) => safeSetFormData({ ...formData, address_line_2: e.target.value.toUpperCase() })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">City</label>
+                      <input
+                        type="text"
+                        value={formData.city}
+                        onChange={(e) => safeSetFormData({ ...formData, city: e.target.value.toUpperCase() })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Province</label>
+                      <select
+                        value={formData.province}
+                        onChange={(e) => safeSetFormData({ ...formData, province: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      >
+                        <option value="">-- Select Province --</option>
+                        <option value="Eastern Cape">Eastern Cape</option>
+                        <option value="Free State">Free State</option>
+                        <option value="Gauteng">Gauteng</option>
+                        <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                        <option value="Limpopo">Limpopo</option>
+                        <option value="Mpumalanga">Mpumalanga</option>
+                        <option value="Northern Cape">Northern Cape</option>
+                        <option value="North West">North West</option>
+                        <option value="Western Cape">Western Cape</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Postal Code</label>
+                      <input
+                        type="text"
+                        value={formData.postal_code}
+                        onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Country</label>
+                      <input
+                        type="text"
+                        value={formData.country}
+                        onChange={(e) => safeSetFormData({ ...formData, country: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Main User toggle ── */}
+                <div className="col-span-2 pt-2">
                   <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${mainUserIsIndividual ? 'bg-green-50 border-green-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}>
                     <input
                       type="checkbox"
@@ -677,6 +764,94 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                       <p className="text-xs text-gray-500">Tick this if the individual signing up will be the system login and the bank account holder</p>
                     </div>
                   </label>
+                </div>
+
+                {/* ── Main User / Login Details ── */}
+                <div className="col-span-2 pt-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-sm font-semibold text-gray-800">Main User &amp; Login Details</h4>
+                    {mainUserIsIndividual && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                        <User className="w-3 h-3" />
+                        Linked to Individual
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={mainUser.name}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, name: e.target.value.toUpperCase() })}
+                        readOnly={mainUserIsIndividual}
+                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Surname <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={mainUser.surname}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, surname: e.target.value.toUpperCase() })}
+                        readOnly={mainUserIsIndividual}
+                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={mainUser.email}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, email: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Password <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={mainUser.password}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, password: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Office Number</label>
+                      <input
+                        type="text"
+                        value={mainUser.phone_office}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, phone_office: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Number</label>
+                      <input
+                        type="text"
+                        value={mainUser.phone_mobile}
+                        onChange={(e) => safeSetMainUser({ ...mainUser, phone_mobile: e.target.value })}
+                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-xs text-blue-900 font-medium">
+                        The main user has full access to all features including fleet management, fuel transactions, reports, and user administration.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* ── Bank Account Details ── */}
@@ -770,94 +945,6 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                     </div>
                   </div>
                 </div>
-
-                {/* ── Main User / Login Details ── */}
-                <div className="col-span-2 pt-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="text-sm font-semibold text-gray-800">Main User &amp; Login Details</h4>
-                    {mainUserIsIndividual && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
-                        <User className="w-3 h-3" />
-                        Linked to Individual
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={mainUser.name}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, name: e.target.value.toUpperCase() })}
-                        readOnly={mainUserIsIndividual}
-                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Surname <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={mainUser.surname}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, surname: e.target.value.toUpperCase() })}
-                        readOnly={mainUserIsIndividual}
-                        className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Email <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={mainUser.email}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, email: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                        Password <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        value={mainUser.password}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, password: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Office Number</label>
-                      <input
-                        type="text"
-                        value={mainUser.phone_office}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, phone_office: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Number</label>
-                      <input
-                        type="text"
-                        value={mainUser.phone_mobile}
-                        onChange={(e) => safeSetMainUser({ ...mainUser, phone_mobile: e.target.value })}
-                        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div className="col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-xs text-blue-900 font-medium">
-                        The main user has full access to all features including fleet management, fuel transactions, reports, and user administration.
-                      </p>
-                    </div>
-                  </div>
-                </div>
               </>
             ) : (
               <div>
@@ -940,28 +1027,13 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 </div>
               </>
             ) : (
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                  ID Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.company_registration_number}
-                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="e.g., 8001015009087"
-                  maxLength={13}
-                />
-              </div>
+              null
             )}
           </div>
         </div>
 
-        <div className="border-t pt-3">
-          <h3 className="text-base font-semibold text-gray-900 mb-2">
-            {accountType === 'organization' ? 'Organization Address' : 'Address'}
-          </h3>
+        {accountType === 'organization' && <div className="border-t pt-3">
+          <h3 className="text-base font-semibold text-gray-900 mb-2">Organization Address</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 1</label>
@@ -1028,7 +1100,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               />
             </div>
           </div>
-        </div>
+        </div>}
 
         <div className="border-t pt-3">
           <h3 className="text-base font-semibold text-gray-900 mb-2">Payment Configuration</h3>
