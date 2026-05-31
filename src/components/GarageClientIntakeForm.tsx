@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X } from 'lucide-react';
 
-export type IntakeFormType = 'organisation' | 'individual' | 'individual-card';
+export type IntakeFormType = 'organisation' | 'organisation-card' | 'individual' | 'individual-card';
 
 interface GarageClientIntakeFormProps {
   garageName?: string;
@@ -56,13 +56,13 @@ export default function GarageClientIntakeForm({ garageName, formType = 'organis
 
   const handlePrint = () => window.print();
 
-  const Form = formType === 'individual' ? IndividualPrintableForm : formType === 'individual-card' ? IndividualCardPrintableForm : OrgPrintableForm;
+  const Form = formType === 'individual' ? IndividualPrintableForm : formType === 'individual-card' ? IndividualCardPrintableForm : formType === 'organisation-card' ? OrgCardPrintableForm : OrgPrintableForm;
 
   const printPortal = portalRoot
     ? createPortal(<Form garageName={garageName} />, portalRoot)
     : null;
 
-  const title = formType === 'individual' ? 'Individual Local Account Setup Form' : formType === 'individual-card' ? 'Individual Card Payment Setup Form' : 'Organisation Client Setup Form';
+  const title = formType === 'individual' ? 'Individual Local Account Setup Form' : formType === 'individual-card' ? 'Individual Card Payment Setup Form' : formType === 'organisation-card' ? 'Organisation Card Payment Setup Form' : 'Organisation Local Account Setup Form';
 
   return (
     <>
@@ -341,7 +341,7 @@ function SigBlock({ label, short }: { label: string; short?: boolean }) {
 function Footer({ today, page, pages }: { today: string; page: number; pages: number }) {
   return (
     <div style={{ marginTop: '6px', borderTop: '0.5px solid #e5e7eb', paddingTop: '3px', display: 'flex', justifyContent: 'space-between', fontSize: '6.5pt', color: '#9ca3af' }}>
-      <span>MyFuelApp — Local Account Client Setup Form</span>
+      <span>MyFuelApp — Client Setup Form</span>
       <span>Page {page} of {pages} — Confidential</span>
       <span>{today}</span>
     </div>
@@ -771,6 +771,176 @@ function IndividualCardPrintableForm({ garageName }: { garageName?: string }) {
         <TemplateNote>Up to 2 authorised drivers. Photocopy this page if you have more than 2 drivers.</TemplateNote>
         <Footer today={today} page={2} pages={2} />
       </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ORGANISATION — CARD PAYMENT FORM (3 pages)
+// ══════════════════════════════════════════════════════════════════════════════
+
+function OrgCardPrintableForm({ garageName }: { garageName?: string }) {
+  const today = new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' });
+  const pageStyle: React.CSSProperties = {
+    fontFamily: 'Arial, Helvetica, sans-serif',
+    fontSize: '8.5pt',
+    color: '#111',
+    lineHeight: '1.3',
+    width: '100%',
+  };
+
+  return (
+    <div style={pageStyle}>
+
+      {/* PAGE 1 — Org / Contact / Login / Bank Account / Declaration */}
+      <div style={{ padding: '3mm 2mm', pageBreakAfter: 'always' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '5px', borderBottom: '2.5px solid #0d9488', marginBottom: '7px' }}>
+          <img src="/MyFuelApp_logo.png" alt="MyFuelApp" style={{ height: '36px', width: 'auto' }} />
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '13pt', fontWeight: 'bold', color: '#0d9488', letterSpacing: '0.2px' }}>
+              CARD PAYMENT — ORGANISATION SETUP FORM
+            </div>
+            <div style={{ fontSize: '8px', color: '#555', marginTop: '1px' }}>
+              Organisation signs up directly — fuel paid by Credit/Debit Card via PIN + NFC
+            </div>
+            <div style={{ fontSize: '7.5px', color: '#9ca3af', marginTop: '1px' }}>Date: {today}</div>
+          </div>
+        </div>
+
+        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '3px', padding: '3px 8px', marginBottom: '6px', fontSize: '8pt', color: '#166534' }}>
+          <strong>Instructions:</strong> Complete all fields marked <span style={{ color: '#dc2626' }}>*</span>. Use block letters.
+        </div>
+
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '3px', padding: '4px 8px', marginBottom: '8px', fontSize: '7.5pt', color: '#1e40af' }}>
+          <strong>Note:</strong> The person completing this form will be the <strong>Main User</strong> and <strong>Billing User</strong> by default. These roles can be changed by logging in to the <strong>Client Portal</strong> and selecting <strong>Client User Management</strong>.
+        </div>
+
+        <Section number="1" title="Organisation Details" subtitle="Legal entity information">
+          <Grid cols={2}>
+            <F label="Organisation / Trading Name" required wide />
+            <F label="Entity Type" hint="Pty Ltd / CC / Sole Prop / Trust / Other" />
+            <F label="Company Registration Number" hint="e.g. 2020/123456/07" />
+            <F label="VAT Registration Number" hint="e.g. 4123456789" />
+            <F label="Telephone / Office Number" />
+            <F label="Website" hint="Optional" />
+          </Grid>
+          <Divider label="Registered / Physical Address" />
+          <Grid cols={4}>
+            <F label="Address Line 1" required wide />
+            <F label="City / Town" required />
+            <F label="Postal Code" />
+          </Grid>
+          <Grid cols={4} style={{ marginTop: '4px' }}>
+            <F label="Address Line 2" wide />
+            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div style={labelStyle}>Province <span style={{ color: '#dc2626' }}>*</span></div>
+              <Row>
+                {['Eastern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpumalanga','N. Cape','North West','Western Cape'].map(p => (
+                  <CB key={p} label={p} />
+                ))}
+              </Row>
+            </div>
+          </Grid>
+        </Section>
+
+        <Section number="2" title="Main Contact Person &amp; Login Details" subtitle="Will be Main User and Billing User by default">
+          <Grid cols={3}>
+            <F label="First Name" required />
+            <F label="Surname" required />
+            <F label="Job Title / Position" />
+            <F label="Email Address" required hint="Client Portal login" />
+            <F label="Password" required hint="Min 6 characters" />
+            <F label="Confirm Password" required />
+            <F label="Mobile Number" required />
+            <F label="Office / Direct Number" />
+          </Grid>
+        </Section>
+
+        <Section number="3" title="Bank Account Details" subtitle="For monthly management fee debit order">
+          <Note>Monthly vehicle and driver management fees are collected via debit order against this account.</Note>
+          <div style={{ marginTop: '6px' }}>
+            <Grid cols={4}>
+              <div style={{ gridColumn: 'span 2' }}>
+                <div style={labelStyle}>Bank Name <span style={{ color: '#dc2626' }}>*</span></div>
+                <Row>
+                  {['Absa','African Bank','Capitec','Discovery','FNB','Investec','Nedbank','Standard Bank','Tyme Bank','Other'].map(b => (
+                    <CB key={b} label={b} />
+                  ))}
+                </Row>
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <div style={labelStyle}>Account Type <span style={{ color: '#dc2626' }}>*</span></div>
+                <Row>
+                  <CB label="Current / Cheque" />
+                  <CB label="Savings" />
+                  <CB label="Transmission" />
+                </Row>
+              </div>
+              <F label="Account Holder Name" required wide hint="As it appears on the account" />
+              <F label="Account Number" required />
+              <F label="Branch Code" required hint="e.g. 250655" />
+            </Grid>
+          </div>
+        </Section>
+
+        <Section number="4" title="Declaration &amp; Signature">
+          <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
+            I, the undersigned, on behalf of the organisation named above, confirm that the information provided is accurate and complete. I authorise Fuel Empowerment Systems (Pty) Ltd to raise a monthly debit order against the registered bank account for vehicle and driver management fees. I understand that card details and account information can be managed via the Client Portal and that I am designated as the Main User and Billing User by default, which may be changed via Client User Management.
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
+            <SigBlock label="Signature — Authorised Signatory" />
+            <SigBlock label="Date" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px' }}>
+            <SigBlock label="Print Name" short />
+            <SigBlock label="Capacity / Title" short />
+            <SigBlock label="Company Stamp (if applicable)" short />
+            <SigBlock label="Date" short />
+          </div>
+        </Section>
+
+        <Footer today={today} page={1} pages={3} />
+      </div>
+
+      {/* PAGE 2 — Vehicles */}
+      <div style={{ pageBreakBefore: 'always', pageBreakAfter: 'always', padding: '3mm 2mm' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '4px', borderBottom: '2px solid #0d9488', marginBottom: '6px' }}>
+          <img src="/MyFuelApp_logo.png" alt="MyFuelApp" style={{ height: '28px', width: 'auto' }} />
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '10pt', fontWeight: 'bold', color: '#0d9488' }}>CARD PAYMENT — ORGANISATION SETUP FORM</div>
+            <div style={{ fontSize: '7.5px', color: '#555' }}>Vehicles — Page 2 of 3</div>
+          </div>
+        </div>
+        <Section number="5" title="Vehicles" subtitle="Complete one block per vehicle. Photocopy this page for additional vehicles.">
+          <TemplateNote>Template — one block per vehicle. Photocopy this page if you have more than 5 vehicles.</TemplateNote>
+          <VehicleBlock index={1} />
+          <VehicleBlock index={2} />
+          <VehicleBlock index={3} />
+          <VehicleBlock index={4} />
+          <VehicleBlock index={5} />
+        </Section>
+        <Footer today={today} page={2} pages={3} />
+      </div>
+
+      {/* PAGE 3 — Drivers */}
+      <div style={{ pageBreakBefore: 'always', padding: '3mm 2mm' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '4px', borderBottom: '2px solid #0d9488', marginBottom: '6px' }}>
+          <img src="/MyFuelApp_logo.png" alt="MyFuelApp" style={{ height: '28px', width: 'auto' }} />
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '10pt', fontWeight: 'bold', color: '#0d9488' }}>CARD PAYMENT — ORGANISATION SETUP FORM</div>
+            <div style={{ fontSize: '7.5px', color: '#555' }}>Drivers — Page 3 of 3</div>
+          </div>
+        </div>
+        <Section number="6" title="Drivers" subtitle="Complete one block per driver. Photocopy this page for additional drivers.">
+          <TemplateNote>Template — one block per driver. Photocopy this page if you have more than 4 drivers.</TemplateNote>
+          <DriverBlock index={1} />
+          <DriverBlock index={2} />
+          <DriverBlock index={3} />
+          <DriverBlock index={4} />
+        </Section>
+        <Footer today={today} page={3} pages={3} />
+      </div>
+
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, Save, AlertCircle, CheckCircle, Copy, Printer, User, CreditCard } from 'lucide-react';
 import GarageClientIntakeForm, { IntakeFormType } from './GarageClientIntakeForm';
+import { Building2, Save, AlertCircle, CheckCircle, Copy, Printer, User, CreditCard } from 'lucide-react';
 
 interface CreateClientOrganizationProps {
   onNavigate?: (view: string) => void;
@@ -17,6 +17,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
   const [step, setStep] = useState<'type-selection' | 'details'>('type-selection');
   const [accountType, setAccountType] = useState<'organization' | 'individual' | null>(null);
   const [individualPaymentType, setIndividualPaymentType] = useState<'local-account' | 'card-payment' | null>(null);
+  const [organizationPaymentType, setOrganizationPaymentType] = useState<'local-account' | 'card-payment' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -458,30 +459,102 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Organisation card */}
                 <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => {
-                      setAccountType('organization');
-                      setStep('details');
-                    }}
-                    className="flex-1 p-6 border-2 border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group"
-                  >
-                    <div className="flex flex-col items-center text-center">
-                      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-green-200 transition-colors">
-                        <Building2 className="w-8 h-8 text-green-600" />
+                  {publicMode ? (
+                    <>
+                      <div className="text-center">
+                        <h4 className="text-base font-semibold text-gray-900 mb-1">Organization</h4>
+                        <p className="text-xs text-gray-500 mb-3">Select how the organization will pay for fuel</p>
                       </div>
-                      <h4 className="text-lg font-semibold text-gray-900 mb-2">Organization</h4>
-                      <p className="text-sm text-gray-600">
-                        For companies, businesses, or entities with registration numbers and VAT
-                      </p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => { setIntakeFormType('organisation'); setShowIntakeForm(true); }}
-                    className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
-                  >
-                    <Printer className="w-4 h-4" />
-                    Print Organisation Setup Form
-                  </button>
+                      <button
+                        onClick={() => {
+                          setAccountType('organization');
+                          setOrganizationPaymentType('local-account');
+                          setStep('details');
+                        }}
+                        className="p-4 border-2 border-gray-300 rounded-xl hover:border-teal-500 hover:bg-teal-50 transition-all group text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-teal-200 transition-colors">
+                            <Building2 className="w-5 h-5 text-teal-600" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-gray-900">Organization — Local Garage Account</div>
+                            <div className="text-xs text-gray-500 mt-0.5">Garage manages the account. Organization pays via a local fuel account.</div>
+                          </div>
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAccountType('organization');
+                          setOrganizationPaymentType('card-payment');
+                          setStep('details');
+                        }}
+                        className="p-4 border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
+                            <CreditCard className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-gray-900">Organization — Pay by Card</div>
+                            <div className="text-xs text-gray-500 mt-0.5">Organization signs up directly. Drivers pay via Credit/Debit Card using PIN + NFC.</div>
+                          </div>
+                        </div>
+                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setIntakeFormType('organisation'); setShowIntakeForm(true); }}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
+                        >
+                          <Printer className="w-4 h-4" />
+                          Print Local Account Form
+                        </button>
+                        <button
+                          onClick={() => { setIntakeFormType('organisation-card'); setShowIntakeForm(true); }}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          <Printer className="w-4 h-4" />
+                          Print Card Payment Form
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => {
+                          setAccountType('organization');
+                          setStep('details');
+                        }}
+                        className="flex-1 p-6 border-2 border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all group"
+                      >
+                        <div className="flex flex-col items-center text-center">
+                          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-green-200 transition-colors">
+                            <Building2 className="w-8 h-8 text-green-600" />
+                          </div>
+                          <h4 className="text-lg font-semibold text-gray-900 mb-2">Organization</h4>
+                          <p className="text-sm text-gray-600">
+                            For companies, businesses, or entities with registration numbers and VAT
+                          </p>
+                        </div>
+                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setIntakeFormType('organisation'); setShowIntakeForm(true); }}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
+                        >
+                          <Printer className="w-4 h-4" />
+                          Print Local Account Form
+                        </button>
+                        <button
+                          onClick={() => { setIntakeFormType('organisation-card'); setShowIntakeForm(true); }}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          <Printer className="w-4 h-4" />
+                          Print Card Payment Form
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Individual — splits into two sub-options in admin mode */}
@@ -599,7 +672,9 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
             <Building2 className="w-5 h-5 text-green-600" />
             <h2 className="text-lg font-semibold text-gray-900">
               {publicMode ? 'New Client Signup' : 'Create New Client'} —{' '}
-              {accountType === 'organization' ? 'Organization' : individualPaymentType === 'card-payment' ? 'Individual (Card Payment)' : 'Individual (Local Account)'}
+              {accountType === 'organization'
+                ? (organizationPaymentType === 'card-payment' ? 'Organization (Card Payment)' : organizationPaymentType === 'local-account' ? 'Organization (Local Account)' : 'Organization')
+                : individualPaymentType === 'card-payment' ? 'Individual (Card Payment)' : 'Individual (Local Account)'}
             </h2>
           </div>
           <div className="flex items-center gap-3">
@@ -609,6 +684,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 setStep('type-selection');
                 setAccountType(null);
                 setIndividualPaymentType(null);
+                setOrganizationPaymentType(null);
               }}
               className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 font-medium"
             >
@@ -1141,6 +1217,13 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
         {/* ORGANIZATION DETAILS */}
         {accountType === 'organization' && (
         <div className="space-y-4">
+          {publicMode && organizationPaymentType === 'card-payment' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-xs text-green-900">
+                <strong>Instructions:</strong> Complete all fields marked <span className="text-red-600 font-bold">*</span>. Use block letters.
+              </p>
+            </div>
+          )}
           <div>
             <h3 className="text-base font-semibold text-gray-900 mb-2">Organization Details</h3>
             <div className="grid grid-cols-2 gap-3">
@@ -1269,6 +1352,135 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
             </div>
           </div>
         </div>
+
+        {/* ORG CARD PAYMENT: Main User login + Bank Details (public mode) */}
+        {publicMode && organizationPaymentType === 'card-payment' && (
+          <>
+            <div className="border-t pt-3">
+              <h3 className="text-base font-semibold text-gray-900 mb-2">Main User &amp; Login Details</h3>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                <p className="text-xs text-blue-900 font-medium mb-1">The person completing this form will be the Main User and Billing User by default.</p>
+                <p className="text-xs text-blue-800">
+                  These roles can be changed after signup by logging in to the <strong>Client Portal</strong> and selecting <strong>Client User Management</strong>.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Name <span className="text-red-500">*</span></label>
+                  <input type="text" required value={mainUser.name}
+                    onChange={(e) => safeSetMainUser({ ...mainUser, name: e.target.value.toUpperCase() })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Surname <span className="text-red-500">*</span></label>
+                  <input type="text" required value={mainUser.surname}
+                    onChange={(e) => safeSetMainUser({ ...mainUser, surname: e.target.value.toUpperCase() })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Email Address <span className="text-red-500">*</span></label>
+                  <input type="email" required value={mainUser.email}
+                    onChange={(e) => safeSetMainUser({ ...mainUser, email: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Used to sign in to the Client Portal"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Password <span className="text-red-500">*</span></label>
+                  <input type="password" required value={mainUser.password}
+                    onChange={(e) => safeSetMainUser({ ...mainUser, password: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Minimum 6 characters"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Number</label>
+                  <input type="text" value={mainUser.phone_mobile}
+                    onChange={(e) => safeSetMainUser({ ...mainUser, phone_mobile: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Office Number</label>
+                  <input type="text" value={mainUser.phone_office}
+                    onChange={(e) => safeSetMainUser({ ...mainUser, phone_office: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="border-t pt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-base font-semibold text-gray-900">Bank Account Details</h3>
+                <span className="text-xs text-red-500 font-medium">Required for debit order</span>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-3">
+                <p className="text-xs text-amber-900">
+                  Monthly vehicle and driver management fees are collected via debit order. Provide the organisation's bank account details below.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Bank <span className="text-red-500">*</span></label>
+                  <select value={clientBankDetails.bank_name}
+                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_name: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">-- Select Bank --</option>
+                    <option value="Absa">Absa</option>
+                    <option value="African Bank">African Bank</option>
+                    <option value="Capitec">Capitec</option>
+                    <option value="Discovery Bank">Discovery Bank</option>
+                    <option value="FNB">FNB</option>
+                    <option value="Investec">Investec</option>
+                    <option value="Nedbank">Nedbank</option>
+                    <option value="Standard Bank">Standard Bank</option>
+                    <option value="Tyme Bank">Tyme Bank</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Type <span className="text-red-500">*</span></label>
+                  <select value={clientBankDetails.bank_account_type}
+                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_type: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">-- Select Type --</option>
+                    <option value="Current">Current / Cheque</option>
+                    <option value="Savings">Savings</option>
+                    <option value="Transmission">Transmission</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Holder Name <span className="text-red-500">*</span></label>
+                  <input type="text" value={clientBankDetails.bank_account_holder}
+                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="As it appears on the account"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Number <span className="text-red-500">*</span></label>
+                  <input type="text" value={clientBankDetails.bank_account_number}
+                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Account number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-0.5">Branch Code <span className="text-red-500">*</span></label>
+                  <input type="text" value={clientBankDetails.bank_branch_code}
+                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value })}
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="e.g. 250655"
+                  />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
         </div>
         )}
 
@@ -1279,11 +1491,14 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <label className="block text-xs font-medium text-gray-700 mb-0.5">
                 Fuel Payment Option <span className="text-red-500">*</span>
               </label>
-              {(lockedPaymentOption || (publicMode && accountType === 'individual')) ? (
+              {(lockedPaymentOption || (publicMode && accountType === 'individual') || (publicMode && accountType === 'organization' && organizationPaymentType === 'card-payment')) ? (
                 <div className="w-full px-2.5 py-1.5 text-sm border border-blue-200 rounded-lg bg-blue-50 text-blue-800 flex items-center gap-2">
                   <span className="font-medium">Credit/Debit Card Payment</span>
                   {publicMode && accountType === 'individual' && (
                     <span className="text-xs text-blue-600">— individuals signing up directly always pay by card</span>
+                  )}
+                  {publicMode && accountType === 'organization' && organizationPaymentType === 'card-payment' && (
+                    <span className="text-xs text-blue-600">— selected during signup</span>
                   )}
                 </div>
               ) : (
@@ -1307,7 +1522,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               )}
             </div>
 
-            {(formData.payment_option === 'Card Payment' || (publicMode && accountType === 'individual')) && (
+            {(formData.payment_option === 'Card Payment' || (publicMode && accountType === 'individual') || (publicMode && accountType === 'organization' && organizationPaymentType === 'card-payment')) && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
                 {/* How it works */}
                 <p className="text-xs text-blue-900 font-medium">
@@ -1342,7 +1557,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 </div>
 
                 {/* Direct debit authorisation */}
-                {publicMode && (
+                {publicMode && (accountType === 'individual' || (accountType === 'organization' && organizationPaymentType === 'card-payment')) && (
                   <label className="flex items-start gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1388,7 +1603,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
           </div>
         </div>
 
-        {accountType !== 'individual' && <div className="border-t pt-3">
+        {accountType !== 'individual' && !(publicMode && accountType === 'organization' && organizationPaymentType === 'card-payment') && <div className="border-t pt-3">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-base font-semibold text-gray-900">Main User &amp; Contact Person</h3>
           </div>
@@ -1467,7 +1682,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
           </div>
         </div>}
 
-        {!(publicMode && accountType === 'individual') && <div className="border-t pt-3">
+        {!(publicMode && accountType === 'individual') && !(publicMode && accountType === 'organization' && organizationPaymentType === 'card-payment') && <div className="border-t pt-3">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-base font-semibold text-gray-900">Billing User</h3>
             <button
@@ -1736,7 +1951,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
           </div>
         </div>}
 
-        {managingGarageId && !(publicMode && accountType === 'individual') && (
+        {managingGarageId && !(publicMode && accountType === 'individual') && !(publicMode && accountType === 'organization' && organizationPaymentType === 'card-payment') && (
           <div className="border-t pt-3">
             <h3 className="text-base font-semibold text-gray-900 mb-2">Garage Account</h3>
             <div>
