@@ -61,7 +61,7 @@ export default function Auth({ onBack, onSignup, onPasswordReset, portalError, p
         <div className="bg-blue-600 text-white p-6 text-center">
           <div className="flex items-center justify-center gap-3 mb-2">
             <Fuel className="w-10 h-10" />
-            <h1 className="text-2xl font-bold">FleetFuel</h1>
+            <h1 className="text-2xl font-bold">MyFuelApp</h1>
           </div>
           <p className="text-blue-100 text-sm">{portalLabel ?? 'Mobile Fuel Management'}</p>
         </div>

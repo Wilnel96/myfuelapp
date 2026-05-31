@@ -650,7 +650,7 @@ function App() {
             <div className="text-center mb-3">
               <div className="flex items-center justify-center gap-2 mb-1">
                 <Fuel className="w-7 h-7 text-blue-600" />
-                <h1 className="text-xl font-bold text-gray-900">FleetFuel</h1>
+                <h1 className="text-xl font-bold text-gray-900">MyFuelApp</h1>
               </div>
               <p className="text-blue-600 text-xs">Mobile Fuel Management</p>
             </div>
@@ -885,10 +885,10 @@ function App() {
                 {userRole === 'super_admin' ? (
                   <>
                     <div className="text-sm font-semibold text-gray-700">Fuel Empowerment Systems (Pty) Ltd</div>
-                    <h1 className="text-lg font-bold text-gray-900">FleetFuel System</h1>
+                    <h1 className="text-lg font-bold text-gray-900">MyFuelApp</h1>
                   </>
                 ) : (
-                  <h1 className="text-xl font-bold text-gray-900 text-left">FleetFuel</h1>
+                  <h1 className="text-xl font-bold text-gray-900 text-left">MyFuelApp</h1>
                 )}
               </div>
             </button>
@@ -923,10 +923,10 @@ function App() {
                 {userRole === 'super_admin' ? (
                   <>
                     <div className="text-sm font-semibold text-gray-700">Fuel Empowerment Systems (Pty) Ltd</div>
-                    <h1 className="text-lg font-bold text-gray-900">FleetFuel System</h1>
+                    <h1 className="text-lg font-bold text-gray-900">MyFuelApp</h1>
                   </>
                 ) : (
-                  <h1 className="text-xl font-bold text-gray-900">FleetFuel</h1>
+                  <h1 className="text-xl font-bold text-gray-900">MyFuelApp</h1>
                 )}
               </div>
             </div>

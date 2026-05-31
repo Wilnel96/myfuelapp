@@ -267,7 +267,7 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Registration Submitted!</h2>
           <p className="text-gray-600 mb-6">
-            Your garage registration has been submitted successfully. Your account is pending approval from the FleetFuel admin team. You will be notified once your account is activated.
+            Your garage registration has been submitted successfully. Your account is pending approval from the MyFuelApp admin team. You will be notified once your account is activated.
           </p>
           <button
             onClick={onBack}
@@ -297,9 +297,9 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
           <div className="bg-orange-600 p-4 rounded-full mb-4">
             <Store className="w-12 h-12 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">Join FleetFuel</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Join MyFuelApp</h1>
           <p className="text-gray-600 mt-2 text-center">
-            Register your garage to accept FleetFuel payments
+            Register your garage to accept MyFuelApp payments
           </p>
         </div>
 

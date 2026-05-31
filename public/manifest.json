@@ -1,6 +1,6 @@
 {
-  "name": "Fleet Fuel Management",
-  "short_name": "Fleet Fuel",
+  "name": "MyFuelApp",
+  "short_name": "MyFuelApp",
   "description": "Fleet fuel management and mobile fuel purchase application",
   "start_url": "/",
   "display": "standalone",
