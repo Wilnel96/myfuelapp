@@ -711,6 +711,22 @@ function App() {
 
             <button
               onClick={() => {
+                setShowModeSelection(false);
+                setShowPublicSignup(true);
+              }}
+              className="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white py-3 px-4 rounded-lg font-semibold hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg"
+            >
+              <div className="flex items-center gap-3">
+                <UserPlus className="w-6 h-6" />
+                <div className="text-left flex-1">
+                  <div className="font-bold">New Client Signup</div>
+                  <div className="text-xs text-teal-100">Create your own account</div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
                 setUserMode('admin');
                 setLoginPortalWithRef('system_admin');
                 setPortalError('');
@@ -723,22 +739,6 @@ function App() {
                 <div className="text-left flex-1">
                   <div className="font-bold">System Admin</div>
                   <div className="text-xs text-gray-300">For management company</div>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => {
-                setShowModeSelection(false);
-                setShowPublicSignup(true);
-              }}
-              className="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white py-3 px-4 rounded-lg font-semibold hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg"
-            >
-              <div className="flex items-center gap-3">
-                <UserPlus className="w-6 h-6" />
-                <div className="text-left flex-1">
-                  <div className="font-bold">New Client Signup</div>
-                  <div className="text-xs text-teal-100">Create a new organization account</div>
                 </div>
               </div>
             </button>
