@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Fuel, AlertCircle } from 'lucide-react';
+import { Fuel, AlertCircle, ArrowLeft } from 'lucide-react';
 
 interface DriverAuthProps {
   onLogin: (driverData: DriverData) => void;
@@ -121,6 +121,16 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
         </div>
 
         <form onSubmit={handleLogin} className="p-6 space-y-4">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 mb-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Login Selection
+            </button>
+          )}
           <h2 className="text-xl font-semibold text-gray-900 text-center mb-6">
             Driver Login
           </h2>
@@ -195,14 +205,6 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? 'Please wait...' : 'Sign In'}
-          </button>
-
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-          >
-            Back to Login Selection
           </button>
 
           <div className="mt-4 pt-4 border-t border-gray-200">
