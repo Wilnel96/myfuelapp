@@ -56,6 +56,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
   const [individualName, setIndividualName] = useState('');
   const [individualSurname, setIndividualSurname] = useState('');
   const [mainUserIsIndividual, setMainUserIsIndividual] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [garageAccountNumber, setGarageAccountNumber] = useState('');
   const [debitOrderAuthorised, setDebitOrderAuthorised] = useState(false);
   const [bankDetails, setBankDetails] = useState({
@@ -242,7 +243,9 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
       monthly_fee_per_driver: formData.monthly_fee_per_driver,
       entity_type: accountType === 'individual' ? 'Individual' : (formData.entity_type || null),
       entity_type_other: (accountType === 'organization' && formData.entity_type === 'Other') ? formData.entity_type_other.trim() || null : null,
-      payment_option: (publicMode && accountType === 'individual') ? 'Card Payment' : (formData.payment_option || null),
+      payment_option: (publicMode && accountType === 'individual')
+        ? (individualPaymentType === 'local-account' ? 'Local Account' : 'Card Payment')
+        : (formData.payment_option || null),
       fuel_payment_terms: formData.fuel_payment_terms || null,
       fuel_payment_interest_rate: formData.fuel_payment_interest_rate || null,
       daily_spending_limit: formData.daily_spending_limit || null,
@@ -319,11 +322,20 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
       if (accountType === 'individual') {
         const fullName = `${individualName.trim()} ${individualSurname.trim()}`.trim();
         if (!fullName) throw new Error('Name and Surname are required');
-        if (!clientBankDetails.bank_name) throw new Error('Please select a bank for the debit order');
-        if (!clientBankDetails.bank_account_holder.trim()) throw new Error('Account holder name is required');
-        if (!clientBankDetails.bank_account_number.trim()) throw new Error('Account number is required');
-        if (!clientBankDetails.bank_branch_code.trim()) throw new Error('Branch code is required');
-        if (!clientBankDetails.bank_account_type) throw new Error('Please select an account type');
+        // Bank details only required for card payment individuals (used for debit order)
+        if (individualPaymentType !== 'local-account') {
+          if (!clientBankDetails.bank_name) throw new Error('Please select a bank for the debit order');
+          if (!clientBankDetails.bank_account_holder.trim()) throw new Error('Account holder name is required');
+          if (!clientBankDetails.bank_account_number.trim()) throw new Error('Account number is required');
+          if (!clientBankDetails.bank_branch_code.trim()) throw new Error('Branch code is required');
+          if (!clientBankDetails.bank_account_type) throw new Error('Please select an account type');
+        }
+        // For public local-account individuals, validate confirm password
+        if (publicMode && individualPaymentType === 'local-account') {
+          if (!mainUser.email.trim()) throw new Error('Email address is required');
+          if (!mainUser.password) throw new Error('Password is required');
+          if (mainUser.password !== confirmPassword) throw new Error('Passwords do not match');
+        }
       }
       if (accountType === 'organization') {
         if (!formData.entity_type) throw new Error('Please select an entity type');
@@ -332,8 +344,9 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
         }
       }
 
-      // Require debit order authorisation in public signup for card payment accounts
-      if (publicMode && (formData.payment_option === 'Card Payment' || accountType === 'individual')) {
+      // Require debit order authorisation in public signup for card payment accounts (not local-account individuals)
+      const isLocalAccountIndividual = accountType === 'individual' && individualPaymentType === 'local-account';
+      if (publicMode && !isLocalAccountIndividual && (formData.payment_option === 'Card Payment' || accountType === 'individual')) {
         if (!debitOrderAuthorised) {
           throw new Error('Please authorise the debit order for monthly management fees before continuing.');
         }
@@ -557,36 +570,65 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                   )}
                 </div>
 
-                {/* Individual — splits into two sub-options in admin mode */}
+                {/* Individual — splits into two sub-options in both public and admin mode */}
                 {publicMode ? (
                   <div className="flex flex-col gap-3">
+                    <div className="text-center">
+                      <h4 className="text-base font-semibold text-gray-900 mb-1">Individual</h4>
+                      <p className="text-xs text-gray-500 mb-3">Select how the individual will pay for fuel</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAccountType('individual');
+                        setIndividualPaymentType('local-account');
+                        setStep('details');
+                      }}
+                      className="p-4 border-2 border-gray-300 rounded-xl hover:border-teal-500 hover:bg-teal-50 transition-all group text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-teal-200 transition-colors">
+                          <Building2 className="w-5 h-5 text-teal-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">Individual — Local Account</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Register with a garage. The garage sets up your account number, deposit and spending limit.</div>
+                        </div>
+                      </div>
+                    </button>
                     <button
                       onClick={() => {
                         setAccountType('individual');
                         setIndividualPaymentType('card-payment');
                         setStep('details');
                       }}
-                      className="flex-1 p-6 border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group"
+                      className="p-4 border-2 border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all group text-left"
                     >
-                      <div className="flex flex-col items-center text-center">
-                        <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
-                          <User className="w-8 h-8 text-blue-600" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
+                          <CreditCard className="w-5 h-5 text-blue-600" />
                         </div>
-                        <h4 className="text-lg font-semibold text-gray-900 mb-2">Individual</h4>
-                        <p className="text-sm text-gray-600">Personal account — pays by Credit/Debit Card</p>
-                        <div className="mt-3 flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
-                          <CreditCard className="w-3.5 h-3.5 flex-shrink-0" />
-                          Pays by Credit/Debit Card
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">Individual — Card Payment</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Pays for fuel directly via Credit/Debit card using PIN + NFC at garages.</div>
                         </div>
                       </div>
                     </button>
-                    <button
-                      onClick={() => { setIntakeFormType('individual-card'); setShowIntakeForm(true); }}
-                      className="flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      <Printer className="w-4 h-4" />
-                      Print Individual Signup Form
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setIntakeFormType('individual'); setShowIntakeForm(true); }}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
+                      >
+                        <Printer className="w-4 h-4" />
+                        Print Local Account Form
+                      </button>
+                      <button
+                        onClick={() => { setIntakeFormType('individual-card'); setShowIntakeForm(true); }}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        <Printer className="w-4 h-4" />
+                        Print Card Payment Form
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
@@ -954,8 +996,176 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
         </div>
         )}
 
-        {/* INDIVIDUAL — LOCAL ACCOUNT */}
-        {accountType === 'individual' && individualPaymentType === 'local-account' && (
+        {/* INDIVIDUAL — LOCAL ACCOUNT (Public self-signup) */}
+        {publicMode && accountType === 'individual' && individualPaymentType === 'local-account' && (
+        <div className="space-y-4">
+          <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+            <p className="text-xs text-teal-900">
+              <strong>Garage Local Account:</strong> Complete your personal details below and create a login. The garage will set up your account number, deposit required, and spending limit.
+            </p>
+          </div>
+
+          {/* Personal Details */}
+          <div>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Personal Details</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Name <span className="text-red-500">*</span></label>
+                <input type="text" required value={individualName}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    setIndividualName(val);
+                    safeSetMainUser((prev: any) => ({ ...prev, name: val }));
+                  }}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent uppercase"
+                  placeholder="E.G., JOHN"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Surname <span className="text-red-500">*</span></label>
+                <input type="text" required value={individualSurname}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    setIndividualSurname(val);
+                    safeSetMainUser((prev: any) => ({ ...prev, surname: val }));
+                  }}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent uppercase"
+                  placeholder="E.G., SMITH"
+                />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">SA ID Number</label>
+                <input type="text" maxLength={13} value={formData.company_registration_number}
+                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  placeholder="e.g., 8001015009087"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Number</label>
+                <input type="text" value={mainUser.phone_mobile}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, phone_mobile: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  placeholder="e.g., 082 555 1234"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Office / Other Number</label>
+                <input type="text" value={mainUser.phone_office}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, phone_office: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  placeholder="e.g., 021 555 1234"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Address */}
+          <div className="border-t pt-3">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Address</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 1</label>
+                <input type="text" value={formData.address_line_1}
+                  onChange={(e) => safeSetFormData({ ...formData, address_line_1: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Address Line 2</label>
+                <input type="text" value={formData.address_line_2}
+                  onChange={(e) => safeSetFormData({ ...formData, address_line_2: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">City</label>
+                <input type="text" value={formData.city}
+                  onChange={(e) => safeSetFormData({ ...formData, city: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent uppercase"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Province</label>
+                <select value={formData.province} onChange={(e) => safeSetFormData({ ...formData, province: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                >
+                  <option value="">-- Select Province --</option>
+                  <option value="Eastern Cape">Eastern Cape</option>
+                  <option value="Free State">Free State</option>
+                  <option value="Gauteng">Gauteng</option>
+                  <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                  <option value="Limpopo">Limpopo</option>
+                  <option value="Mpumalanga">Mpumalanga</option>
+                  <option value="Northern Cape">Northern Cape</option>
+                  <option value="North West">North West</option>
+                  <option value="Western Cape">Western Cape</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Postal Code</label>
+                <input type="text" value={formData.postal_code}
+                  onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Country</label>
+                <input type="text" value={formData.country}
+                  onChange={(e) => safeSetFormData({ ...formData, country: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Login Details */}
+          <div className="border-t pt-3">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Login Details</h3>
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-2.5 mb-3">
+              <p className="text-xs text-teal-900">Create your account login. You will use these credentials to access the MyFuelApp client portal.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Email Address <span className="text-red-500">*</span></label>
+                <input type="email" required value={mainUser.email}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, email: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  placeholder="your@email.com"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Password <span className="text-red-500">*</span></label>
+                <input type="password" required value={mainUser.password}
+                  onChange={(e) => safeSetMainUser({ ...mainUser, password: e.target.value })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  placeholder="Min 6 characters"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Confirm Password <span className="text-red-500">*</span></label>
+                <input type="password" required value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent ${confirmPassword && confirmPassword !== mainUser.password ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
+                  placeholder="Re-enter password"
+                />
+                {confirmPassword && confirmPassword !== mainUser.password && (
+                  <p className="text-xs text-red-600 mt-0.5">Passwords do not match</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs text-amber-900">
+              <strong>Next step:</strong> After registering, present yourself at the garage. They will assign your account number, set the deposit required, and configure your spending limit.
+            </p>
+          </div>
+        </div>
+        )}
+
+        {/* INDIVIDUAL — LOCAL ACCOUNT (Admin mode) */}
+        {!publicMode && accountType === 'individual' && individualPaymentType === 'local-account' && (
         <div className="space-y-4">
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
             <p className="text-xs text-green-900">
