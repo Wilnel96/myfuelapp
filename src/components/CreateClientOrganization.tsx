@@ -336,6 +336,12 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
           if (!mainUser.password) throw new Error('Password is required');
           if (mainUser.password !== confirmPassword) throw new Error('Passwords do not match');
         }
+        if (publicMode && individualPaymentType === 'card-payment') {
+          if (!mainUser.email.trim()) throw new Error('Email address is required');
+          if (!mainUser.password) throw new Error('Password is required');
+          if (mainUser.password.length < 6) throw new Error('Password must be at least 6 characters');
+          if (mainUser.password !== confirmPassword) throw new Error('Passwords do not match');
+        }
       }
       if (accountType === 'organization') {
         if (!formData.entity_type) throw new Error('Please select an entity type');
@@ -922,6 +928,19 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                   placeholder="Minimum 6 characters"
                 />
               </div>
+              {publicMode && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Confirm Password <span className="text-red-500">*</span></label>
+                <input type="password" required value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${confirmPassword && confirmPassword !== mainUser.password ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
+                  placeholder="Re-enter password"
+                />
+                {confirmPassword && confirmPassword !== mainUser.password && (
+                  <p className="text-xs text-red-600 mt-0.5">Passwords do not match</p>
+                )}
+              </div>
+              )}
             </div>
           </div>
           <div className="border-t pt-3">
