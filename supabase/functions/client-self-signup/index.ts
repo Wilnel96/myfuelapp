@@ -86,6 +86,14 @@ Deno.serve(async (req: Request) => {
     if (!organization?.name) throw new Error('Organization name is required');
     if (!users || users.length === 0) throw new Error('At least one user is required');
 
+    // Validate all users have required fields before doing any work
+    for (const userData of users) {
+      if (!userData.email || !userData.email.trim()) throw new Error('Email address is required');
+      if (!userData.password || userData.password.length < 6) throw new Error('Password must be at least 6 characters');
+      if (!userData.name || !userData.name.trim()) throw new Error('Name is required');
+      if (!userData.surname || !userData.surname.trim()) throw new Error('Surname is required');
+    }
+
     // Check for duplicate org name
     const { data: existing } = await supabase
       .from('organizations')
