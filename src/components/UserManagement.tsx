@@ -46,10 +46,11 @@ interface OrganizationUser {
 
 interface UserManagementProps {
   managementMode?: boolean;
+  clientSelfMode?: boolean;
   onNavigate?: (view: string) => void;
 }
 
-export default function UserManagement({ managementMode = false, onNavigate }: UserManagementProps) {
+export default function UserManagement({ managementMode = false, clientSelfMode = false, onNavigate }: UserManagementProps) {
   const [users, setUsers] = useState<OrganizationUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -71,6 +72,7 @@ export default function UserManagement({ managementMode = false, onNavigate }: U
   const [demotingUserId, setDemotingUserId] = useState<string | null>(null);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [currentOrgName, setCurrentOrgName] = useState<string>('');
+  const [currentOrgEntityType, setCurrentOrgEntityType] = useState<string | null>(null);
   const [clientOrganizations, setClientOrganizations] = useState<Organization[]>([]);
   const [demoteForm, setDemoteForm] = useState({
     title: 'User',
@@ -357,7 +359,7 @@ export default function UserManagement({ managementMode = false, onNavigate }: U
       } else {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('organization_id, organizations(name)')
+          .select('organization_id, organizations(name, entity_type)')
           .eq('id', user.id)
           .maybeSingle();
 
@@ -366,6 +368,7 @@ export default function UserManagement({ managementMode = false, onNavigate }: U
 
         if (profile.organizations && 'name' in profile.organizations) {
           setCurrentOrgName(profile.organizations.name as string);
+          setCurrentOrgEntityType((profile.organizations as any).entity_type as string | null);
         }
       }
 
@@ -983,7 +986,7 @@ export default function UserManagement({ managementMode = false, onNavigate }: U
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-600" />
             <h2 className="text-lg font-semibold text-gray-900">
-              {showAddForm ? 'Adding New User' : managementMode ? 'Management User Management' : 'Client User Management'}
+              {showAddForm ? 'Adding New User' : managementMode ? 'Management User Management' : clientSelfMode ? 'User Management' : 'Client User Management'}
             </h2>
           </div>
           {showAddForm ? (
@@ -1019,11 +1022,11 @@ export default function UserManagement({ managementMode = false, onNavigate }: U
               )}
               {onNavigate && (
                 <button
-                  onClick={() => onNavigate(managementMode ? 'management-org-menu' : 'client-organizations-menu')}
+                  onClick={() => onNavigate(managementMode ? 'management-org-menu' : clientSelfMode ? 'backoffice' : 'client-organizations-menu')}
                   className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <ArrowLeft className="w-5 h-5" />
-                  {managementMode ? 'Back to Management Organization Info' : 'Back to Client Organization Info'}
+                  {managementMode ? 'Back to Management Organization Info' : clientSelfMode ? 'Back to Back Office' : 'Back to Client Organization Info'}
                 </button>
               )}
             </div>
@@ -2011,7 +2014,14 @@ export default function UserManagement({ managementMode = false, onNavigate }: U
           </div>
         ) : (
           <div className="space-y-2">
-            {users.map((user) => (
+            {(() => {
+              const hasBillingRow = users.some(u => u.title === 'Billing User');
+              const mainUser = users.find(u => u.is_main_user);
+              const showSyntheticBilling =
+                currentOrgEntityType === 'Individual' && !hasBillingRow && !!mainUser;
+              return (
+                <>
+                  {users.map((user) => (
               <div key={user.id} className="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="w-full px-4 py-3 flex items-center justify-between">
                   <button
@@ -2218,6 +2228,19 @@ export default function UserManagement({ managementMode = false, onNavigate }: U
             )}
           </div>
             ))}
+                  {showSyntheticBilling && mainUser && (
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                      <div className="w-full px-4 py-3 flex items-center gap-3">
+                        <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300 rounded">Billing User</span>
+                        <span className="text-sm font-medium text-gray-900">{mainUser.first_name} {mainUser.surname}</span>
+                        <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Same as Main User</span>
+                        <span className="text-xs text-gray-500 ml-1">{mainUser.email}</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
         </div>
