@@ -1080,7 +1080,7 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
                       type="text"
                       required
                       value={formData.first_name}
-                      onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, first_name: e.target.value.toUpperCase() })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -1091,7 +1091,7 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
                       type="text"
                       required
                       value={formData.surname}
-                      onChange={(e) => setFormData({ ...formData, surname: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, surname: e.target.value.toUpperCase() })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -1163,7 +1163,7 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
                   <input
                     type="text"
                     value={formData.address_line_1}
-                    onChange={(e) => setFormData({ ...formData, address_line_1: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, address_line_1: e.target.value.toUpperCase() })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Address line 1"
                   />
@@ -1174,7 +1174,7 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
                   <input
                     type="text"
                     value={formData.address_line_2}
-                    onChange={(e) => setFormData({ ...formData, address_line_2: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, address_line_2: e.target.value.toUpperCase() })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Address line 2 (optional)"
                   />
@@ -1186,7 +1186,7 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
                     <input
                       type="text"
                       value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value.toUpperCase() })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="City"
                     />
@@ -1217,7 +1217,7 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
                     <input
                       type="text"
                       value={formData.postal_code}
-                      onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, postal_code: e.target.value.toUpperCase() })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Postal code"
                     />
@@ -1233,7 +1233,7 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
                       type="text"
                       required
                       value={formData.license_number}
-                      onChange={(e) => setFormData({ ...formData, license_number: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, license_number: e.target.value.toUpperCase() })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
