@@ -240,19 +240,46 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
 
       if (mainUserError) throw mainUserError;
 
-      // Update billing user information in organization_users table
-      const { error: billingUserError } = await supabase
-        .from('organization_users')
-        .update({
-          first_name: editForm.billing_user_name,
-          surname: editForm.billing_user_surname,
-          phone_office: editForm.billing_user_phone_office || null,
-          phone_mobile: editForm.billing_user_phone_mobile || null,
-        })
-        .eq('organization_id', editingId)
-        .eq('title', 'Billing User');
+      // Update or insert billing user in organization_users table
+      const billingEmail = editForm.billing_user_email || editForm.main_user_email;
+      if (billingEmail) {
+        // Check if a billing user row already exists
+        const { data: existingBilling } = await supabase
+          .from('organization_users')
+          .select('id')
+          .eq('organization_id', editingId)
+          .eq('title', 'Billing User')
+          .maybeSingle();
 
-      if (billingUserError) throw billingUserError;
+        if (existingBilling) {
+          const { error: billingUserError } = await supabase
+            .from('organization_users')
+            .update({
+              first_name: editForm.billing_user_name,
+              surname: editForm.billing_user_surname,
+              phone_office: editForm.billing_user_phone_office || null,
+              phone_mobile: editForm.billing_user_phone_mobile || null,
+            })
+            .eq('organization_id', editingId)
+            .eq('title', 'Billing User');
+          if (billingUserError) throw billingUserError;
+        } else {
+          const { error: billingUserError } = await supabase
+            .from('organization_users')
+            .insert({
+              organization_id: editingId,
+              email: billingEmail,
+              first_name: editForm.billing_user_name || '',
+              surname: editForm.billing_user_surname || '',
+              title: 'Billing User',
+              phone_office: editForm.billing_user_phone_office || null,
+              phone_mobile: editForm.billing_user_phone_mobile || null,
+              is_main_user: false,
+              role: 'user',
+            });
+          if (billingUserError) throw billingUserError;
+        }
+      }
 
       setSuccess('Organization, main user, and billing user updated successfully');
       setTimeout(() => setSuccess(''), 3000);
@@ -559,6 +586,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false }: Cl
                         ...editForm,
                         billing_user_name: editForm.main_user_name,
                         billing_user_surname: editForm.main_user_surname,
+                        billing_user_email: editForm.main_user_email,
                         billing_user_phone_mobile: editForm.main_user_phone_mobile,
                         billing_user_phone_office: editForm.main_user_phone_office,
                       })}
