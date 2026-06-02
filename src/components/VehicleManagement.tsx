@@ -156,7 +156,19 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
 
       const isManagementUser = userOrg?.is_management_org === true && userOrg?.organization_type === 'management';
 
-      if (isManagementUser) {
+      if (isSuper) {
+        // Super admins see ALL organizations
+        const { data } = await supabase
+          .from('organizations')
+          .select('id, name, is_management_org')
+          .eq('organization_type', 'client')
+          .order('name');
+
+        if (data) {
+          setOrganizations(data);
+          setShowOrgSelector(true);
+        }
+      } else if (isManagementUser) {
         // Management users see ALL client organizations
         const { data } = await supabase
           .from('organizations')
