@@ -51,7 +51,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
   const [canAddVehicle, setCanAddVehicle] = useState(false);
   const [canEditVehicle, setCanEditVehicle] = useState(false);
   const [canDeleteVehicle, setCanDeleteVehicle] = useState(false);
-  const [showOrgSelector, setShowOrgSelector] = useState(true);
+  const [showOrgSelector, setShowOrgSelector] = useState(false);
   const [loadingOrganizations, setLoadingOrganizations] = useState(true);
   const [showLicenseExplanation, setShowLicenseExplanation] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
