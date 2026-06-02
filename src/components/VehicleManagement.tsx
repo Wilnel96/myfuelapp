@@ -709,7 +709,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
               </div>
 
               <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide border-b pb-1">PrDP Requirements</h3>
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide border-b pb-1">Professional Driving Permit (PrDP)</h3>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <input
@@ -727,7 +727,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <label htmlFor="prdp_required" className="text-sm font-medium text-gray-700">
-                      Professional Driving Permit (PrDP) Required
+                      Select if Professional Driving Permit (PrDP) is Required
                     </label>
                   </div>
 
