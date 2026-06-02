@@ -546,7 +546,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                     />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">VIN required for fuel purchase authentication (11-17 characters). Vehicle Number used for Local Account NFC payments.</p>
+                <p className="text-xs text-gray-500">VIN required for fuel purchase authentication (11-17 characters). Vehicle Number used for Garage Local Account.</p>
               </div>
 
               <div className="space-y-2">
