@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
     const [orgResult, vehicleResult, driverResult, garageResult, billingUserResult] = await Promise.all([
       supabase
         .from("organizations")
-        .select("name, payment_option, fuel_payment_terms, fuel_payment_interest_rate")
+        .select("name, address_line_1, address_line_2, city, province, postal_code, payment_option, fuel_payment_terms, fuel_payment_interest_rate")
         .eq("id", transaction.organization_id)
         .maybeSingle(),
       supabase
@@ -198,7 +198,17 @@ Deno.serve(async (req: Request) => {
       `${garage.city}, ${garage.province} ${garage.postal_code}`,
     ]
       .filter(Boolean)
-      .join(", ") : "Not recorded";
+      .join("\n") : "Not recorded";
+
+    const clientAddress = [
+      organization.address_line_1,
+      organization.address_line_2,
+      organization.city && organization.province
+        ? `${organization.city}, ${organization.province}${organization.postal_code ? ` ${organization.postal_code}` : ''}`
+        : organization.city || organization.province || null,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const { data: invoice, error: invoiceError } = await supabase
       .from("fuel_transaction_invoices")
@@ -234,6 +244,8 @@ Deno.serve(async (req: Request) => {
         payment_option: organization.payment_option || null,
         fuel_payment_terms: organization.fuel_payment_terms || null,
         fuel_payment_interest_rate: organization.fuel_payment_interest_rate || null,
+        client_name: organization.name,
+        client_address: clientAddress || null,
       })
       .select()
       .single();
