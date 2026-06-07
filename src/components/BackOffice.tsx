@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Users, DollarSign, CreditCard, TrendingUp, Fuel, FileText, Store, Settings, Lock } from 'lucide-react';
+import { Building2, Users, DollarSign, CreditCard, TrendingUp, Fuel, FileText, Store, Settings, Lock, MapPin } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import OrganizationManagement from './OrganizationManagement';
 import UserManagement from './UserManagement';
@@ -10,6 +10,7 @@ import InvoiceManagement from './InvoiceManagement';
 import ClientGarageAccounts from './ClientGarageAccounts';
 import { OrganizationPaymentCard } from './OrganizationPaymentCard';
 import ClientStandardSettings from './ClientStandardSettings';
+import PriceZoneImport from './PriceZoneImport';
 
 interface BackOfficeProps {
   userRole?: string;
@@ -34,7 +35,7 @@ interface MgmtPermissions {
   can_view_financial_data: boolean;
 }
 
-type BackOfficeView = 'menu' | 'management-org-menu' | 'org-info' | 'user-info' | 'financial-info' | 'fee-structure' | 'fuel-price-update' | 'invoice-management' | 'local-accounts' | 'payment-card' | 'client-standard-settings';
+type BackOfficeView = 'menu' | 'management-org-menu' | 'org-info' | 'user-info' | 'financial-info' | 'fee-structure' | 'fuel-price-update' | 'invoice-management' | 'local-accounts' | 'payment-card' | 'client-standard-settings' | 'price-zone-import';
 
 export default function BackOffice({ userRole, paymentOption, onNavigateToMain, onNavigate }: BackOfficeProps) {
   const [currentView, setCurrentView] = useState<BackOfficeView>('menu');
@@ -275,6 +276,10 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
     );
   }
 
+  if (currentView === 'price-zone-import') {
+    return <PriceZoneImport onBack={() => setCurrentView('menu')} />;
+  }
+
   if (currentView === 'org-info') {
     return <OrganizationManagement onBack={() => setCurrentView('management-org-menu')} />;
   }
@@ -437,6 +442,13 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
       icon: Fuel,
       color: 'amber',
     }] : []),
+    ...(isMgmtOrg ? [{
+      id: 'price-zone-import',
+      title: 'Price Zone Data Import',
+      description: 'Import official DMRE fuel price zone data by magisterial district',
+      icon: MapPin,
+      color: 'cyan',
+    }] : []),
   ];
 
   const getColorClasses = (color: string) => {
@@ -447,6 +459,7 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
       teal: { bg: 'bg-teal-50', hover: 'hover:bg-teal-100 hover:border-teal-300', icon: 'text-teal-600' },
       amber: { bg: 'bg-amber-50', hover: 'hover:bg-amber-100 hover:border-amber-300', icon: 'text-amber-600' },
       slate: { bg: 'bg-slate-50', hover: 'hover:bg-slate-100 hover:border-slate-300', icon: 'text-slate-600' },
+      cyan: { bg: 'bg-cyan-50', hover: 'hover:bg-cyan-100 hover:border-cyan-300', icon: 'text-cyan-600' },
     };
     return colors[color] || colors.blue;
   };

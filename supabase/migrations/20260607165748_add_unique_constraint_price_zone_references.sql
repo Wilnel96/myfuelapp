@@ -1,0 +1,1 @@
+ALTER TABLE price_zone_references ADD CONSTRAINT price_zone_references_town_district_unique UNIQUE (town, magisterial_district);

@@ -55,6 +55,13 @@ interface GarageManagementProps {
   onNavigate?: (view: string | null) => void;
 }
 
+interface DbZoneRef {
+  town: string;
+  magisterial_district: string;
+  province: string;
+  price_zone: string;
+}
+
 function PriceZoneSelect({
   value,
   city,
@@ -67,11 +74,26 @@ function PriceZoneSelect({
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [dbRefs, setDbRefs] = useState<DbZoneRef[]>([]);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setSuggestion(city ? (lookupZone(city)?.zone ?? null) : null);
-  }, [city]);
+    supabase
+      .from('price_zone_references')
+      .select('town,magisterial_district,province,price_zone')
+      .limit(5000)
+      .then(({ data }) => { if (data) setDbRefs(data); });
+  }, []);
+
+  useEffect(() => {
+    if (!city) { setSuggestion(null); return; }
+    const lower = city.toLowerCase();
+    const dbMatch = dbRefs.find(r =>
+      r.town.toLowerCase() === lower || r.magisterial_district.toLowerCase() === lower
+    );
+    if (dbMatch) { setSuggestion(dbMatch.price_zone); return; }
+    setSuggestion(lookupZone(city)?.zone ?? null);
+  }, [city, dbRefs]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -81,20 +103,28 @@ function PriceZoneSelect({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Matches from district lookup when searching by town name
-  const townMatches = search.trim().length > 1
+  const searchLower = search.trim().toLowerCase();
+
+  // DB matches first, then fallback to static list
+  const dbTownMatches: DbZoneRef[] = searchLower.length > 1
+    ? dbRefs.filter(r =>
+        r.town.toLowerCase().includes(searchLower) ||
+        r.magisterial_district.toLowerCase().includes(searchLower)
+      ).slice(0, 10)
+    : [];
+
+  const staticMatches = searchLower.length > 1 && dbTownMatches.length < 5
     ? PRICE_ZONE_REFS.filter(r =>
-        r.town.toLowerCase().includes(search.toLowerCase()) ||
-        r.district.toLowerCase().includes(search.toLowerCase())
-      ).slice(0, 8)
+        r.town.toLowerCase().includes(searchLower) ||
+        r.district.toLowerCase().includes(searchLower)
+      ).slice(0, 8 - dbTownMatches.length)
     : [];
 
-  // Direct zone code matches (e.g. typing "5" shows zone 5, 5A)
-  const codeMatches = search.trim().length >= 1
-    ? KNOWN_ZONE_CODES.filter(z => z.toLowerCase().startsWith(search.toLowerCase()))
+  const codeMatches = searchLower.length >= 1
+    ? KNOWN_ZONE_CODES.filter(z => z.toLowerCase().startsWith(searchLower))
     : [];
 
-  const hasResults = townMatches.length > 0 || codeMatches.length > 0;
+  const hasResults = dbTownMatches.length > 0 || staticMatches.length > 0 || codeMatches.length > 0;
 
   return (
     <div ref={wrapperRef} className="space-y-2">
@@ -113,7 +143,6 @@ function PriceZoneSelect({
         </div>
       )}
 
-      {/* Direct zone code entry */}
       <input
         type="text"
         value={value}
@@ -122,7 +151,6 @@ function PriceZoneSelect({
         className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
       />
 
-      {/* Town lookup to find the correct code */}
       <div className="relative">
         <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
         <input
@@ -150,14 +178,31 @@ function PriceZoneSelect({
                 Zone {z}
               </button>
             ))}
-            {townMatches.length > 0 && (
+            {dbTownMatches.length > 0 && (
               <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border-b">
-                Towns / districts
+                Towns / districts (official data)
               </div>
             )}
-            {townMatches.map((r, i) => (
+            {dbTownMatches.map((r, i) => (
               <button
-                key={i}
+                key={`db-${i}`}
+                type="button"
+                onClick={() => { onChange(r.price_zone); setSearch(''); setOpen(false); }}
+                className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0"
+              >
+                <span className="font-medium">{r.town}</span>
+                <span className="text-gray-500"> · {r.magisterial_district}, {r.province}</span>
+                <span className="float-right font-mono font-semibold text-blue-600">Zone {r.price_zone}</span>
+              </button>
+            ))}
+            {staticMatches.length > 0 && (
+              <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border-b">
+                Towns / districts (reference)
+              </div>
+            )}
+            {staticMatches.map((r, i) => (
+              <button
+                key={`static-${i}`}
                 type="button"
                 onClick={() => { onChange(r.zone); setSearch(''); setOpen(false); }}
                 className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0"
