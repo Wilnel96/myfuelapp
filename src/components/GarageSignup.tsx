@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { SOUTH_AFRICAN_FUEL_BRANDS } from '../lib/fuelBrands';
 import { Store, AlertCircle, ArrowLeft, CheckCircle, MapPin, Phone, Mail, Building, CreditCard, Fuel } from 'lucide-react';
 
 interface GarageSignupProps {
@@ -39,16 +40,7 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
     priceZone: ''
   });
 
-  const fuelBrands = [
-    'BP',
-    'Shell',
-    'Engen',
-    'Sasol',
-    'Total',
-    'Caltex',
-    'Independent',
-    'Other'
-  ];
+  const fuelBrands = [...SOUTH_AFRICAN_FUEL_BRANDS];
 
   const provinces = [
     'Eastern Cape',
@@ -131,22 +123,6 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
   };
 
   const validateStep3 = () => {
-    if (!formData.bankName.trim()) {
-      setError('Bank name is required');
-      return false;
-    }
-    if (!formData.accountHolder.trim()) {
-      setError('Account holder name is required');
-      return false;
-    }
-    if (!formData.accountNumber.trim()) {
-      setError('Account number is required');
-      return false;
-    }
-    if (!formData.branchCode.trim()) {
-      setError('Branch code is required');
-      return false;
-    }
     if (!formData.fuelBrand) {
       setError('Fuel brand is required');
       return false;
@@ -589,7 +565,7 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Name *
+                    Bank Name
                   </label>
                   <input
                     type="text"
@@ -597,13 +573,12 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
                     onChange={(e) => handleChange('bankName', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., FNB, Standard Bank"
-                    required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Account Holder *
+                    Account Holder
                   </label>
                   <input
                     type="text"
@@ -611,7 +586,6 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
                     onChange={(e) => handleChange('accountHolder', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Account holder name"
-                    required
                   />
                 </div>
               </div>
@@ -619,7 +593,7 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Account Number *
+                    Account Number
                   </label>
                   <input
                     type="text"
@@ -627,13 +601,12 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
                     onChange={(e) => handleChange('accountNumber', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="1234567890"
-                    required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Branch Code *
+                    Branch Code
                   </label>
                   <input
                     type="text"
@@ -641,7 +614,6 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
                     onChange={(e) => handleChange('branchCode', e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="250655"
-                    required
                   />
                 </div>
               </div>
