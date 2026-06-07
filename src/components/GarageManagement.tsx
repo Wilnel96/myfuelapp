@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import GarageContactManagement from './GarageContactManagement';
 import { getFuelTypeDisplayName, AVAILABLE_FUEL_TYPES } from '../lib/fuelTypes';
 import { SOUTH_AFRICAN_FUEL_BRANDS } from '../lib/fuelBrands';
-import { PRICE_ZONES, PRICE_ZONE_REFS, lookupZone, downloadZoneReference } from '../lib/priceZones';
+import { PRICE_ZONE_REFS, lookupZone, downloadZoneReference, KNOWN_ZONE_CODES } from '../lib/priceZones';
 
 interface OtherOfferings {
   convenience_shop?: boolean;
@@ -81,12 +81,20 @@ function PriceZoneSelect({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const matches = search.trim().length > 1
+  // Matches from district lookup when searching by town name
+  const townMatches = search.trim().length > 1
     ? PRICE_ZONE_REFS.filter(r =>
         r.town.toLowerCase().includes(search.toLowerCase()) ||
         r.district.toLowerCase().includes(search.toLowerCase())
       ).slice(0, 8)
     : [];
+
+  // Direct zone code matches (e.g. typing "5" shows zone 5, 5A)
+  const codeMatches = search.trim().length >= 1
+    ? KNOWN_ZONE_CODES.filter(z => z.toLowerCase().startsWith(search.toLowerCase()))
+    : [];
+
+  const hasResults = townMatches.length > 0 || codeMatches.length > 0;
 
   return (
     <div ref={wrapperRef} className="space-y-2">
@@ -104,16 +112,17 @@ function PriceZoneSelect({
           </button>
         </div>
       )}
-      <select
+
+      {/* Direct zone code entry */}
+      <input
+        type="text"
         value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-      >
-        <option value="">— Select price zone —</option>
-        {PRICE_ZONES.map(z => (
-          <option key={z} value={z}>{z}</option>
-        ))}
-      </select>
+        onChange={e => onChange(e.target.value.toUpperCase())}
+        placeholder="Enter zone code, e.g. 1, 3, 5A, 7..."
+        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+      />
+
+      {/* Town lookup to find the correct code */}
       <div className="relative">
         <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
         <input
@@ -121,12 +130,32 @@ function PriceZoneSelect({
           value={search}
           onChange={e => { setSearch(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="Look up zone by town or district..."
+          placeholder="Look up code by town or district name..."
           className="w-full border border-gray-300 rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
-        {open && matches.length > 0 && (
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-            {matches.map((r, i) => (
+        {open && hasResults && (
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+            {codeMatches.length > 0 && (
+              <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border-b">
+                Zone codes
+              </div>
+            )}
+            {codeMatches.map(z => (
+              <button
+                key={z}
+                type="button"
+                onClick={() => { onChange(z); setSearch(''); setOpen(false); }}
+                className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0 font-mono font-medium text-blue-700"
+              >
+                Zone {z}
+              </button>
+            ))}
+            {townMatches.length > 0 && (
+              <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 bg-gray-50 border-b">
+                Towns / districts
+              </div>
+            )}
+            {townMatches.map((r, i) => (
               <button
                 key={i}
                 type="button"
@@ -135,7 +164,7 @@ function PriceZoneSelect({
               >
                 <span className="font-medium">{r.town}</span>
                 <span className="text-gray-500"> · {r.district}, {r.province}</span>
-                <span className="float-right font-medium text-blue-600">{r.zone}</span>
+                <span className="float-right font-mono font-semibold text-blue-600">Zone {r.zone}</span>
               </button>
             ))}
           </div>
