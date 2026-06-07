@@ -642,7 +642,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                   <option value="">Select fuel brand</option>
                   <option value="Shell">Shell</option>
                   <option value="BP">BP</option>
-                  <option value="Total">Total</option>
+                  <option value="TotalEnergies">TotalEnergies</option>
                   <option value="Engen">Engen</option>
                   <option value="Sasol">Sasol</option>
                   <option value="Caltex">Caltex</option>

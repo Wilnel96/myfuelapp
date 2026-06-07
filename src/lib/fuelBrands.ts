@@ -3,7 +3,7 @@ export const SOUTH_AFRICAN_FUEL_BRANDS = [
   'BP',
   'Engen',
   'Sasol',
-  'Total',
+  'TotalEnergies',
   'Caltex',
   'Puma Energy',
   'Astron Energy',
