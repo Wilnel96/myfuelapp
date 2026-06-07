@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Store, Plus, CreditCard as Edit2, Trash2, X, Search, MapPin, Phone, Mail, Smartphone, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Store, Plus, CreditCard as Edit2, Trash2, X, Search, MapPin, Phone, Mail, Smartphone, ArrowLeft, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import GarageContactManagement from './GarageContactManagement';
 import { getFuelTypeDisplayName, AVAILABLE_FUEL_TYPES } from '../lib/fuelTypes';
 import { SOUTH_AFRICAN_FUEL_BRANDS } from '../lib/fuelBrands';
+import { PRICE_ZONES, PRICE_ZONE_REFS, lookupZone, downloadZoneReference } from '../lib/priceZones';
 
 interface OtherOfferings {
   convenience_shop?: boolean;
@@ -52,6 +53,96 @@ interface Garage {
 
 interface GarageManagementProps {
   onNavigate?: (view: string | null) => void;
+}
+
+function PriceZoneSelect({
+  value,
+  city,
+  onChange,
+}: {
+  value: string;
+  city: string;
+  onChange: (z: string) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSuggestion(city ? (lookupZone(city)?.zone ?? null) : null);
+  }, [city]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const matches = search.trim().length > 1
+    ? PRICE_ZONE_REFS.filter(r =>
+        r.town.toLowerCase().includes(search.toLowerCase()) ||
+        r.district.toLowerCase().includes(search.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
+  return (
+    <div ref={wrapperRef} className="space-y-2">
+      {suggestion && !value && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm">
+          <span className="text-blue-700">
+            Suggested zone for <strong>{city}</strong>: <strong>{suggestion}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => onChange(suggestion)}
+            className="ml-auto text-xs font-medium text-blue-600 hover:text-blue-800 underline"
+          >
+            Use this
+          </button>
+        </div>
+      )}
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+      >
+        <option value="">— Select price zone —</option>
+        {PRICE_ZONES.map(z => (
+          <option key={z} value={z}>{z}</option>
+        ))}
+      </select>
+      <div className="relative">
+        <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+        <input
+          type="text"
+          value={search}
+          onChange={e => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="Look up zone by town or district..."
+          className="w-full border border-gray-300 rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        {open && matches.length > 0 && (
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+            {matches.map((r, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => { onChange(r.zone); setSearch(''); setOpen(false); }}
+                className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0"
+              >
+                <span className="font-medium">{r.town}</span>
+                <span className="text-gray-500"> · {r.district}, {r.province}</span>
+                <span className="float-right font-medium text-blue-600">{r.zone}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function GarageManagement({ onNavigate }: GarageManagementProps) {
@@ -510,15 +601,26 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
                 <p className="text-xs text-gray-500 mt-2">Select fuel types and set their prices per liter</p>
 
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price Zone</label>
-                  <input
-                    type="text"
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Price Zone</label>
+                    <button
+                      type="button"
+                      onClick={downloadZoneReference}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700"
+                    >
+                      <Download className="w-3 h-3" />
+                      Download zone reference
+                    </button>
+                  </div>
+                  <PriceZoneSelect
                     value={formData.price_zone}
-                    onChange={(e) => setFormData({ ...formData, price_zone: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
-                    placeholder="e.g., Zone 1, Zone 2"
+                    city={formData.city}
+                    onChange={zone => setFormData({ ...formData, price_zone: zone })}
                   />
-                  <p className="text-xs text-gray-500 mt-1">Specify the price zone for this garage location</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select a zone or search by town name. Towns not listed fall under a nearby
+                    magisterial district (e.g. Ashton → Montagu → Inland Zone 1).
+                  </p>
                 </div>
               </div>
 
