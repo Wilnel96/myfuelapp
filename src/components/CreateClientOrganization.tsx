@@ -676,7 +676,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                         </div>
                         <div>
                           <div className="text-sm font-semibold text-gray-900">Individual — Local Account</div>
-                          <div className="text-xs text-gray-500 mt-0.5">Register with a garage. The garage sets up your account number, deposit and spending limit.</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Garage manages the account. Individual pays via a local fuel account.</div>
                         </div>
                       </div>
                     </button>
@@ -693,8 +693,8 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                           <CreditCard className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                          <div className="text-sm font-semibold text-gray-900">Individual — Card Payment</div>
-                          <div className="text-xs text-gray-500 mt-0.5">Pays for fuel directly via Credit/Debit card using PIN + NFC at garages.</div>
+                          <div className="text-sm font-semibold text-gray-900">Individual — Pay by Card</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Individual signs up directly. Pays via Credit/Debit Card using PIN + NFC.</div>
                         </div>
                       </div>
                     </button>
@@ -735,7 +735,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                         </div>
                         <div>
                           <div className="text-sm font-semibold text-gray-900">Individual — Local Account</div>
-                          <div className="text-xs text-gray-500 mt-0.5">Garage manages the account. Client pays via a local fuel account at this garage.</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Garage manages the account. Individual pays via a local fuel account.</div>
                         </div>
                       </div>
                     </button>
@@ -752,8 +752,8 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                           <CreditCard className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                          <div className="text-sm font-semibold text-gray-900">Individual — Card Payment</div>
-                          <div className="text-xs text-gray-500 mt-0.5">Client pays for fuel directly via their Credit/Debit card using PIN + NFC at garages.</div>
+                          <div className="text-sm font-semibold text-gray-900">Individual — Pay by Card</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Individual signs up directly. Pays via Credit/Debit Card using PIN + NFC.</div>
                         </div>
                       </div>
                     </button>
