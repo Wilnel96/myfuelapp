@@ -103,7 +103,8 @@ const monthLabel = (yearMonth: string) => {
 const buildMonthOptions = () => {
   const options: string[] = [];
   const now = new Date();
-  for (let i = 0; i < 12; i++) {
+  // Start from next month (i = -1) so operators can prepare runs in advance
+  for (let i = -1; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     options.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
@@ -117,7 +118,7 @@ export default function DebitOrderRun({ onBack }: { onBack: () => void }) {
 
   // Month selection
   const monthOptions = buildMonthOptions();
-  const [selectedMonth, setSelectedMonth] = useState(monthOptions[1]); // previous month default
+  const [selectedMonth, setSelectedMonth] = useState(monthOptions[2]); // previous month default
 
   // Selection phase
   const [orgGroups, setOrgGroups] = useState<DebitOrgGroup[]>([]);
@@ -655,14 +656,19 @@ export default function DebitOrderRun({ onBack }: { onBack: () => void }) {
                       {monthLabel(ym)}
                     </span>
                   </div>
-                  {ym === monthOptions[1] && (
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                      Previous month
+                  {ym === monthOptions[0] && (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                      Next month
                     </span>
                   )}
-                  {ym === monthOptions[0] && (
+                  {ym === monthOptions[1] && (
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">
                       Current month
+                    </span>
+                  )}
+                  {ym === monthOptions[2] && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                      Previous month
                     </span>
                   )}
                 </label>
