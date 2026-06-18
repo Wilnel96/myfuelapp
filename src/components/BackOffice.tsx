@@ -301,7 +301,7 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
       <div className="space-y-4">
         <button
           onClick={() => setCurrentView('menu')}
-          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 no-print"
         >
           ← Back to Back Office
         </button>
@@ -323,7 +323,7 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
       <div className="space-y-4">
         <button
           onClick={() => setCurrentView('menu')}
-          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 no-print"
         >
           ← Back to Back Office
         </button>
@@ -337,7 +337,7 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
       <div className="space-y-4">
         <button
           onClick={() => setCurrentView('menu')}
-          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 no-print"
         >
           ← Back to Back Office
         </button>
@@ -357,7 +357,7 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
       <div className="space-y-4">
         <button
           onClick={() => setCurrentView('menu')}
-          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+          className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 no-print"
         >
           ← Back to Back Office
         </button>
