@@ -76,7 +76,8 @@ const SA_PROVINCES = [
 
 const ENTITY_TYPES = [
   'Private Company (Pty) Ltd', 'Public Company (Ltd)', 'Close Corporation (CC)',
-  'Sole Proprietor', 'Partnership', 'Trust', 'Non-Profit Organisation', 'Other',
+  'Sole Proprietor', 'Sole Trader', 'Partnership', 'Trust', 'Non-Profit Organisation',
+  'Government Institution', 'Other',
 ];
 
 const VEHICLE_TYPES = [

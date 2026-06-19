@@ -1554,6 +1554,8 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                   <option value="Closed Corporation">Closed Corporation</option>
                   <option value="Trust">Trust</option>
                   <option value="Partnership">Partnership</option>
+                  <option value="Sole Trader">Sole Trader</option>
+                  <option value="Government Institution">Government Institution</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
