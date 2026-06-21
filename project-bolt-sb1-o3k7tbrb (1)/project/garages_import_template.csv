@@ -1,0 +1,4 @@
+name,email,phone_number,street_address,address_line_2,city,province,postal_code,latitude,longitude,fuel_types_offered,fuel_brand,price_zone,other_offerings,vat_number,password
+Example Garage,garage@example.com,0211234567,123 Main Street,,Cape Town,Western Cape,8001,-33.9249,18.4241,"[""Petrol 95"",""Diesel 50ppm""]",Shell,coastal,"[""Car Wash"",""Convenience Store""]",4123456789,garage123
+Shell Example,shell@example.com,0211234568,456 Beach Road,,Cape Town,Western Cape,8005,-33.9150,18.4200,"[""Petrol 95"",""Petrol 93"",""Diesel 50ppm""]",Shell,coastal,"[""Car Wash""]",,garage123
+BP Example,bp@example.com,0211234569,789 Mountain Drive,,Stellenbosch,Western Cape,7600,-33.9321,18.8602,"[""Petrol 95"",""Diesel 50ppm""]",BP,inland,"[]",,garage123

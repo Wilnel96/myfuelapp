@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Cache - MyFuelApp</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        .info {
+            background: #e3f2fd;
+            color: #1565c0;
+            border-left: 4px solid #1565c0;
+        }
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+        .warning {
+            background: #fff3e0;
+            color: #e65100;
+            border-left: 4px solid #e65100;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px 5px 10px 0;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        ol {
+            line-height: 1.8;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Clear Cache & Fix Login Issues</h1>
+
+        <div class="info status">
+            <strong>Why am I here?</strong><br>
+            If you're experiencing login issues (stuck on "Please wait..."), this page will help clear cached data that may be causing the problem.
+        </div>
+
+        <h2>Automatic Cache Clear</h2>
+        <button onclick="clearAllCaches()" id="clearBtn">Clear All Caches</button>
+        <button onclick="unregisterServiceWorker()" id="swBtn">Unregister Service Worker</button>
+
+        <div id="status"></div>
+
+        <h2>Manual Steps (if automatic didn't work)</h2>
+        <ol>
+            <li>Press <code>Ctrl + Shift + Delete</code> (Windows) or <code>Cmd + Shift + Delete</code> (Mac)</li>
+            <li>Select "All time" as the time range</li>
+            <li>Check "Cached images and files"</li>
+            <li>Click "Clear data"</li>
+            <li>Close and reopen your browser</li>
+            <li><strong>Important:</strong> Do a hard refresh with <code>Ctrl + F5</code> (Windows) or <code>Cmd + Shift + R</code> (Mac)</li>
+        </ol>
+
+        <div class="warning status">
+            <strong>After clearing cache:</strong><br>
+            You'll need to log in again. The app should load the latest version and login should work normally.
+        </div>
+
+        <button onclick="window.location.href='/'" style="background: #2e7d32; margin-top: 20px;">
+            ← Back to Login
+        </button>
+    </div>
+
+    <script>
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        async function clearAllCaches() {
+            const btn = document.getElementById('clearBtn');
+            btn.disabled = true;
+
+            try {
+                const cacheNames = await caches.keys();
+                if (cacheNames.length === 0) {
+                    showStatus('✓ No caches found (already clean)', 'success');
+                } else {
+                    await Promise.all(cacheNames.map(cache => caches.delete(cache)));
+                    showStatus(`✓ Successfully cleared ${cacheNames.length} cache(s):<br>${cacheNames.join(', ')}`, 'success');
+                }
+            } catch (error) {
+                showStatus(`✗ Error clearing caches: ${error.message}`, 'warning');
+            }
+
+            btn.disabled = false;
+        }
+
+        async function unregisterServiceWorker() {
+            const btn = document.getElementById('swBtn');
+            btn.disabled = true;
+
+            try {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                if (registrations.length === 0) {
+                    showStatus('✓ No service workers registered', 'success');
+                } else {
+                    await Promise.all(registrations.map(reg => reg.unregister()));
+                    showStatus(`✓ Unregistered ${registrations.length} service worker(s)`, 'success');
+                }
+            } catch (error) {
+                showStatus(`✗ Error unregistering service workers: ${error.message}`, 'warning');
+            }
+
+            btn.disabled = false;
+        }
+
+        // Auto-clear on page load
+        window.addEventListener('load', async () => {
+            showStatus('Ready to clear cache. Click the buttons above.', 'info');
+        });
+    </script>
+</body>
+</html>

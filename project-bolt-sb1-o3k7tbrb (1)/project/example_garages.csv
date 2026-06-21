@@ -1,0 +1,5 @@
+name,email,phone_number,street_address,city,province,postal_code,latitude,longitude,fuel_types_offered,fuel_brand,price_zone,other_offerings
+Shell V&A Waterfront,shell.va@example.com,0214185000,Dock Road,Cape Town,Western Cape,8001,-33.9025,18.4187,"[""Petrol 95"",""Diesel 50ppm"",""Petrol 93""]",Shell,coastal,"[""Car Wash"",""Convenience Store""]"
+BP Claremont,bp.claremont@example.com,0216837000,Main Road,Cape Town,Western Cape,7708,-33.9817,18.4647,"[""Petrol 95"",""Diesel 50ppm""]",BP,coastal,"[""Car Wash""]"
+Engen Table View,engen.tableview@example.com,0215541000,Marine Drive,Cape Town,Western Cape,7441,-33.8177,18.4966,"[""Petrol 95"",""Diesel 50ppm""]",Engen,coastal,"[]"
+Sasol Stellenbosch,sasol.stellenbosch@example.com,0218871000,Bird Street,Stellenbosch,Western Cape,7600,-33.9321,18.8602,"[""Petrol 95"",""Diesel 50ppm"",""Diesel 500ppm""]",Sasol,inland,"[""Convenience Store"",""ATM""]"

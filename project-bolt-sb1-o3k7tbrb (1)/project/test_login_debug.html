@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Transport Login Debug</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <h1>Test Transport Login Debug</h1>
+  <div id="result"></div>
+
+  <script>
+    const supabaseUrl = 'https://dhklqlqpowrwjplrkfzz.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRoa2xxbHFwb3dyd2pwbHJrZnp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2NTE5OTksImV4cCI6MjA4MTIyNzk5OX0.BIQWNP7CbcTVgFRBXwELg7LschBVHklyblR3cnZedUI';
+
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+    async function testLogin() {
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = '<p>Testing login...</p>';
+
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: 'admin@test-transport.co.za',
+          password: 'TestTransport2024!'
+        });
+
+        if (error) {
+          resultDiv.innerHTML = `
+            <h2 style="color: red;">Login Failed</h2>
+            <p><strong>Error:</strong> ${error.message}</p>
+            <p><strong>Status:</strong> ${error.status}</p>
+            <pre>${JSON.stringify(error, null, 2)}</pre>
+          `;
+          return;
+        }
+
+        resultDiv.innerHTML = `
+          <h2 style="color: green;">Login Successful!</h2>
+          <p><strong>User ID:</strong> ${data.user.id}</p>
+          <p><strong>Email:</strong> ${data.user.email}</p>
+          <p><strong>Has Session:</strong> ${!!data.session}</p>
+          <h3>Full Response:</h3>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+
+        // Now sign out
+        await supabase.auth.signOut();
+
+      } catch (err) {
+        resultDiv.innerHTML = `
+          <h2 style="color: red;">Exception</h2>
+          <pre>${err.toString()}</pre>
+        `;
+      }
+    }
+
+    // Auto-run on load
+    testLogin();
+  </script>
+</body>
+</html>
