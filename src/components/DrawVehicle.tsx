@@ -35,6 +35,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   const [isFirstDraw, setIsFirstDraw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
   const [success, setSuccess] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [odometerMismatch, setOdometerMismatch] = useState(false);
@@ -120,6 +121,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   const handleBarcodeScan = async (barcodeData: string) => {
     setShowBarcodeScanner(false);
     setError('');
+    setWarning('');
 
     const anyDrawnVehicle = await checkAnyActiveDrawing(driverId);
     if (anyDrawnVehicle) {
@@ -136,6 +138,8 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       setError(result.errorMessage);
       return;
     }
+    // Note: findVehicleByLicenseDisk may have set a non-blocking warning via setError for
+    // manual entry with a stale expiry date — don't clear it here.
 
     const { vehicle } = result;
 
@@ -401,33 +405,87 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     return expiryDate < today;
   };
 
+  // Try to extract an expiry date from scanned PDF417 barcode data.
+  // SA license disk barcodes encode dates in various positions as YYYYMMDD or DDMMYYYY.
+  const extractExpiryFromBarcode = (barcodeData: string): Date | null => {
+    const fields = barcodeData.split('%');
+    const datePattern8 = /^\d{8}$/;
+    for (const field of fields) {
+      const clean = field.trim();
+      if (!datePattern8.test(clean)) continue;
+      // Try YYYYMMDD
+      const yyyymmdd = new Date(`${clean.slice(0, 4)}-${clean.slice(4, 6)}-${clean.slice(6, 8)}`);
+      if (!isNaN(yyyymmdd.getTime()) && yyyymmdd.getFullYear() > 2020) return yyyymmdd;
+      // Try DDMMYYYY
+      const ddmmyyyy = new Date(`${clean.slice(4, 8)}-${clean.slice(2, 4)}-${clean.slice(0, 2)}`);
+      if (!isNaN(ddmmyyyy.getTime()) && ddmmyyyy.getFullYear() > 2020) return ddmmyyyy;
+    }
+    return null;
+  };
+
+  // When a barcode scan returns a newer expiry date than what's stored, update the DB record.
+  const syncExpiryFromBarcode = async (vehicle: Vehicle, barcodeData: string) => {
+    const scannedExpiry = extractExpiryFromBarcode(barcodeData);
+    if (!scannedExpiry) return;
+    const storedExpiry = new Date(vehicle.license_disk_expiry);
+    if (scannedExpiry > storedExpiry) {
+      const isoDate = scannedExpiry.toISOString().split('T')[0];
+      await supabase
+        .from('vehicles')
+        .update({ license_disk_expiry: isoDate })
+        .eq('id', vehicle.id);
+      // Update the local state so the UI reflects the new date
+      setVehicles(prev => prev.map(v => v.id === vehicle.id ? { ...v, license_disk_expiry: isoDate } : v));
+    }
+  };
+
   const findVehicleByLicenseDisk = async (barcodeData: string): Promise<{ vehicle: Vehicle } | { errorMessage: string } | null> => {
     const cleanInput = barcodeData.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+    const isActualBarcodeScan = barcodeData.includes('%');
 
-    const checkAndReturn = (vehicle: Vehicle): { vehicle: Vehicle } | { errorMessage: string } => {
+    // For actual barcode scans: verify the stored expiry. Also try to auto-update if
+    // the barcode contains a newer date (handles renewals without manual data entry).
+    const checkBarcodeMatch = async (vehicle: Vehicle): Promise<{ vehicle: Vehicle } | { errorMessage: string }> => {
+      await syncExpiryFromBarcode(vehicle, barcodeData);
+      // Re-read expiry after potential update
+      const { data: fresh } = await supabase.from('vehicles').select('license_disk_expiry').eq('id', vehicle.id).maybeSingle();
+      const expiry = fresh?.license_disk_expiry ?? vehicle.license_disk_expiry;
+      const expiryDate = new Date(expiry);
+      const today = new Date(); today.setHours(0, 0, 0, 0); expiryDate.setHours(0, 0, 0, 0);
+      if (expiryDate < today) {
+        const fmt = expiryDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        return { errorMessage: `License disk for ${vehicle.registration_number} expired ${fmt}. Please renew and update the system.` };
+      }
+      return { vehicle: { ...vehicle, license_disk_expiry: expiry } };
+    };
+
+    // For manual entry: allow the draw even if the stored date is outdated — the driver
+    // can see the physical disk. Warn if the stored record appears expired so an admin
+    // can update it, but do not block the draw.
+    const checkManualMatch = (vehicle: Vehicle): { vehicle: Vehicle } => {
       if (isLicenseExpired(vehicle)) {
-        const expiry = new Date(vehicle.license_disk_expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        return { errorMessage: `Vehicle license disk for ${vehicle.registration_number} expired on ${expiry}. This vehicle cannot be drawn until the license is renewed.` };
+        const fmt = new Date(vehicle.license_disk_expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        setWarning(`The license disk expiry date in the system (${fmt}) may be outdated — the physical disk on the vehicle takes precedence. Please ask your fleet manager to update the expiry date.`);
       }
       return { vehicle };
     };
 
     // Try barcode field matching (for actual scanned PDF417 data with % separators)
-    if (barcodeData.includes('%')) {
+    if (isActualBarcodeScan) {
       const barcodeFields = barcodeData.split('%');
       for (const vehicle of vehicles) {
         const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
         for (const field of barcodeFields) {
           const cleanField = field.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-          if (cleanField && cleanField === vehicleReg) return checkAndReturn(vehicle);
+          if (cleanField && cleanField === vehicleReg) return checkBarcodeMatch(vehicle);
         }
       }
     }
 
-    // Try in-memory array match (direct registration lookup)
+    // Try in-memory array match (direct registration lookup — manual entry path)
     for (const vehicle of vehicles) {
       const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-      if (cleanInput === vehicleReg) return checkAndReturn(vehicle);
+      if (cleanInput === vehicleReg) return checkManualMatch(vehicle);
     }
 
     // Last resort: query database directly (handles stale closure or any edge case)
@@ -440,7 +498,9 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     if (dbVehicles) {
       for (const vehicle of dbVehicles) {
         const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-        if (cleanInput === vehicleReg || vehicleReg.includes(cleanInput)) return checkAndReturn(vehicle);
+        if (cleanInput === vehicleReg || vehicleReg.includes(cleanInput)) {
+          return isActualBarcodeScan ? checkBarcodeMatch(vehicle) : checkManualMatch(vehicle);
+        }
       }
     }
 
@@ -677,6 +737,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     setPreviousDriverInfo(null);
     setSuccess(false);
     setError('');
+    setWarning('');
     onBack();
   };
 
@@ -724,6 +785,12 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       </div>
 
       <div className="p-4 max-w-2xl mx-auto">
+        {warning && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-amber-800 text-sm">{warning}</p>
+          </div>
+        )}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
