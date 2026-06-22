@@ -234,6 +234,9 @@ function App() {
 
                   if (garageError || !garage) {
                     console.error('Auth state - Failed to load garage:', garageError);
+                    // Fall back to mode selection so the user isn't stuck on a blank page
+                    setUserMode(null);
+                    setShowModeSelection(true);
                     setLoading(false);
                     return;
                   }
@@ -345,17 +348,28 @@ function App() {
           });
       } else if (_event === 'SIGNED_OUT') {
         console.log('User signed out event');
+        sessionStorage.removeItem('appCurrentView');
         setSession(null);
         setDriverData(null);
         setGarageId(null);
         setGarageName(null);
+        setGarageEmail(null);
+        setGaragePassword(null);
         setCurrentView(null);
         setUserRole('admin');
         setUserMode(null);
+        setClientPortalType(null);
         setShowModeSelection(true);
+        setShowPortalSelection(false);
+        setShowSignup(false);
+        setPortalError('');
         setLoading(false);
       } else if (_event === 'INITIAL_SESSION' && !session) {
         console.log('Initial session check - no session found');
+        if (!mounted) return;
+        setLoading(false);
+      } else if (!session) {
+        // Any other event with no session — ensure we're not stuck loading
         if (!mounted) return;
         setLoading(false);
       }
@@ -423,6 +437,8 @@ function App() {
 
                   if (!garage) {
                     console.error('No garage found for garage user on mount');
+                    setUserMode(null);
+                    setShowModeSelection(true);
                     setLoading(false);
                     return;
                   }
@@ -514,46 +530,37 @@ function App() {
     };
   }, []);
 
+  const clearAllSessionState = () => {
+    localStorage.removeItem('garageData');
+    localStorage.removeItem('driverToken');
+    localStorage.removeItem('driverData');
+    sessionStorage.removeItem('appCurrentView');
+    setSession(null);
+    setDriverData(null);
+    setGarageId(null);
+    setGarageName(null);
+    setGarageEmail(null);
+    setGaragePassword(null);
+    setUserMode(null);
+    setClientPortalType(null);
+    setLoginPortalWithRef(null);
+    pendingViewRef.current = null;
+    setPortalError('');
+    setUserRole('admin');
+    setCurrentView(null);
+    setShowModeSelection(true);
+    setShowPortalSelection(false);
+    setShowSignup(false);
+    setLoading(false);
+  };
+
   const handleAdminSignOut = async () => {
     try {
       await supabase.auth.signOut();
-      localStorage.removeItem('garageData');
-      setSession(null);
-      setDriverData(null);
-      setGarageId(null);
-      setGarageName(null);
-      setGarageEmail(null);
-      setGaragePassword(null);
-      setUserMode(null);
-      setClientPortalType(null);
-      setLoginPortalWithRef(null);
-      pendingViewRef.current = null;
-      setPortalError('');
-      setUserRole('admin');
-      setCurrentView(null);
-      setShowModeSelection(true);
-      setShowPortalSelection(false);
-      setShowSignup(false);
     } catch (error) {
       console.error('Error signing out:', error);
-      localStorage.removeItem('garageData');
-      setSession(null);
-      setDriverData(null);
-      setGarageId(null);
-      setGarageName(null);
-      setGarageEmail(null);
-      setGaragePassword(null);
-      setUserMode(null);
-      setClientPortalType(null);
-      setLoginPortalWithRef(null);
-      pendingViewRef.current = null;
-      setPortalError('');
-      setUserRole('admin');
-      setCurrentView(null);
-      setShowModeSelection(true);
-      setShowPortalSelection(false);
-      setShowSignup(false);
     }
+    clearAllSessionState();
   };
 
   const handleDriverLogin = (driver: DriverData) => {
@@ -574,21 +581,12 @@ function App() {
 
   const handleDriverLogout = async () => {
     console.log('Driver logout initiated');
-    localStorage.removeItem('driverToken');
-    localStorage.removeItem('driverData');
-
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error('Error clearing Supabase session:', error);
     }
-
-    setDriverData(null);
-    setSession(null);
-    setGarageId(null);
-    setGarageName(null);
-    setUserMode(null);
-    setShowModeSelection(true);
+    clearAllSessionState();
     console.log('Driver logout complete, state reset');
   };
 
@@ -608,22 +606,12 @@ function App() {
 
   const handleGarageLogout = async () => {
     console.log('Garage logout initiated');
-    localStorage.removeItem('garageData');
-
     try {
       await supabase.auth.signOut();
     } catch (error) {
       console.error('Error clearing Supabase session:', error);
     }
-
-    setGarageId(null);
-    setGarageName(null);
-    setGarageEmail(null);
-    setGaragePassword(null);
-    setSession(null);
-    setDriverData(null);
-    setUserMode(null);
-    setShowModeSelection(true);
+    clearAllSessionState();
     console.log('Garage logout complete, state reset');
   };
 
@@ -1044,33 +1032,9 @@ function App() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow p-6 max-w-md">
-        <h2 className="text-xl font-bold text-red-600 mb-4">Debug: Unexpected State</h2>
-        <pre className="text-sm bg-gray-100 p-4 rounded overflow-auto">
-          {JSON.stringify({
-            userMode,
-            hasSession: !!session,
-            hasDriverData: !!driverData,
-            showModeSelection,
-            loading
-          }, null, 2)}
-        </pre>
-        <button
-          onClick={() => {
-            setUserMode(null);
-            setShowModeSelection(true);
-            setSession(null);
-            setDriverData(null);
-          }}
-          className="mt-4 w-full bg-blue-600 text-white py-2 rounded"
-        >
-          Reset to Mode Selection
-        </button>
-      </div>
-    </div>
-  );
+  // Unexpected state — auto-recover rather than showing a blank page
+  clearAllSessionState();
+  return null;
 }
 
 export default App;

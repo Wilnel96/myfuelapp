@@ -1,10 +1,9 @@
-const CACHE_NAME = 'fleet-fuel-v3-20260621';
+const CACHE_NAME = 'fleet-fuel-v3-20260622';
 const urlsToCache = [
   '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
-  // Force the waiting service worker to become the active service worker
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -21,8 +20,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first strategy for HTML and JS files to get latest updates
-  if (event.request.url.endsWith('.html') || event.request.url.endsWith('.js') || event.request.url === event.request.referrer) {
+  // Always network-first for navigation requests (HTML pages) so the app
+  // never loads a stale shell that references old JS bundle hashes.
+  if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -34,33 +34,50 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => {
-          return caches.match(event.request);
-        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }
 
-  // Cache-first for other assets
+  // Network-first for JS and CSS assets
+  if (
+    url.pathname.endsWith('.js') ||
+    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.html')
+  ) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for other static assets (images, fonts, icons)
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
         if (response) {
           return response;
         }
-        return fetch(event.request).then(
-          (response) => {
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
+        return fetch(event.request).then((response) => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
             return response;
           }
-        );
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+          return response;
+        });
       })
   );
 });
