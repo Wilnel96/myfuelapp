@@ -424,19 +424,21 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         console.error('Error fetching garage account:', garageAccountError);
       }
 
-      // Prioritize local account if one exists for this garage, regardless of org-level payment option
-      if (garageAccount) {
+      // Payment method is determined by the organization's configured payment_option.
+      // A local account record existing for this garage does NOT override the org's payment method —
+      // an org may have an account set up historically but now pays by card.
+      if (orgPaymentOption === 'Local Account') {
+        if (!garageAccount) {
+          setError(`No local account exists for ${selectedGarage.name}. Please contact your administrator.`);
+          setCurrentStep('garage_selection');
+          return;
+        }
         setPaymentOption('Local Account');
         setIsLocalAccount(true);
         setGarageAccountNumber(garageAccount.account_number);
         console.log('[FuelPurchase] Payment flow: Local Account (PIN + NFC + Account Number)');
-      } else if (orgPaymentOption === 'Local Account') {
-        // Org is configured for local accounts but this garage has none set up
-        setError(`No local account exists for ${selectedGarage.name}. Please contact your administrator.`);
-        setCurrentStep('garage_selection');
-        return;
       } else {
-        // No local account — fall back to card payment
+        // Card payment (or EFT — either way, use the stored payment card)
         const { data: paymentCard, error: cardError } = await supabase
           .from('organization_payment_cards')
           .select('*')
