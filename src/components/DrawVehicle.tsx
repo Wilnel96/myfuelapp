@@ -129,7 +129,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
     const result = await findVehicleByLicenseDisk(barcodeData);
     if (!result) {
-      setError('License disk verification failed. The barcode data does not match any vehicle.');
+      setError(`Vehicle not found. The registration "${barcodeData.trim()}" does not match any active vehicle in your fleet. Please use the dropdown below to select the vehicle manually.`);
       return;
     }
 
@@ -390,27 +390,42 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   };
 
   const findVehicleByLicenseDisk = async (barcodeData: string): Promise<{ vehicle: Vehicle } | null> => {
-    const barcodeFields = barcodeData.split('%');
+    const cleanInput = barcodeData.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
 
+    // Try barcode field matching first (for actual scanned PDF417 data)
+    const barcodeFields = barcodeData.split('%');
     for (const vehicle of vehicles) {
       const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
 
       for (const field of barcodeFields) {
         const cleanField = field.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-
         if (cleanField && cleanField === vehicleReg) {
           const expiryDate = new Date(vehicle.license_disk_expiry);
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           expiryDate.setHours(0, 0, 0, 0);
-
           if (expiryDate < today) {
             setError('Vehicle License Expired');
             return null;
           }
-
           return { vehicle };
         }
+      }
+    }
+
+    // Fallback: direct registration number match (for manual entry)
+    for (const vehicle of vehicles) {
+      const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+      if (cleanInput === vehicleReg || vehicleReg.includes(cleanInput) || cleanInput.includes(vehicleReg)) {
+        const expiryDate = new Date(vehicle.license_disk_expiry);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        expiryDate.setHours(0, 0, 0, 0);
+        if (expiryDate < today) {
+          setError('Vehicle License Expired');
+          return null;
+        }
+        return { vehicle };
       }
     }
 
