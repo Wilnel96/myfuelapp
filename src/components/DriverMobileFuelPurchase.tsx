@@ -606,8 +606,8 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         });
       }
 
-      // Check organization daily limit
-      if (organization.daily_spending_limit) {
+      // Check organization daily limit — skip when paying via Local Account
+      if (organization.daily_spending_limit && orgPaymentOption !== 'Local Account') {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -637,8 +637,9 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         }
       }
 
-      // Check organization monthly limit
-      if (organization.monthly_spending_limit) {
+      // Check organization monthly limit — skip when paying via Local Account
+      // because the garage account's statement-based limit already governs spend
+      if (organization.monthly_spending_limit && orgPaymentOption !== 'Local Account') {
         const firstDayOfMonth = new Date();
         firstDayOfMonth.setDate(1);
         firstDayOfMonth.setHours(0, 0, 0, 0);
