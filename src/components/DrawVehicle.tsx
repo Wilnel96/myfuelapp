@@ -389,43 +389,55 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     return true;
   };
 
+  const checkLicenseExpiry = (vehicle: Vehicle): boolean => {
+    const expiryDate = new Date(vehicle.license_disk_expiry);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    expiryDate.setHours(0, 0, 0, 0);
+    return expiryDate >= today;
+  };
+
   const findVehicleByLicenseDisk = async (barcodeData: string): Promise<{ vehicle: Vehicle } | null> => {
     const cleanInput = barcodeData.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
 
-    // Try barcode field matching first (for actual scanned PDF417 data)
-    const barcodeFields = barcodeData.split('%');
-    for (const vehicle of vehicles) {
-      const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-
-      for (const field of barcodeFields) {
-        const cleanField = field.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-        if (cleanField && cleanField === vehicleReg) {
-          const expiryDate = new Date(vehicle.license_disk_expiry);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          expiryDate.setHours(0, 0, 0, 0);
-          if (expiryDate < today) {
-            setError('Vehicle License Expired');
-            return null;
+    // Try barcode field matching (for actual scanned PDF417 data with % separators)
+    if (barcodeData.includes('%')) {
+      const barcodeFields = barcodeData.split('%');
+      for (const vehicle of vehicles) {
+        const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+        for (const field of barcodeFields) {
+          const cleanField = field.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+          if (cleanField && cleanField === vehicleReg) {
+            if (!checkLicenseExpiry(vehicle)) { setError('Vehicle License Expired'); return null; }
+            return { vehicle };
           }
-          return { vehicle };
         }
       }
     }
 
-    // Fallback: direct registration number match (for manual entry)
+    // Try in-memory array match (direct registration lookup)
     for (const vehicle of vehicles) {
       const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-      if (cleanInput === vehicleReg || vehicleReg.includes(cleanInput) || cleanInput.includes(vehicleReg)) {
-        const expiryDate = new Date(vehicle.license_disk_expiry);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        expiryDate.setHours(0, 0, 0, 0);
-        if (expiryDate < today) {
-          setError('Vehicle License Expired');
-          return null;
-        }
+      if (cleanInput === vehicleReg) {
+        if (!checkLicenseExpiry(vehicle)) { setError('Vehicle License Expired'); return null; }
         return { vehicle };
+      }
+    }
+
+    // Last resort: query database directly (handles stale closure or any edge case)
+    const { data: dbVehicles } = await supabase
+      .from('vehicles')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .eq('status', 'active');
+
+    if (dbVehicles) {
+      for (const vehicle of dbVehicles) {
+        const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+        if (cleanInput === vehicleReg || vehicleReg.includes(cleanInput)) {
+          if (!checkLicenseExpiry(vehicle)) { setError('Vehicle License Expired'); return null; }
+          return { vehicle };
+        }
       }
     }
 
