@@ -606,8 +606,8 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         });
       }
 
-      // Check organization daily limit — skip when paying via Local Account
-      if (organization.daily_spending_limit && orgPaymentOption !== 'Local Account') {
+      // Check organization daily limit — skip when a garage account exists for this garage
+      if (organization.daily_spending_limit && !garageAccount) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -637,9 +637,9 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         }
       }
 
-      // Check organization monthly limit — skip when paying via Local Account
-      // because the garage account's statement-based limit already governs spend
-      if (organization.monthly_spending_limit && orgPaymentOption !== 'Local Account') {
+      // Check organization monthly limit — skip when a garage account exists for this garage,
+      // because the garage account's statement-based limit is the authoritative constraint
+      if (organization.monthly_spending_limit && !garageAccount) {
         const firstDayOfMonth = new Date();
         firstDayOfMonth.setDate(1);
         firstDayOfMonth.setHours(0, 0, 0, 0);
@@ -1567,9 +1567,39 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                       {' '}@ R {spendingLimitInfo.pricePerLiter.toFixed(2)}/L
                     </p>
                   ) : (
-                    <p className="text-sm text-blue-600 font-medium">
-                      Enter diesel price below to see max liters
-                    </p>
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-gray-600 mb-1">Enter fuel price to see max liters:</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-700">R</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          placeholder="e.g. 22.50"
+                          value={formData.pricePerLiter}
+                          onChange={e => {
+                            const price = e.target.value;
+                            setFormData(prev => ({ ...prev, pricePerLiter: price }));
+                            const p = parseFloat(price);
+                            if (p > 0 && spendingLimitInfo) {
+                              setSpendingLimitInfo(prev => prev ? {
+                                ...prev,
+                                pricePerLiter: p,
+                                maxLiters: prev.availableAmount / p,
+                              } : prev);
+                            }
+                          }}
+                          className="flex-1 border-2 border-blue-400 rounded-lg px-3 py-2 text-base font-bold text-center focus:outline-none focus:border-blue-600"
+                        />
+                        <span className="text-sm text-gray-600">/L</span>
+                      </div>
+                      {formData.pricePerLiter && parseFloat(formData.pricePerLiter) > 0 && (
+                        <p className="text-sm text-gray-600 mt-1">
+                          Maximum fuel: <span className="font-bold text-amber-900">{(spendingLimitInfo.availableAmount / parseFloat(formData.pricePerLiter)).toFixed(1)} L</span>
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
 
