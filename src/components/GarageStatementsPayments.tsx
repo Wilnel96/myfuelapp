@@ -182,7 +182,7 @@ export default function GarageStatementsPayments({
 
   const loadPayments = async () => {
     const { data, error: paymentsError } = await supabase
-      .from('garage_client_payments')
+      .from('garage_debtor_payments')
       .select('*')
       .eq('garage_id', garageId)
       .eq('organization_id', organizationId)
@@ -269,7 +269,7 @@ export default function GarageStatementsPayments({
       if (numberError) throw numberError;
 
       const { error: insertError } = await supabase
-        .from('garage_client_payments')
+        .from('garage_debtor_payments')
         .insert({
           garage_id: garageId,
           organization_id: organizationId,
@@ -440,13 +440,14 @@ export default function GarageStatementsPayments({
 
     yPosition += 5;
     const n = (v: any) => Number(v);
+    const fmtPdf = (val: number) => val < 0 ? `CR R ${Math.abs(val).toFixed(2)}` : `R ${val.toFixed(2)}`;
     let runningBalance = n(statement.opening_balance);
 
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(17, 24, 39);
     pdf.text('Opening Balance:', margin + 5, yPosition);
-    pdf.text(`R ${runningBalance.toFixed(2)}`, margin + contentWidth - 5, yPosition, { align: 'right' });
+    pdf.text(fmtPdf(runningBalance), margin + contentWidth - 5, yPosition, { align: 'right' });
 
     yPosition += 6;
 
@@ -519,7 +520,7 @@ export default function GarageStatementsPayments({
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(29, 78, 216);
-        pdf.text(`Balance: R ${runningBalance.toFixed(2)}`, margin + contentWidth - 5, yPosition, { align: 'right' });
+        pdf.text(`Balance: ${fmtPdf(runningBalance)}`, margin + contentWidth - 5, yPosition, { align: 'right' });
         yPosition += 5;
 
       } else {
@@ -536,7 +537,7 @@ export default function GarageStatementsPayments({
         pdf.setTextColor(17, 24, 39);
         pdf.text(`${new Date(pmt.payment_date).toLocaleDateString('en-ZA')}  ${pmt.payment_number}`, margin + 5, yPosition);
         pdf.setTextColor(34, 197, 94);
-        pdf.text(`-R ${pmtAmt.toFixed(2)}`, margin + contentWidth - 5, yPosition, { align: 'right' });
+        pdf.text(`R ${pmtAmt.toFixed(2)}`, margin + contentWidth - 5, yPosition, { align: 'right' });
 
         yPosition += 4;
 
@@ -552,7 +553,7 @@ export default function GarageStatementsPayments({
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'bold');
         pdf.setTextColor(29, 78, 216);
-        pdf.text(`Balance: R ${runningBalance.toFixed(2)}`, margin + contentWidth - 5, yPosition, { align: 'right' });
+        pdf.text(`Balance: ${fmtPdf(runningBalance)}`, margin + contentWidth - 5, yPosition, { align: 'right' });
         yPosition += 5;
       }
     });
@@ -571,7 +572,7 @@ export default function GarageStatementsPayments({
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(17, 24, 39);
     pdf.text('Opening Balance:', margin + 5, yPosition);
-    pdf.text(`R ${n(statement.opening_balance).toFixed(2)}`, margin + contentWidth - 5, yPosition, { align: 'right' });
+    pdf.text(fmtPdf(n(statement.opening_balance)), margin + contentWidth - 5, yPosition, { align: 'right' });
 
     yPosition += 6;
     pdf.text('Total Invoices:', margin + 5, yPosition);
@@ -583,9 +584,10 @@ export default function GarageStatementsPayments({
 
     yPosition += 8;
     pdf.setFontSize(12);
-    pdf.setTextColor(37, 99, 235);
+    const closingBal = n(statement.closing_balance);
+    pdf.setTextColor(closingBal < 0 ? 21 : 37, closingBal < 0 ? 128 : 99, closingBal < 0 ? 70 : 235);
     pdf.text('CLOSING BALANCE:', margin + 5, yPosition);
-    pdf.text(`R ${n(statement.closing_balance).toFixed(2)}`, margin + contentWidth - 5, yPosition, { align: 'right' });
+    pdf.text(fmtPdf(closingBal), margin + contentWidth - 5, yPosition, { align: 'right' });
 
     const pdfBlob = pdf.output('blob');
     const url = URL.createObjectURL(pdfBlob);
@@ -603,6 +605,13 @@ export default function GarageStatementsPayments({
   };
 
   const [saving, setSaving] = useState(false);
+
+  // Positive = amount owed to garage; Negative = client has a credit (pre-paid more than owed)
+  const fmtBalance = (value: number | string) => {
+    const n = Number(value);
+    if (n < 0) return `CR R ${Math.abs(n).toFixed(2)}`;
+    return `R ${n.toFixed(2)}`;
+  };
 
   if (loading) {
     return (
@@ -679,7 +688,9 @@ export default function GarageStatementsPayments({
             <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Opening Balance</span>
-                <span className="font-semibold text-gray-900">R {Number(selectedStatement.opening_balance).toFixed(2)}</span>
+                <span className={`font-semibold ${Number(selectedStatement.opening_balance) < 0 ? 'text-green-700' : 'text-gray-900'}`}>
+                  {fmtBalance(selectedStatement.opening_balance)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Invoices</span>
@@ -687,11 +698,13 @@ export default function GarageStatementsPayments({
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Total Payments</span>
-                <span className="font-semibold text-green-600">– R {Number(selectedStatement.total_payments).toFixed(2)}</span>
+                <span className="font-semibold text-green-600">R {Number(selectedStatement.total_payments).toFixed(2)}</span>
               </div>
               <div className="border-t border-blue-200 pt-2 flex justify-between items-center">
                 <span className="font-bold text-blue-900">Closing Balance</span>
-                <span className="text-lg font-bold text-blue-900">R {Number(selectedStatement.closing_balance).toFixed(2)}</span>
+                <span className={`text-lg font-bold ${Number(selectedStatement.closing_balance) < 0 ? 'text-green-700' : 'text-blue-900'}`}>
+                  {fmtBalance(selectedStatement.closing_balance)}
+                </span>
               </div>
             </div>
           </div>
@@ -1019,10 +1032,10 @@ export default function GarageStatementsPayments({
                         <td className="px-4 py-3 text-sm">
                           {new Date(statement.period_start).toLocaleDateString('en-ZA')} - {new Date(statement.period_end).toLocaleDateString('en-ZA')}
                         </td>
-                        <td className="px-4 py-3 text-sm text-right">R {statement.opening_balance.toFixed(2)}</td>
+                        <td className={`px-4 py-3 text-sm text-right ${statement.opening_balance < 0 ? 'text-green-700' : ''}`}>{fmtBalance(statement.opening_balance)}</td>
                         <td className="px-4 py-3 text-sm text-right text-red-600">R {statement.total_invoices.toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm text-right text-green-600">R {statement.total_payments.toFixed(2)}</td>
-                        <td className="px-4 py-3 text-sm text-right font-semibold">R {statement.closing_balance.toFixed(2)}</td>
+                        <td className={`px-4 py-3 text-sm text-right font-semibold ${statement.closing_balance < 0 ? 'text-green-700' : ''}`}>{fmtBalance(statement.closing_balance)}</td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button
@@ -1039,25 +1052,23 @@ export default function GarageStatementsPayments({
                             >
                               <Printer className="w-4 h-4" />
                             </button>
-                            {isSuperAdmin && (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const { error: calcError } = await supabase.rpc('calculate_statement_totals', { p_statement_id: statement.id });
-                                    if (calcError) throw calcError;
-                                    await loadData();
-                                    setRecalcSuccess('Statement recalculated.');
-                                    setTimeout(() => setRecalcSuccess(''), 3000);
-                                  } catch (err: any) {
-                                    setError(err.message || 'Recalculation failed');
-                                  }
-                                }}
-                                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
-                                title="Recalculate Totals"
-                              >
-                                <RefreshCw className="w-4 h-4" />
-                              </button>
-                            )}
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const { error: calcError } = await supabase.rpc('calculate_statement_totals', { p_statement_id: statement.id });
+                                  if (calcError) throw calcError;
+                                  await loadData();
+                                  setRecalcSuccess('Statement recalculated.');
+                                  setTimeout(() => setRecalcSuccess(''), 3000);
+                                } catch (err: any) {
+                                  setError(err.message || 'Recalculation failed');
+                                }
+                              }}
+                              className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                              title="Recalculate Totals"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
