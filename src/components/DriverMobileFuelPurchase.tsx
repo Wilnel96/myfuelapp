@@ -1561,46 +1561,41 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                     {spendingLimitInfo.source === 'organization' && '(Organization limit)'}
                     {spendingLimitInfo.source === 'garage' && '(Garage account limit)'}
                   </p>
-                  {spendingLimitInfo.pricePerLiter > 0 ? (
-                    <p className="text-sm text-gray-600">
-                      Maximum fuel: <span className="font-bold text-amber-900">{spendingLimitInfo.maxLiters.toFixed(1)} L</span>
-                      {' '}@ R {spendingLimitInfo.pricePerLiter.toFixed(2)}/L
+                  <div className="mt-2">
+                    <p className="text-xs font-medium text-gray-600 mb-1">
+                      {spendingLimitInfo.pricePerLiter > 0 ? 'Fuel price (edit if incorrect):' : 'Enter fuel price to see max liters:'}
                     </p>
-                  ) : (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium text-gray-600 mb-1">Enter fuel price to see max liters:</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-700">R</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          step="0.01"
-                          min="0"
-                          placeholder="e.g. 22.50"
-                          value={formData.pricePerLiter}
-                          onChange={e => {
-                            const price = e.target.value;
-                            setFormData(prev => ({ ...prev, pricePerLiter: price }));
-                            const p = parseFloat(price);
-                            if (p > 0 && spendingLimitInfo) {
-                              setSpendingLimitInfo(prev => prev ? {
-                                ...prev,
-                                pricePerLiter: p,
-                                maxLiters: prev.availableAmount / p,
-                              } : prev);
-                            }
-                          }}
-                          className="flex-1 border-2 border-blue-400 rounded-lg px-3 py-2 text-base font-bold text-center focus:outline-none focus:border-blue-600"
-                        />
-                        <span className="text-sm text-gray-600">/L</span>
-                      </div>
-                      {formData.pricePerLiter && parseFloat(formData.pricePerLiter) > 0 && (
-                        <p className="text-sm text-gray-600 mt-1">
-                          Maximum fuel: <span className="font-bold text-amber-900">{(spendingLimitInfo.availableAmount / parseFloat(formData.pricePerLiter)).toFixed(1)} L</span>
-                        </p>
-                      )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">R</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        placeholder="e.g. 22.50"
+                        value={formData.pricePerLiter || (spendingLimitInfo.pricePerLiter > 0 ? spendingLimitInfo.pricePerLiter.toFixed(2) : '')}
+                        onChange={e => {
+                          const price = e.target.value;
+                          setFormData(prev => ({ ...prev, pricePerLiter: price }));
+                          const p = parseFloat(price);
+                          if (p > 0) {
+                            setSpendingLimitInfo(prev => prev ? {
+                              ...prev,
+                              pricePerLiter: p,
+                              maxLiters: prev.availableAmount / p,
+                            } : prev);
+                          }
+                        }}
+                        className="flex-1 border-2 border-blue-400 rounded-lg px-3 py-2 text-base font-bold text-center focus:outline-none focus:border-blue-600"
+                      />
+                      <span className="text-sm text-gray-600">/L</span>
                     </div>
-                  )}
+                    {spendingLimitInfo.pricePerLiter > 0 && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        Maximum fuel: <span className="font-bold text-amber-900">{spendingLimitInfo.maxLiters.toFixed(1)} L</span>
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-red-100 rounded-lg p-3 border-2 border-red-400">
