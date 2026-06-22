@@ -409,7 +409,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
       // Always check if this garage has a local account for this organization
       const { data: garageAccount, error: garageAccountError } = await supabase
         .from('organization_garage_accounts')
-        .select('monthly_spend_limit, account_number')
+        .select('monthly_spend_limit, account_number, deposit_amount')
         .eq('organization_id', drawnVehicle.organization_id)
         .eq('garage_id', selectedGarage.id)
         .eq('is_active', true)
@@ -567,38 +567,43 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         }
       }
 
-      // Check garage-specific spending limit
+      // Check garage-specific spending limit using statement balance
       if (garageAccount?.monthly_spend_limit) {
-        const firstDayOfMonth = new Date();
-        firstDayOfMonth.setDate(1);
-        firstDayOfMonth.setHours(0, 0, 0, 0);
+        const deposit = parseFloat((garageAccount.deposit_amount as any) || '0') || 0;
+        const effectiveLimit = garageAccount.monthly_spend_limit - deposit;
 
-        const { data: garageMonthlyTransactions, error: garageMonthlyError } = await supabase
-          .from('fuel_transactions')
-          .select('total_amount')
+        // Get the latest statement balance (positive = they owe money, negative = credit)
+        const { data: latestStatement } = await supabase
+          .from('garage_statements')
+          .select('closing_balance')
           .eq('organization_id', drawnVehicle.organization_id)
           .eq('garage_id', selectedGarage.id)
-          .gte('created_at', firstDayOfMonth.toISOString());
+          .order('statement_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        if (!garageMonthlyError) {
-          const garageMonthlySpending = garageMonthlyTransactions?.reduce((sum, t) => sum + parseFloat(t.total_amount || '0'), 0) || 0;
-          const availableMonthly = garageAccount.monthly_spend_limit - garageMonthlySpending;
+        const currentBalance = parseFloat((latestStatement?.closing_balance as any) || '0') || 0;
+        // available = effectiveLimit - currentBalance
+        // (if credit balance is negative, subtracting a negative number adds to available)
+        const availableAmount = effectiveLimit - currentBalance;
 
-          allLimits.push({
-            type: 'monthly',
-            limit: garageAccount.monthly_spend_limit,
-            currentSpending: garageMonthlySpending,
-            availableAmount: availableMonthly,
-            source: 'garage'
-          });
+        allLimits.push({
+          type: 'monthly',
+          limit: garageAccount.monthly_spend_limit,
+          currentSpending: currentBalance,
+          availableAmount,
+          source: 'garage'
+        });
 
-          console.log('Garage-specific limit:', {
-            garage: selectedGarage.name,
-            limit: garageAccount.monthly_spend_limit,
-            spent: garageMonthlySpending,
-            available: availableMonthly
-          });
-        }
+        console.log('Garage account limit:', {
+          garage: selectedGarage.name,
+          spendingLimit: garageAccount.monthly_spend_limit,
+          deposit,
+          effectiveLimit,
+          currentBalance,
+          available: availableAmount
+        });
       }
 
       // Check organization daily limit
@@ -860,7 +865,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           .maybeSingle(),
         supabase
           .from('organization_garage_accounts')
-          .select('account_number, monthly_spend_limit')
+          .select('account_number, monthly_spend_limit, deposit_amount')
           .eq('organization_id', drawnVehicle.organization_id)
           .eq('garage_id', selectedGarage.id)
           .eq('is_active', true)
@@ -1446,11 +1451,15 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                   <span className="font-bold text-red-900 capitalize">{spendingLimitInfo.source}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-red-700">Current spending:</span>
+                  <span className="text-red-700">
+                    {spendingLimitInfo.source === 'garage' ? 'Account balance:' : 'Current spending:'}
+                  </span>
                   <span className="font-bold text-red-900">R {spendingLimitInfo.currentSpending.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-red-700">{spendingLimitInfo.type === 'daily' ? 'Daily' : 'Monthly'} limit:</span>
+                  <span className="text-red-700">
+                    {spendingLimitInfo.source === 'garage' ? 'Spending limit:' : (spendingLimitInfo.type === 'daily' ? 'Daily' : 'Monthly') + ' limit:'}
+                  </span>
                   <span className="font-bold text-red-900">R {spendingLimitInfo.limit.toFixed(2)}</span>
                 </div>
                 <div className="border-t border-red-200 my-2"></div>
