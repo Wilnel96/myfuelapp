@@ -1,4 +1,4 @@
-import { Building2, Users, DollarSign, PlusCircle } from 'lucide-react';
+import { Building2, Users, DollarSign, PlusCircle, List } from 'lucide-react';
 
 interface ClientOrganizationsMenuProps {
   onNavigate: (view: string) => void;
@@ -6,6 +6,13 @@ interface ClientOrganizationsMenuProps {
 
 export default function ClientOrganizationsMenu({ onNavigate }: ClientOrganizationsMenuProps) {
   const menuItems = [
+    {
+      id: 'clients',
+      title: 'View All Organizations',
+      description: 'List all client organizations with entity type and registration details',
+      icon: List,
+      color: 'slate',
+    },
     {
       id: 'create-client-org',
       title: 'Create New Client',
@@ -38,6 +45,11 @@ export default function ClientOrganizationsMenu({ onNavigate }: ClientOrganizati
 
   const getColorClasses = (color: string) => {
     const colors: Record<string, { bg: string; hover: string; icon: string }> = {
+      slate: {
+        bg: 'bg-slate-50',
+        hover: 'hover:bg-slate-100 hover:border-slate-300',
+        icon: 'text-slate-600',
+      },
       green: {
         bg: 'bg-green-50',
         hover: 'hover:bg-green-100 hover:border-green-300',
