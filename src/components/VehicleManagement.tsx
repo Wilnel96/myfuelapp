@@ -22,6 +22,7 @@ interface Vehicle {
   last_service_date?: string;
   service_interval_km?: number;
   last_service_km_reading?: number;
+  next_service_km?: number;
   organization_id: string;
   deleted_at?: string | null;
   organizations?: {
@@ -82,6 +83,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
     last_service_date: '',
     service_interval_km: 0,
     last_service_km_reading: 0,
+    next_service_km: 0,
     organization_id: '',
   });
 
@@ -382,6 +384,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
       last_service_date: vehicle.last_service_date || '',
       service_interval_km: vehicle.service_interval_km || 0,
       last_service_km_reading: vehicle.last_service_km_reading || 0,
+      next_service_km: vehicle.next_service_km || 0,
       organization_id: vehicle.organization_id,
     });
     setShowForm(true);
@@ -871,7 +874,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
 
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide border-b pb-1">Maintenance</h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
                       Last Service Date
@@ -909,6 +912,20 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                       placeholder="10000"
                       min="0"
                       step="1000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                      Next Service KM
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.next_service_km}
+                      onChange={(e) => setFormData({ ...formData, next_service_km: parseInt(e.target.value) || 0 })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                      placeholder="60000"
+                      min="0"
+                      step="100"
                     />
                   </div>
                 </div>

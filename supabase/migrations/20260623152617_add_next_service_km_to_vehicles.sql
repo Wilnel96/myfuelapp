@@ -1,0 +1,1 @@
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS next_service_km integer DEFAULT NULL;
