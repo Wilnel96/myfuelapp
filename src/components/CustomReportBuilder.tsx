@@ -865,7 +865,7 @@ export default function CustomReportBuilder({ onNavigate }: CustomReportBuilderP
       'year_end_day': 'Year End Day',
       'daily_spending_limit': 'Daily Spending Limit',
       'monthly_spending_limit': 'Monthly Spending Limit',
-      'parent_org_id': 'Parent Organization ID',
+      'parent_org_id': 'Garage-Managed By (Org ID)',
       'payment_method': 'Payment Method',
       'payment_date': 'Payment Date',
       'payment_terms': 'Payment Terms',
