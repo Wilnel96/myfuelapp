@@ -72,9 +72,12 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
   }, [initialView]);
 
   const loadPermissions = async () => {
+    // Safety: if this takes more than 5s, unblock with full access
+    const safetyTimeout = setTimeout(() => setPerms(FULL_ACCESS), 5000);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) { clearTimeout(safetyTimeout); setPerms(FULL_ACCESS); return; }
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -83,6 +86,7 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
         .maybeSingle();
 
       if (profile?.role === 'super_admin') {
+        clearTimeout(safetyTimeout);
         setPerms(FULL_ACCESS);
         return;
       }
@@ -91,14 +95,15 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
         .from('organization_users')
         .select('is_main_user, is_secondary_main_user, can_add_vehicles, can_edit_vehicles, can_delete_vehicles, can_add_drivers, can_edit_drivers, can_delete_drivers, can_view_reports, can_create_reports, can_view_custom_reports, can_edit_organization_info, can_view_fuel_transactions, can_manage_users, can_view_financial_data, can_view_invoice_management, can_access_back_office')
         .eq('user_id', user.id)
-        .eq('is_active', true)
         .maybeSingle();
 
       if (!orgUser) {
+        clearTimeout(safetyTimeout);
         setPerms(FULL_ACCESS);
         return;
       }
 
+      clearTimeout(safetyTimeout);
       const full = orgUser.is_main_user || orgUser.is_secondary_main_user;
       setPerms({
         isMainUser: orgUser.is_main_user,
@@ -120,6 +125,7 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
         can_access_back_office: full || orgUser.can_access_back_office,
       });
     } catch {
+      clearTimeout(safetyTimeout);
       setPerms(FULL_ACCESS);
     }
   };
