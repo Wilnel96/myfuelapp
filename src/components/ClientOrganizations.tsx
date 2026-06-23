@@ -633,7 +633,7 @@ export default function ClientOrganizations() {
         .select('*')
         .eq('organization_id', orgId)
         .order('is_main_user', { ascending: false })
-        .order('name');
+        .order('first_name');
 
       if (error) {
         console.error('Error loading users:', error);
