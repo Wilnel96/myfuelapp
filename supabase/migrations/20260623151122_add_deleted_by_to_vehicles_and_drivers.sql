@@ -1,0 +1,2 @@
+ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) DEFAULT NULL;
+ALTER TABLE drivers ADD COLUMN IF NOT EXISTS deleted_by uuid REFERENCES auth.users(id) DEFAULT NULL;
