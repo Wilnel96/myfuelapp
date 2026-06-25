@@ -1,5 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.83.0';
-import nodemailer from 'npm:nodemailer@6.9.14';
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,12 +20,11 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const smtpUser = Deno.env.get('SMTP_USER');
-    const smtpPassword = Deno.env.get('SMTP_PASSWORD') || Deno.env.get('SMPT_PASSWORD');
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
-    if (!smtpUser || !smtpPassword) {
+    if (!resendApiKey) {
       return new Response(
-        JSON.stringify({ error: 'Email service not configured. SMTP_USER and SMTP_PASSWORD secrets are required.' }),
+        JSON.stringify({ error: 'Email service not configured. RESEND_API_KEY secret is required.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -40,33 +38,35 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const transporter = nodemailer.createTransport({
-      host: 'smtp-mail.outlook.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: smtpUser,
-        pass: smtpPassword,
-      },
-      tls: {
-        ciphers: 'SSLv3',
-        rejectUnauthorized: false,
-      },
-    });
-
-    const mailOptions = {
-      from: `MyFuelApp <${smtpUser}>`,
-      to: Array.isArray(to) ? to.join(', ') : to,
+    const payload: Record<string, unknown> = {
+      from: 'MyFuelApp <onboarding@resend.dev>',
+      to: Array.isArray(to) ? to : [to],
       subject,
       ...(html && { html }),
       ...(text && { text }),
-      ...(replyTo && { replyTo }),
+      ...(replyTo && { reply_to: replyTo }),
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return new Response(
+        JSON.stringify({ error: result.message || 'Failed to send email', details: result }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(
-      JSON.stringify({ success: true, messageId: info.messageId }),
+      JSON.stringify({ success: true, id: result.id }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
