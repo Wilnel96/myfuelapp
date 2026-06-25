@@ -22,7 +22,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const smtpUser = Deno.env.get('SMTP_USER');
-    const smtpPassword = Deno.env.get('SMTP_PASSWORD');
+    const smtpPassword = Deno.env.get('SMTP_PASSWORD') || Deno.env.get('SMPT_PASSWORD');
 
     if (!smtpUser || !smtpPassword) {
       return new Response(
