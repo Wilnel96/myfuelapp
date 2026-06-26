@@ -8,6 +8,7 @@ export interface GarageContactPerson {
   phone: string;
   mobile_phone: string;
   is_primary: boolean;
+  password?: string;
   // Permissions
   can_change_account_numbers: boolean;
   can_edit_client_info: boolean;
@@ -25,6 +26,7 @@ const EMPTY_CONTACT: GarageContactPerson = {
   email: '',
   phone: '',
   mobile_phone: '',
+  password: '',
   is_primary: false,
   can_change_account_numbers: false,
   can_edit_client_info: false,
@@ -67,6 +69,7 @@ const PERMISSIONS: Permission[] = [
 interface GarageContactManagementProps {
   contacts: GarageContactPerson[];
   onUpdate: (contacts: GarageContactPerson[]) => void;
+  hasOrganization?: boolean;
 }
 
 function PermissionsGrid({
@@ -173,6 +176,20 @@ function ContactForm({
           placeholder="email@example.com"
         />
       </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Portal Password
+          <span className="ml-1 text-xs text-gray-400 font-normal">(set to allow this person to log in to the Garage Portal)</span>
+        </label>
+        <input
+          type="password"
+          value={contact.password || ''}
+          onChange={e => onChange({ password: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+          placeholder="Leave blank to keep existing password"
+          autoComplete="new-password"
+        />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
@@ -234,7 +251,7 @@ function ContactForm({
   );
 }
 
-export default function GarageContactManagement({ contacts, onUpdate }: GarageContactManagementProps) {
+export default function GarageContactManagement({ contacts, onUpdate, hasOrganization = false }: GarageContactManagementProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editContact, setEditContact] = useState<GarageContactPerson | null>(null);
   const [addingNew, setAddingNew] = useState(false);
@@ -328,9 +345,14 @@ export default function GarageContactManagement({ contacts, onUpdate }: GarageCo
           Add Person
         </button>
       </div>
-      <p className="text-sm text-gray-500 mb-5">
+      <p className="text-sm text-gray-500 mb-3">
         Manage garage contacts and their portal access permissions. The primary contact has full access. Assign specific permissions to other users as needed.
       </p>
+      {!hasOrganization && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-800">
+          <strong>Note:</strong> Portal login passwords can only be set for garages that have registered via the Garage Sign Up flow. Once the garage has an account, edit it here to assign passwords to contact persons.
+        </div>
+      )}
 
       {/* Add modal */}
       {addingNew && (

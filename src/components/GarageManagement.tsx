@@ -24,6 +24,7 @@ interface ContactPerson {
   phone: string;
   mobile_phone: string;
   is_primary: boolean;
+  password?: string;
 }
 
 interface Garage {
@@ -49,6 +50,7 @@ interface Garage {
   price_zone?: string;
   latitude?: number;
   longitude?: number;
+  organization_id?: string | null;
 }
 
 interface GarageManagementProps {
@@ -341,6 +343,8 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      let savedGarageId: string | null = null;
+
       if (editingGarage) {
         const { error } = await supabase
           .from('garages')
@@ -348,16 +352,46 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
           .eq('id', editingGarage.id);
 
         if (error) throw error;
+        savedGarageId = editingGarage.id;
       } else {
         // Insert new garage (organization_id is always NULL - garages are standalone)
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('garages')
           .insert({
             ...formData,
             organization_id: null
-          });
+          })
+          .select('id')
+          .single();
 
         if (error) throw error;
+        savedGarageId = inserted?.id ?? null;
+      }
+
+      // Provision Supabase Auth users for contacts that have a password set
+      // Only possible for garages that have an organization_id (signed-up garages)
+      const garageOrgId = editingGarage?.organization_id;
+      if (savedGarageId && garageOrgId && formData.contact_persons?.length) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        const contactsWithPasswords = formData.contact_persons.filter(
+          (c: any) => c.password && c.password.trim() && c.email
+        );
+
+        for (const contact of contactsWithPasswords) {
+          try {
+            const res = await supabase.functions.invoke('create-garage-contact-user', {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+              body: { garageId: savedGarageId, contact },
+            });
+            if (res.error) {
+              console.error('Failed to provision contact user:', contact.email, res.error);
+            }
+          } catch (err) {
+            console.error('Exception provisioning contact user:', contact.email, err);
+          }
+        }
       }
 
       resetForm();
@@ -1089,6 +1123,7 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
                 <GarageContactManagement
                   contacts={formData.contact_persons}
                   onUpdate={(contacts) => setFormData({ ...formData, contact_persons: contacts })}
+                  hasOrganization={!!editingGarage?.organization_id}
                 />
               </div>
 
