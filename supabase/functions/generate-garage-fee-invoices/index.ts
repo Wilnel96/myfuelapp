@@ -9,7 +9,6 @@ const corsHeaders = {
 
 interface GenerateRequest {
   garage_id: string;
-  organization_id: string;
   billing_period_start: string;
   billing_period_end: string;
   payment_terms?: string;
@@ -25,38 +24,51 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { garage_id, organization_id, billing_period_start, billing_period_end, payment_terms = "30-Days" }: GenerateRequest = await req.json();
+    const { garage_id, billing_period_start, billing_period_end, payment_terms = "30-Days" }: GenerateRequest = await req.json();
 
-    if (!garage_id || !organization_id || !billing_period_start || !billing_period_end) {
+    if (!garage_id || !billing_period_start || !billing_period_end) {
       return new Response(
-        JSON.stringify({ error: "garage_id, organization_id, billing_period_start and billing_period_end are required" }),
+        JSON.stringify({ error: "garage_id, billing_period_start and billing_period_end are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Verify org belongs to this garage
-    const { data: org, error: orgError } = await supabase
-      .from("organizations")
-      .select("id, name, monthly_fee_per_vehicle, monthly_fee_per_driver, managing_garage_id, is_garage_managed, payment_option, fuel_payment_terms, fuel_payment_interest_rate")
-      .eq("id", organization_id)
-      .eq("managing_garage_id", garage_id)
-      .eq("is_garage_managed", true)
-      .eq("status", "active")
+    // Fetch the garage and its managing organization
+    const { data: garage, error: garageError } = await supabase
+      .from("garages")
+      .select("id, name, organization_id, garage_capabilities")
+      .eq("id", garage_id)
       .maybeSingle();
 
-    if (orgError) throw orgError;
-    if (!org) {
+    if (garageError) throw garageError;
+    if (!garage) {
       return new Response(
-        JSON.stringify({ error: "Organization not found or not managed by this garage" }),
+        JSON.stringify({ error: "Garage not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check for duplicate invoice
+    // Fetch all active sub-clients managed by this garage
+    const { data: subClients, error: subClientsError } = await supabase
+      .from("organizations")
+      .select("id, name, monthly_fee_per_vehicle, monthly_fee_per_driver, payment_option, fuel_payment_terms, fuel_payment_interest_rate")
+      .eq("managing_garage_id", garage_id)
+      .eq("is_garage_managed", true)
+      .eq("status", "active");
+
+    if (subClientsError) throw subClientsError;
+    if (!subClients || subClients.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "No active managed sub-clients found for this garage" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check for duplicate consolidated invoice for this garage + period
     const { data: existing } = await supabase
-      .from("invoices")
+      .from("garage_fee_invoices")
       .select("id, invoice_number")
-      .eq("organization_id", organization_id)
+      .eq("garage_id", garage_id)
       .eq("billing_period_start", billing_period_start)
       .eq("billing_period_end", billing_period_end)
       .maybeSingle();
@@ -68,35 +80,74 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Count active vehicles
-    const { count: vehicleCount } = await supabase
-      .from("vehicles")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organization_id)
-      .eq("status", "active")
-      .is("deleted_at", null);
+    // Accumulate line items per sub-client
+    const lineItems: Array<{
+      description: string;
+      quantity: number;
+      unit_price: number;
+      line_total: number;
+      item_type: string;
+      sub_client_org_id: string;
+      sub_client_name: string;
+    }> = [];
 
-    // Count active drivers
-    const { count: driverCount } = await supabase
-      .from("drivers")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", organization_id)
-      .eq("status", "active")
-      .is("deleted_at", null);
+    let subtotal = 0;
 
-    const activeVehicles = vehicleCount || 0;
-    const activeDrivers = driverCount || 0;
+    for (const client of subClients) {
+      const feePerVehicle = parseFloat(String(client.monthly_fee_per_vehicle || 0));
+      const feePerDriver = parseFloat(String(client.monthly_fee_per_driver || 0));
 
-    const feePerVehicle = parseFloat(String(org.monthly_fee_per_vehicle || 0));
-    const feePerDriver = parseFloat(String(org.monthly_fee_per_driver || 0));
+      const { count: vehicleCount } = await supabase
+        .from("vehicles")
+        .select("*", { count: "exact", head: true })
+        .eq("organization_id", client.id)
+        .eq("status", "active")
+        .is("deleted_at", null);
 
-    const vehicleFeeTotal = Math.round(activeVehicles * feePerVehicle * 100) / 100;
-    const driverFeeTotal = Math.round(activeDrivers * feePerDriver * 100) / 100;
-    const subtotal = Math.round((vehicleFeeTotal + driverFeeTotal) * 100) / 100;
+      const { count: driverCount } = await supabase
+        .from("drivers")
+        .select("*", { count: "exact", head: true })
+        .eq("organization_id", client.id)
+        .eq("status", "active")
+        .is("deleted_at", null);
 
-    if (subtotal === 0) {
+      const activeVehicles = vehicleCount || 0;
+      const activeDrivers = driverCount || 0;
+
+      if (activeVehicles > 0 && feePerVehicle > 0) {
+        const lineTotal = Math.round(activeVehicles * feePerVehicle * 100) / 100;
+        lineItems.push({
+          description: `${client.name} – Vehicle management fee (${activeVehicles} vehicle${activeVehicles !== 1 ? 's' : ''} × R${feePerVehicle.toFixed(2)})`,
+          quantity: activeVehicles,
+          unit_price: feePerVehicle,
+          line_total: lineTotal,
+          item_type: "Vehicle Fee",
+          sub_client_org_id: client.id,
+          sub_client_name: client.name,
+        });
+        subtotal += lineTotal;
+      }
+
+      if (activeDrivers > 0 && feePerDriver > 0) {
+        const lineTotal = Math.round(activeDrivers * feePerDriver * 100) / 100;
+        lineItems.push({
+          description: `${client.name} – Driver management fee (${activeDrivers} driver${activeDrivers !== 1 ? 's' : ''} × R${feePerDriver.toFixed(2)})`,
+          quantity: activeDrivers,
+          unit_price: feePerDriver,
+          line_total: lineTotal,
+          item_type: "Driver Fee",
+          sub_client_org_id: client.id,
+          sub_client_name: client.name,
+        });
+        subtotal += lineTotal;
+      }
+    }
+
+    subtotal = Math.round(subtotal * 100) / 100;
+
+    if (subtotal === 0 || lineItems.length === 0) {
       return new Response(
-        JSON.stringify({ error: "No billable items: no active vehicles/drivers or no fee rates set" }),
+        JSON.stringify({ error: "No billable items: no active vehicles/drivers or no fee rates set for any sub-client" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -115,11 +166,11 @@ Deno.serve(async (req: Request) => {
     if (seqError) throw seqError;
     const invoiceNumber = invoiceNumberData as string;
 
-    // Create invoice
+    // Create consolidated garage fee invoice
     const { data: invoice, error: invoiceError } = await supabase
-      .from("invoices")
+      .from("garage_fee_invoices")
       .insert({
-        organization_id,
+        garage_id,
         invoice_number: invoiceNumber,
         invoice_date: invoiceDate,
         billing_period_start,
@@ -132,9 +183,6 @@ Deno.serve(async (req: Request) => {
         amount_outstanding: totalAmount,
         payment_terms,
         payment_due_date: paymentDueDateStr,
-        payment_option: org.payment_option || null,
-        fuel_payment_terms: org.fuel_payment_terms || null,
-        fuel_payment_interest_rate: org.fuel_payment_interest_rate || null,
         status: "issued",
         issued_at: new Date().toISOString(),
       })
@@ -143,46 +191,29 @@ Deno.serve(async (req: Request) => {
 
     if (invoiceError) throw invoiceError;
 
-    // Create line items
-    const lineItems = [];
-    let lineNumber = 1;
+    // Insert line items
+    const lineItemRows = lineItems.map((item, idx) => ({
+      invoice_id: invoice.id,
+      line_number: idx + 1,
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      line_total: item.line_total,
+      item_type: item.item_type,
+      sub_client_org_id: item.sub_client_org_id,
+      sub_client_name: item.sub_client_name,
+    }));
 
-    if (activeVehicles > 0 && feePerVehicle > 0) {
-      lineItems.push({
-        invoice_id: invoice.id,
-        line_number: lineNumber++,
-        description: `Monthly fleet management fee - ${activeVehicles} vehicle(s)`,
-        quantity: activeVehicles,
-        unit_price: feePerVehicle,
-        line_total: vehicleFeeTotal,
-        item_type: "Vehicle Fee",
-      });
-    }
-
-    if (activeDrivers > 0 && feePerDriver > 0) {
-      lineItems.push({
-        invoice_id: invoice.id,
-        line_number: lineNumber++,
-        description: `Monthly driver management fee - ${activeDrivers} driver(s)`,
-        quantity: activeDrivers,
-        unit_price: feePerDriver,
-        line_total: driverFeeTotal,
-        item_type: "Driver Fee",
-      });
-    }
-
-    if (lineItems.length > 0) {
-      const { error: lineItemError } = await supabase.from("invoice_line_items").insert(lineItems);
-      if (lineItemError) throw lineItemError;
-    }
+    const { error: lineItemError } = await supabase.from("garage_fee_invoice_line_items").insert(lineItemRows);
+    if (lineItemError) throw lineItemError;
 
     return new Response(
       JSON.stringify({
         success: true,
         invoice_number: invoiceNumber,
-        organization: org.name,
-        vehicle_count: activeVehicles,
-        driver_count: activeDrivers,
+        garage: garage.name,
+        sub_client_count: subClients.length,
+        line_item_count: lineItems.length,
         subtotal,
         vat_amount: vatAmount,
         total_amount: totalAmount,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName, sortFuelTypes, AVAILABLE_FUEL_TYPES } from '../lib/fuelTypes';
-import { Store, LogOut, Save, MapPin, AlertCircle, X, Plus, Trash2, Building2, Users, User, Fuel, ShoppingBag, Home, ArrowLeft, Receipt, FileText, CreditCard, Printer } from 'lucide-react';
+import { Store, LogOut, Save, MapPin, AlertCircle, X, Plus, Trash2, Building2, Users, User, Fuel, ShoppingBag, ArrowLeft, Receipt, FileText, CreditCard, Printer, ExternalLink } from 'lucide-react';
 import GarageContactManagement from './GarageContactManagement';
 import GarageLocalAccounts from './GarageLocalAccounts';
 import GarageClientIntakeForm from './GarageClientIntakeForm';
@@ -11,7 +11,9 @@ interface GaragePortalProps {
   garageName: string;
   garageEmail: string;
   garagePassword: string;
+  clientOrgId?: string | null;
   onLogout: () => void;
+  onSwitchToClientPortal?: () => void;
 }
 
 interface OtherOfferings {
@@ -51,12 +53,15 @@ interface GarageData {
   fuel_prices?: Record<string, number>;
   fuel_brand?: string;
   other_offerings?: OtherOfferings;
+  garage_capabilities?: string[];
+  client_org_id?: string | null;
 }
 
-type MenuView = 'menu' | 'garage-info' | 'fuel-prices' | 'contact-management' | 'local-accounts' | 'local-accounts-menu' | 'active-accounts' | 'view-invoices' | 'create-statements' | 'payments' | 'add-new-client' | 'fee-invoices' | 'other-offerings';
+type MenuView = 'menu' | 'garage-info' | 'fuel-prices' | 'contact-management' | 'local-accounts' | 'local-accounts-menu' | 'local-accounts-external' | 'local-accounts-managed' | 'active-accounts' | 'view-invoices' | 'create-statements' | 'payments' | 'add-new-client' | 'fee-invoices' | 'other-offerings';
 
-export default function GaragePortal({ garageId, garageName, garageEmail, garagePassword, onLogout }: GaragePortalProps) {
+export default function GaragePortal({ garageId, garageName, garageEmail, garagePassword, clientOrgId, onLogout, onSwitchToClientPortal }: GaragePortalProps) {
   const [currentView, setCurrentView] = useState<MenuView>('menu');
+  const [garageCapabilities, setGarageCapabilities] = useState<string[]>(['card_only']);
   const [garage, setGarage] = useState<GarageData | null>(null);
   const [fuelTypes, setFuelTypes] = useState<string[]>([]);
   const [fuelPrices, setFuelPrices] = useState<Record<string, number>>({});
@@ -106,6 +111,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
       }
 
       setGarage(data);
+      setGarageCapabilities(data.garage_capabilities || ['card_only']);
       setFuelTypes(data.fuel_types || []);
       setFuelPrices(roundedFuelPrices);
       setOtherOfferings(data.other_offerings || {});
@@ -301,6 +307,10 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
   };
 
 
+  const hasCapability = (cap: string) => garageCapabilities.includes(cap);
+  const hasLocalAccountCapability = hasCapability('external_local_accounts') || hasCapability('manages_own_clients');
+  const hasBothLocalAccountTypes = hasCapability('external_local_accounts') && hasCapability('manages_own_clients');
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -339,7 +349,9 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                currentView !== 'payments' &&
                currentView !== 'add-new-client' &&
                currentView !== 'fee-invoices' &&
-               currentView !== 'local-accounts' && (
+               currentView !== 'local-accounts' &&
+               currentView !== 'local-accounts-external' &&
+               currentView !== 'local-accounts-managed' && (
                 <button
                   onClick={() => setCurrentView('menu')}
                   className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -359,6 +371,8 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                    currentView === 'fuel-prices' ? 'Fuel Prices' :
                    currentView === 'contact-management' ? 'Contact Persons & Users' :
                    currentView === 'local-accounts-menu' ? 'Local Account Clients' :
+                   currentView === 'local-accounts-external' ? 'External Clients' :
+                   currentView === 'local-accounts-managed' ? 'My Managed Clients' :
                    currentView === 'active-accounts' ? 'Active Accounts' :
                    currentView === 'view-invoices' ? 'View Fuel Invoices' :
                    currentView === 'create-statements' ? 'Create Statements' :
@@ -435,24 +449,43 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                 </div>
               </button>
 
-              <button
-                onClick={() => setCurrentView('local-accounts-menu')}
-                className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6 hover:border-amber-500 hover:shadow-md transition-all text-left group"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center group-hover:bg-amber-600 transition-colors">
-                    <Building2 className="w-6 h-6 text-amber-600 group-hover:text-white transition-colors" />
+              {hasLocalAccountCapability && (
+                <button
+                  onClick={() => setCurrentView('local-accounts-menu')}
+                  className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6 hover:border-amber-500 hover:shadow-md transition-all text-left group"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-lg flex items-center justify-center group-hover:bg-amber-600 transition-colors">
+                      <Building2 className="w-6 h-6 text-amber-600 group-hover:text-white transition-colors" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">Local Account Clients</h3>
+                      <p className="text-sm text-gray-600">Manage local account client organizations and their account settings</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">Local Account Clients</h3>
-                    <p className="text-sm text-gray-600">Manage local account client organizations and their account settings</p>
+                </button>
+              )}
+
+              {(hasCapability('own_fleet') || clientOrgId) && onSwitchToClientPortal && (
+                <button
+                  onClick={onSwitchToClientPortal}
+                  className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6 hover:border-sky-500 hover:shadow-md transition-all text-left group"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 w-12 h-12 bg-sky-100 rounded-lg flex items-center justify-center group-hover:bg-sky-600 transition-colors">
+                      <ExternalLink className="w-6 h-6 text-sky-600 group-hover:text-white transition-colors" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">Fleet Account Portal</h3>
+                      <p className="text-sm text-gray-600">Switch to the client portal to manage your own fleet, vehicles, and drivers</p>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+              )}
 
               <button
                 onClick={() => setCurrentView('other-offerings')}
-                className="bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6 hover:border-teal-500 hover:shadow-md transition-all text-left group md:col-span-2"
+                className={`bg-white rounded-lg shadow-sm border-2 border-gray-200 p-6 hover:border-teal-500 hover:shadow-md transition-all text-left group ${!hasLocalAccountCapability && !(hasCapability('own_fleet') || clientOrgId) ? 'md:col-span-2' : ''}`}
               >
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center group-hover:bg-teal-600 transition-colors">
@@ -786,6 +819,24 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Local Account Clients</h2>
               <p className="text-sm text-gray-600 mt-1">Manage your local account client organizations</p>
+              {hasBothLocalAccountTypes && (
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={() => setCurrentView('local-accounts-external')}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    External Clients
+                  </button>
+                  <button
+                    onClick={() => setCurrentView('local-accounts-managed')}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors font-medium text-sm"
+                  >
+                    <Users className="w-4 h-4" />
+                    My Managed Clients
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -924,7 +975,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
           />
         )}
 
-        {(currentView === 'active-accounts' || currentView === 'view-invoices' || currentView === 'create-statements' || currentView === 'payments' || currentView === 'add-new-client' || currentView === 'fee-invoices' || currentView === 'local-accounts') && (
+        {(currentView === 'active-accounts' || currentView === 'view-invoices' || currentView === 'create-statements' || currentView === 'payments' || currentView === 'add-new-client' || currentView === 'fee-invoices' || currentView === 'local-accounts' || currentView === 'local-accounts-external' || currentView === 'local-accounts-managed') && (
           <GarageLocalAccounts
             garageId={garageId}
             garageName={garageName}
@@ -938,9 +989,11 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
               currentView === 'payments' ? 'payments' :
               currentView === 'add-new-client' ? 'add-client' :
               currentView === 'fee-invoices' ? 'fee-invoices' :
+              currentView === 'local-accounts-external' ? 'external' :
+              currentView === 'local-accounts-managed' ? 'managed' :
               'all'
             }
-            onBack={() => setCurrentView('menu')}
+            onBack={() => setCurrentView(currentView === 'local-accounts-external' || currentView === 'local-accounts-managed' ? 'local-accounts-menu' : 'menu')}
           />
         )}
 

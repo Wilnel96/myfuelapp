@@ -51,6 +51,8 @@ interface Garage {
   latitude?: number;
   longitude?: number;
   organization_id?: string | null;
+  garage_capabilities?: string[];
+  client_org_id?: string | null;
 }
 
 interface GarageManagementProps {
@@ -253,6 +255,7 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
     price_zone: '',
     latitude: undefined as number | undefined,
     longitude: undefined as number | undefined,
+    garage_capabilities: ['card_only'] as string[],
   });
 
   useEffect(() => {
@@ -435,6 +438,7 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
       price_zone: garage.price_zone || '',
       latitude: garage.latitude,
       longitude: garage.longitude,
+      garage_capabilities: garage.garage_capabilities || ['card_only'],
     });
     setSelectedGarage(null);
     setShowForm(true);
@@ -478,6 +482,7 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
       price_zone: '',
       latitude: undefined,
       longitude: undefined,
+      garage_capabilities: ['card_only'],
     });
     setEditingGarage(null);
     setShowForm(false);
@@ -1229,6 +1234,37 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
                     <option value="inactive">Inactive</option>
                     <option value="suspended">Suspended</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Garage Capabilities</label>
+                <p className="text-xs text-gray-500 mb-3">Select all operational scenarios that apply to this garage</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {[
+                    { value: 'card_only', label: 'Card / Debit Payments Only', description: 'Listed for card/debit transactions; no local accounts' },
+                    { value: 'external_local_accounts', label: 'External Local Accounts', description: 'Hosts local accounts for external client organizations' },
+                    { value: 'manages_own_clients', label: 'Manages Own Sub-Clients', description: 'Runs its own sub-client system; billed per vehicle/driver' },
+                    { value: 'own_fleet', label: 'Own Fleet (Client Portal)', description: 'Operates its own fleet registered as a system client' },
+                  ].map(cap => (
+                    <label key={cap.value} className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.garage_capabilities.includes(cap.value)}
+                        onChange={(e) => {
+                          const caps = e.target.checked
+                            ? [...formData.garage_capabilities, cap.value]
+                            : formData.garage_capabilities.filter(c => c !== cap.value);
+                          setFormData({ ...formData, garage_capabilities: caps });
+                        }}
+                        className="mt-0.5 w-4 h-4 text-blue-600"
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">{cap.label}</div>
+                        <div className="text-xs text-gray-500">{cap.description}</div>
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </div>
             </form>

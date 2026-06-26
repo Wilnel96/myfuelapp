@@ -113,7 +113,7 @@ interface GarageLocalAccountsProps {
   garageEmail: string;
   garagePassword: string;
   garageContacts?: GarageContactPerson[];
-  initialView?: 'active' | 'view-invoices' | 'create-statements' | 'payments' | 'add-client' | 'fee-invoices' | 'all';
+  initialView?: 'active' | 'view-invoices' | 'create-statements' | 'payments' | 'add-client' | 'fee-invoices' | 'all' | 'external' | 'managed';
   onBack?: () => void;
 }
 
@@ -141,6 +141,11 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
   const [financialInvoices, setFinancialInvoices] = useState<FuelInvoice[]>([]);
   const [loadingFinancialInvoices, setLoadingFinancialInvoices] = useState(false);
   const [showFinancialSection, setShowFinancialSection] = useState(false);
+  const [clientTypeFilter, setClientTypeFilter] = useState<'all' | 'external' | 'managed'>(() => {
+    if (initialView === 'external') return 'external';
+    if (initialView === 'managed') return 'managed';
+    return 'all';
+  });
   const [financialSubView, setFinancialSubView] = useState<'menu' | 'invoices' | 'statements' | 'payments' | 'fee-invoices'>(() => {
     if (initialView === 'view-invoices') return 'invoices';
     if (initialView === 'create-statements') return 'statements';
@@ -739,12 +744,27 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
     return org ? org.name : 'Unknown Organization';
   };
 
-  const filteredOrganizations = organizations.filter(org =>
-    org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (org.vat_number && org.vat_number.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredOrganizations = organizations.filter(org => {
+    const matchesSearch = org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (org.vat_number && org.vat_number.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (!matchesSearch) return false;
+    if (clientTypeFilter === 'managed') return org.is_garage_managed && org.managing_garage_id === garageId;
+    if (clientTypeFilter === 'external') return !org.is_garage_managed || org.managing_garage_id !== garageId;
+    return true;
+  });
 
-  const activeAccounts = localAccounts.filter(a => a.is_active);
+  const activeAccounts = localAccounts.filter(a => {
+    if (!a.is_active) return false;
+    if (clientTypeFilter === 'managed') {
+      const org = organizations.find(o => o.id === a.organization_id);
+      return org ? (org.is_garage_managed && org.managing_garage_id === garageId) : false;
+    }
+    if (clientTypeFilter === 'external') {
+      const org = organizations.find(o => o.id === a.organization_id);
+      return org ? (!org.is_garage_managed || org.managing_garage_id !== garageId) : true;
+    }
+    return true;
+  });
   const inactiveAccounts = localAccounts.filter(a => !a.is_active);
 
   if (loading) {
@@ -1311,6 +1331,8 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                initialView === 'create-statements' ? 'Create Statements' :
                initialView === 'payments' ? 'Payments' :
                initialView === 'add-client' ? 'Add New Client' :
+               initialView === 'external' ? 'External Clients' :
+               initialView === 'managed' ? 'My Managed Clients' :
                'MyFuelApp Local Accounts'}
             </h2>
           </div>
@@ -1346,8 +1368,21 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
           </div>
         )}
 
-        {(initialView === 'all' || initialView === 'add-client') && (
-        <div className="mb-4">
+        {(initialView === 'all' || initialView === 'add-client' || initialView === 'external' || initialView === 'managed') && (
+        <div className="mb-4 space-y-3">
+          {initialView === 'all' && (
+            <div className="flex gap-2">
+              {(['all', 'external', 'managed'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setClientTypeFilter(f)}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${clientTypeFilter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                >
+                  {f === 'all' ? 'All Clients' : f === 'external' ? 'External' : 'Managed'}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -1362,7 +1397,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         )}
 
         <div className="space-y-6">
-          {(initialView === 'active' || initialView === 'all') && activeAccounts.length > 0 && (
+          {(initialView === 'active' || initialView === 'all' || initialView === 'external' || initialView === 'managed') && activeAccounts.length > 0 && (
             <div>
               <h3 className="text-sm font-medium text-gray-900 mb-3">Active Accounts</h3>
               <div className="space-y-2">

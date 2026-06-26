@@ -81,6 +81,8 @@ function App() {
   const [garageName, setGarageName] = useState<string | null>(null);
   const [garageEmail, setGarageEmail] = useState<string | null>(null);
   const [garagePassword, setGaragePassword] = useState<string | null>(null);
+  const [garageClientOrgId, setGarageClientOrgId] = useState<string | null>(null);
+  const [showGaragePortalChoice, setShowGaragePortalChoice] = useState(false);
   const [userMode, setUserMode] = useState<UserMode>(null);
   const [clientPortalType, setClientPortalType] = useState<ClientPortalType>(null);
   const [loading, setLoading] = useState(true);
@@ -261,7 +263,7 @@ function App() {
               // Fetch garage details from organization
               supabase
                 .from('garages')
-                .select('id, name, email_address')
+                .select('id, name, email_address, client_org_id')
                 .eq('organization_id', garageOrgId)
                 .maybeSingle()
                 .then(({ data: garage, error: garageError }) => {
@@ -291,8 +293,12 @@ function App() {
                   setGarageName(garage.name);
                   setGarageEmail(garage.email_address || session.user.email || '');
                   setGaragePassword('');
+                  setGarageClientOrgId(garage.client_org_id || null);
                   setUserMode('garage');
                   setShowModeSelection(false);
+                  if (garage.client_org_id) {
+                    setShowGaragePortalChoice(true);
+                  }
                   setLoading(false);
                 });
 
@@ -464,7 +470,7 @@ function App() {
               // Fetch garage details
               supabase
                 .from('garages')
-                .select('id, name, email_address')
+                .select('id, name, email_address, client_org_id')
                 .eq('organization_id', garageOrgId)
                 .maybeSingle()
                 .then(({ data: garage }) => {
@@ -493,8 +499,12 @@ function App() {
                   setGarageName(garage.name);
                   setGarageEmail(garage.email_address || currentSession.user.email || '');
                   setGaragePassword('');
+                  setGarageClientOrgId(garage.client_org_id || null);
                   setUserMode('garage');
                   setShowModeSelection(false);
+                  if (garage.client_org_id) {
+                    setShowGaragePortalChoice(true);
+                  }
                   setLoading(false);
                 });
 
@@ -843,8 +853,68 @@ function App() {
     />;
   }
 
+  if (userMode === 'garage' && garageId && garageName && showGaragePortalChoice && garageClientOrgId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900">{garageName}</h2>
+            <p className="text-gray-500 mt-2">Select which portal you want to access</p>
+          </div>
+          <div className="grid gap-4">
+            <button
+              onClick={() => setShowGaragePortalChoice(false)}
+              className="bg-white border-2 border-blue-500 rounded-xl p-6 hover:bg-blue-50 hover:border-blue-600 transition-all text-left group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-600 transition-colors flex-shrink-0">
+                  <svg className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Garage Portal</h3>
+                  <p className="text-sm text-gray-500 mt-1">Manage fuel prices, local account clients, contact persons, and other offerings</p>
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setShowGaragePortalChoice(false);
+                setUserMode('admin');
+              }}
+              className="bg-white border-2 border-sky-500 rounded-xl p-6 hover:bg-sky-50 hover:border-sky-600 transition-all text-left group"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-sky-100 rounded-lg flex items-center justify-center group-hover:bg-sky-600 transition-colors flex-shrink-0">
+                  <svg className="w-6 h-6 text-sky-600 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2.5 1M13 16H9m4 0h3m3 0h.5a.5.5 0 00.5-.5v-3.34a1 1 0 00-.31-.72l-2.94-2.65A1 1 0 0016 8.34V6a1 1 0 00-1-1h-2" /></svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Fleet Account Portal</h3>
+                  <p className="text-sm text-gray-500 mt-1">Manage your own fleet vehicles, drivers, fuel transactions, and statements</p>
+                </div>
+              </div>
+            </button>
+          </div>
+          <button
+            onClick={handleGarageLogout}
+            className="mt-6 w-full py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (userMode === 'garage' && garageId && garageName) {
-    return <GaragePortal garageId={garageId} garageName={garageName} garageEmail={garageEmail || ''} garagePassword={garagePassword || ''} onLogout={handleGarageLogout} />;
+    return <GaragePortal
+      garageId={garageId}
+      garageName={garageName}
+      garageEmail={garageEmail || ''}
+      garagePassword={garagePassword || ''}
+      clientOrgId={garageClientOrgId}
+      onLogout={handleGarageLogout}
+      onSwitchToClientPortal={garageClientOrgId ? () => setUserMode('admin') : undefined}
+    />;
   }
 
   if (userMode === 'admin' && showSignup && clientPortalType) {
