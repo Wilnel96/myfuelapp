@@ -655,6 +655,12 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         garage_address: '',
         subtotal: Number(invoice.total_amount),
         vat_amount: 0,
+        // Preserve client identity fields from the RPC result
+        client_name: invoice.client_name || '',
+        client_address: invoice.client_address || '',
+        organization_id: invoice.organization_id || '',
+        oil_brand: invoice.oil_brand || undefined,
+        garage_vat_number: invoice.garage_vat_number || undefined,
       }));
 
       setFinancialInvoices(transformedData);
