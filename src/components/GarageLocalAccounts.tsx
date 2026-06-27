@@ -142,6 +142,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [selectedFinancialOrgId, setSelectedFinancialOrgId] = useState<string | null>(null);
   const [financialInvoices, setFinancialInvoices] = useState<FuelInvoice[]>([]);
+  const [orgsWithInvoices, setOrgsWithInvoices] = useState<{ id: string; name: string }[]>([]);
   const [loadingFinancialInvoices, setLoadingFinancialInvoices] = useState(false);
   const [showFinancialSection, setShowFinancialSection] = useState(false);
   const [clientTypeFilter, setClientTypeFilter] = useState<'all' | 'external' | 'managed'>(() => {
@@ -211,6 +212,9 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
   useEffect(() => {
     if (financialSubView === 'fee-invoices' && organizations.length > 0) {
       loadFeeInvoices();
+    }
+    if (financialSubView === 'invoices') {
+      loadOrgsWithInvoices();
     }
   }, [financialSubView, organizations]);
 
@@ -669,6 +673,33 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
       setFinancialInvoices([]);
     } finally {
       setLoadingFinancialInvoices(false);
+    }
+  };
+
+  const loadOrgsWithInvoices = async () => {
+    try {
+      // Fetch distinct orgs that have fuel transaction invoices linked to this garage
+      const { data, error } = await supabase
+        .from('fuel_transaction_invoices')
+        .select('organization_id, client_name, fuel_transactions!inner(garage_id)')
+        .eq('fuel_transactions.garage_id', garageId);
+
+      if (error || !data) return;
+
+      const seen = new Set<string>();
+      const result: { id: string; name: string }[] = [];
+      for (const row of data as any[]) {
+        const orgId = row.organization_id as string;
+        if (!orgId || seen.has(orgId)) continue;
+        seen.add(orgId);
+        // Look up org name from already-loaded organizations, fall back to client_name
+        const loadedOrg = organizations.find(o => o.id === orgId);
+        result.push({ id: orgId, name: loadedOrg?.name || row.client_name || orgId });
+      }
+      result.sort((a, b) => a.name.localeCompare(b.name));
+      setOrgsWithInvoices(result);
+    } catch {
+      // non-fatal
     }
   };
 
@@ -1840,7 +1871,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <button
-                    onClick={() => setFinancialSubView('invoices')}
+                    onClick={() => { setFinancialSubView('invoices'); loadOrgsWithInvoices(); }}
                     className="bg-white border-2 border-green-200 rounded-lg p-4 hover:border-green-400 hover:shadow-md transition-all text-left group"
                   >
                     <div className="flex items-center gap-3">
@@ -1938,16 +1969,28 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                     }}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">-- Select a local account client --</option>
-                    {activeAccounts.map((account) => {
-                      const org = organizations.find(o => o.id === account.organization_id);
-                      if (!org) return null;
-                      return (
-                        <option key={account.id} value={org.id}>
-                          {org.name} {account.account_number ? `(Acc: ${account.account_number})` : ''}
+                    <option value="">-- Select a client --</option>
+                    {(() => {
+                      // Merge local-account clients and any org that has invoices at this garage
+                      const accountOrgIds = new Set(activeAccounts.map(a => a.organization_id));
+                      const merged: { id: string; name: string; accountNumber?: string }[] = [];
+                      activeAccounts.forEach((account) => {
+                        const org = organizations.find(o => o.id === account.organization_id);
+                        if (!org) return;
+                        merged.push({ id: org.id, name: org.name, accountNumber: account.account_number });
+                      });
+                      orgsWithInvoices.forEach((o) => {
+                        if (!accountOrgIds.has(o.id)) {
+                          merged.push({ id: o.id, name: o.name });
+                        }
+                      });
+                      merged.sort((a, b) => a.name.localeCompare(b.name));
+                      return merged.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}{item.accountNumber ? ` (Acc: ${item.accountNumber})` : ''}
                         </option>
-                      );
-                    })}
+                      ));
+                    })()}
                   </select>
                 </div>
 
