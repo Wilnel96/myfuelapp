@@ -72,6 +72,9 @@ interface FuelInvoice {
   period_end?: string;
   payment_status?: string;
   payment_due_date?: string;
+  client_name?: string;
+  client_address?: string;
+  organization_id?: string;
 }
 
 interface FeeInvoice {
@@ -324,7 +327,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ garage_id: garageId, organization_id: feeInvoiceOrgId, billing_period_start: periodStart, billing_period_end: periodEnd }),
+        body: JSON.stringify({ garage_id: garageId, billing_period_start: periodStart, billing_period_end: periodEnd }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to generate invoice');
@@ -697,6 +700,31 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
           ].filter(Boolean).join(', ')
         : '';
 
+      // Resolve client name/address — prefer stored values, fall back to org lookup for older invoices
+      let clientName = invoice.client_name || '';
+      let clientAddress = invoice.client_address || '';
+
+      if ((!clientName || !clientAddress) && invoice.organization_id) {
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('name, address_line_1, address_line_2, city, province, postal_code')
+          .eq('id', invoice.organization_id)
+          .maybeSingle();
+
+        if (orgData) {
+          if (!clientName) clientName = orgData.name;
+          if (!clientAddress) {
+            clientAddress = [
+              orgData.address_line_1,
+              orgData.address_line_2,
+              orgData.city && orgData.province
+                ? `${orgData.city}, ${orgData.province}${orgData.postal_code ? ` ${orgData.postal_code}` : ''}`
+                : orgData.city || orgData.province || null,
+            ].filter(Boolean).join('\n');
+          }
+        }
+      }
+
       const pdfBlob = await generateFuelInvoicePDF({
         invoice_number: invoice.invoice_number,
         invoice_date: invoice.invoice_date,
@@ -706,10 +734,13 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         garage_name: garageData?.name || garageName,
         garage_vat_number: garageData?.vat_number,
         garage_address: garageAddress,
+        client_name: clientName || undefined,
+        client_address: clientAddress || undefined,
         fuel_type: invoice.fuel_type,
         liters: invoice.liters,
         price_per_liter: invoice.price_per_liter,
         total_amount: invoice.total_amount,
+        odometer_reading: invoice.odometer_reading,
         oil_quantity: invoice.oil_quantity,
         oil_type: invoice.oil_type,
         oil_brand: invoice.oil_brand,
