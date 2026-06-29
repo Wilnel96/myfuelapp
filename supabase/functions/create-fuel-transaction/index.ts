@@ -276,6 +276,36 @@ Deno.serve(async (req: Request) => {
       .eq("id", driver.organization_id)
       .maybeSingle();
 
+    // Resolve payment card for card-paying clients
+    let resolvedFuelCardId: string | null = null;
+    let resolvedPaymentMethod = "card";
+
+    if (organization?.payment_option === "Card Payment" || organization?.payment_option === "Both") {
+      const { data: defaultCard } = await supabase
+        .from("organization_payment_cards")
+        .select("id")
+        .eq("organization_id", driver.organization_id)
+        .eq("is_active", true)
+        .eq("is_default", true)
+        .maybeSingle();
+
+      if (defaultCard) {
+        resolvedFuelCardId = defaultCard.id;
+      } else {
+        // Fall back to any active card
+        const { data: anyCard } = await supabase
+          .from("organization_payment_cards")
+          .select("id")
+          .eq("organization_id", driver.organization_id)
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
+        if (anyCard) resolvedFuelCardId = anyCard.id;
+      }
+    } else if (organization?.payment_option === "Local Account") {
+      resolvedPaymentMethod = "local_account";
+    }
+
     if (organization?.payment_option === "Local Account") {
       const { data: garageAccount } = await supabase
         .from("organization_garage_accounts")
@@ -371,6 +401,8 @@ Deno.serve(async (req: Request) => {
         is_mock_location: transactionData.isMockLocation || false,
         location_accuracy: transactionData.locationAccuracy || null,
         location_provider: transactionData.locationProvider || null,
+        payment_method: resolvedPaymentMethod,
+        fuel_card_id: resolvedFuelCardId,
       })
       .select()
       .single();
