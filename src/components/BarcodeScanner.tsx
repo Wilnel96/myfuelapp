@@ -131,8 +131,8 @@ export default function BarcodeScanner({ onScan, onCancel, label }: BarcodeScann
         {
           video: {
             facingMode: { ideal: 'environment' },
-            width: { ideal: 1920, min: 1280 },
-            height: { ideal: 1080, min: 720 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
           },
         },
         videoRef.current,
@@ -198,14 +198,18 @@ export default function BarcodeScanner({ onScan, onCancel, label }: BarcodeScann
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: 'environment' },
-            width: { ideal: 1920, min: 1280 },
-            height: { ideal: 1080, min: 720 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
           },
         });
       } catch {
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        } catch { /* will fall through to ZXing */ }
+        } catch {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          } catch { /* will fall through to ZXing */ }
+        }
       }
 
       if (stream) {

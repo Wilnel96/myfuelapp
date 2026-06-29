@@ -23,7 +23,7 @@ interface DrawVehicleProps {
 }
 
 export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVehicleProps) {
-  const [step, setStep] = useState<'scan' | 'enter-odometer' | 'confirm-mismatch' | 'confirm-license-warning' | 'confirm-prdp-warning' | 'confirm-unreturned-vehicle'>('scan');
+  const [step, setStep] = useState<'scan' | 'scan-vehicle-disk' | 'enter-odometer' | 'confirm-mismatch' | 'confirm-license-warning' | 'confirm-prdp-warning' | 'confirm-unreturned-vehicle'>('scan');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [vehicleSearch, setVehicleSearch] = useState('');
@@ -1048,6 +1048,28 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
               >
                 <Camera className="w-6 h-6" />
                 Scan License Disk to Confirm
+              </button>
+
+              <button
+                onClick={async () => {
+                  setError('');
+                  // Log an exception for bypassing the scan requirement
+                  await supabase.from('vehicle_exceptions').insert({
+                    vehicle_id: selectedVehicle!.id,
+                    driver_id: driverId,
+                    organization_id: organizationId,
+                    exception_type: 'scan_bypassed',
+                    description: `Driver bypassed the license disk scan requirement for vehicle ${selectedVehicle!.registration_number}. Vehicle was manually selected without scan verification.`,
+                    expected_value: 'License disk scan',
+                    actual_value: 'Scan bypassed by driver',
+                    resolved: false,
+                  }).catch(() => {/* non-critical */});
+                  setVehicleIdentifiedByScan(true);
+                  setStep('enter-odometer');
+                }}
+                className="w-full bg-amber-100 text-amber-800 border border-amber-300 py-3 rounded-lg font-medium hover:bg-amber-200 transition-colors text-sm"
+              >
+                Scanner Not Working — Proceed Without Scan
               </button>
 
               <button
