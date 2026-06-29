@@ -479,7 +479,11 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
   const findVehicleByLicenseDisk = async (barcodeData: string): Promise<{ vehicle: Vehicle } | { errorMessage: string } | null> => {
     const cleanInput = barcodeData.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-    const isActualBarcodeScan = barcodeData.includes('%');
+
+    // Detect whether this is a scanned PDF417 barcode or a manual registration entry.
+    // PDF417 data is always longer than any registration number and typically contains
+    // multiple fields. Any input over 20 chars is treated as a barcode scan.
+    const isActualBarcodeScan = barcodeData.length > 20;
 
     // For actual barcode scans: verify the stored expiry. Also try to auto-update if
     // the barcode contains a newer date (handles renewals without manual data entry).
@@ -508,38 +512,45 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       return { vehicle };
     };
 
-    // Try barcode field matching (for actual scanned PDF417 data with % separators)
-    if (isActualBarcodeScan) {
-      const barcodeFields = barcodeData.split('%');
-      for (const vehicle of vehicles) {
-        const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-        for (const field of barcodeFields) {
-          const cleanField = field.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-          if (cleanField && cleanField === vehicleReg) return checkBarcodeMatch(vehicle);
-        }
-      }
-    }
-
-    // Try in-memory array match (direct registration lookup — manual entry path)
-    for (const vehicle of vehicles) {
-      const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-      if (cleanInput === vehicleReg) return checkManualMatch(vehicle);
-    }
-
-    // Last resort: query database directly (handles stale closure or any edge case)
+    // Always query DB fresh so we don't rely on potentially stale closure state
     const { data: dbVehicles } = await supabase
       .from('vehicles')
       .select('*')
       .eq('organization_id', organizationId)
       .eq('status', 'active');
 
-    if (dbVehicles) {
-      for (const vehicle of dbVehicles) {
+    const vehiclePool = dbVehicles ?? vehicles;
+
+    if (isActualBarcodeScan) {
+      // Split on common PDF417 field separators: %, |, newline, tab, ^
+      const barcodeFields = barcodeData.split(/[%|\n\r\t^]+/);
+      const normalised = barcodeFields
+        .map(f => f.trim().toUpperCase().replace(/\s+/g, '').replace(/-/g, ''))
+        .filter(f => f.length >= 2);
+
+      for (const vehicle of vehiclePool) {
         const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
-        if (cleanInput === vehicleReg || vehicleReg.includes(cleanInput)) {
-          return isActualBarcodeScan ? checkBarcodeMatch(vehicle) : checkManualMatch(vehicle);
-        }
+        // Exact field match
+        if (normalised.some(f => f === vehicleReg)) return checkBarcodeMatch(vehicle);
+        // Substring match (registration may be embedded in a longer field)
+        if (normalised.some(f => f.includes(vehicleReg) || vehicleReg.includes(f) && f.length >= 5))
+          return checkBarcodeMatch(vehicle);
       }
+
+      // Broad substring search: does any vehicle reg appear anywhere in the full barcode?
+      const barcodeUpper = barcodeData.toUpperCase().replace(/\s+/g, '');
+      for (const vehicle of vehiclePool) {
+        const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+        if (barcodeUpper.includes(vehicleReg)) return checkBarcodeMatch(vehicle);
+      }
+
+      return null;
+    }
+
+    // Manual registration entry — direct match
+    for (const vehicle of vehiclePool) {
+      const vehicleReg = vehicle.registration_number.toUpperCase().replace(/\s+/g, '').replace(/-/g, '');
+      if (cleanInput === vehicleReg) return checkManualMatch(vehicle);
     }
 
     return null;
