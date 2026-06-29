@@ -47,6 +47,8 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   const [unreturnedVehicleWarning, setUnreturnedVehicleWarning] = useState(false);
   const [previousDriverInfo, setPreviousDriverInfo] = useState<{ name: string; daysUnreturned: number; lastDrawDate: string } | null>(null);
   const [requireLicenseScan, setRequireLicenseScan] = useState(false);
+  const [vehicleIdentifiedByScan, setVehicleIdentifiedByScan] = useState(false);
+  const [showVerificationScanner, setShowVerificationScanner] = useState(false);
 
   useEffect(() => {
     loadVehicles();
@@ -152,6 +154,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     }
 
     setSelectedVehicle(vehicle);
+    setVehicleIdentifiedByScan(true);
 
     // Check if vehicle was not returned by another driver
     const unreturnedCheck = await checkUnreturnedByOtherDriver(vehicle.id);
@@ -186,6 +189,51 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
     setPrdpWarning(false);
     await loadExpectedOdometer(vehicle.id);
+    setStep('enter-odometer');
+  };
+
+  // All paths to enter-odometer go through here so scan enforcement is centralised
+  const goToOdometer = () => {
+    if (requireLicenseScan && !vehicleIdentifiedByScan) {
+      setStep('scan-vehicle-disk');
+    } else {
+      setStep('enter-odometer');
+    }
+  };
+
+  const handleVerificationScan = async (barcodeData: string) => {
+    setShowVerificationScanner(false);
+    setError('');
+    const result = await findVehicleByLicenseDisk(barcodeData);
+    if (!result) {
+      setError('The scanned barcode did not match any vehicle in the system. Please try scanning again or contact your supervisor.');
+      return;
+    }
+    if ('errorMessage' in result) {
+      setError(result.errorMessage);
+      return;
+    }
+    const { vehicle: scannedVehicle } = result;
+    if (scannedVehicle.id !== selectedVehicle!.id) {
+      // Log the mismatch as an exception
+      await supabase.from('vehicle_exceptions').insert({
+        vehicle_id: selectedVehicle!.id,
+        driver_id: driverId,
+        organization_id: organizationId,
+        exception_type: 'wrong_vehicle_scan',
+        description: `Driver scanned the license disk of ${scannedVehicle.registration_number} but attempted to draw ${selectedVehicle!.registration_number}. The draw was blocked.`,
+        expected_value: selectedVehicle!.registration_number,
+        actual_value: scannedVehicle.registration_number,
+        resolved: false,
+      }).catch(() => {/* non-critical */});
+      setError(
+        `Wrong vehicle! The scanned disk belongs to ${scannedVehicle.registration_number}, but you selected ${selectedVehicle!.registration_number}. ` +
+        `Please scan the license disk that is physically on the vehicle you intend to draw.`
+      );
+      return;
+    }
+    // Confirmed — mark as scan-verified and proceed
+    setVehicleIdentifiedByScan(true);
     setStep('enter-odometer');
   };
 
@@ -728,6 +776,8 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     setSuccess(false);
     setError('');
     setWarning('');
+    setVehicleIdentifiedByScan(false);
+    setShowVerificationScanner(false);
     onBack();
   };
 
@@ -737,6 +787,16 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
         label="Scan License Disk Barcode"
         onScan={handleBarcodeScan}
         onCancel={() => setShowBarcodeScanner(false)}
+      />
+    );
+  }
+
+  if (showVerificationScanner) {
+    return (
+      <BarcodeScanner
+        label={`Verify: Scan ${selectedVehicle?.registration_number} License Disk`}
+        onScan={handleVerificationScan}
+        onCancel={() => setShowVerificationScanner(false)}
       />
     );
   }
@@ -901,7 +961,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                       }
 
                       setPrdpWarning(false);
-                      setStep('enter-odometer');
+                      goToOdometer();
                     } finally {
                       setLoading(false);
                     }
@@ -909,7 +969,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                   disabled={loading}
                   className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? 'Checking...' : 'Continue to Odometer Reading'}
+                  {loading ? 'Checking...' : requireLicenseScan && !vehicleIdentifiedByScan ? 'Continue to License Disk Scan' : 'Continue to Odometer Reading'}
                 </button>
               )}
 
@@ -943,6 +1003,53 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                   Scan License Disk Barcode (optional)
                 </button>
               )}
+            </div>
+          </div>
+        )}
+
+        {step === 'scan-vehicle-disk' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">Verify Vehicle Identity</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Your profile requires a license disk scan before drawing a vehicle. Scan the barcode on the license disk to confirm you are at the correct vehicle.
+            </p>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-900">Vehicle to verify</p>
+                <p className="text-xl font-bold text-blue-900">{selectedVehicle?.registration_number}</p>
+                <p className="text-sm text-blue-700">{selectedVehicle?.make} {selectedVehicle?.model}</p>
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-5 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-red-800 text-sm">{error}</p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <button
+                onClick={() => { setError(''); setShowVerificationScanner(true); }}
+                className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-3"
+              >
+                <Camera className="w-6 h-6" />
+                Scan License Disk to Confirm
+              </button>
+
+              <button
+                onClick={() => {
+                  setStep('scan');
+                  setSelectedVehicle(null);
+                  setVehicleIdentifiedByScan(false);
+                  setError('');
+                }}
+                className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+              >
+                Select a Different Vehicle
+              </button>
             </div>
           </div>
         )}
@@ -1160,8 +1267,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                     return;
                   }
                   setPrdpWarning(false);
-                  await loadExpectedOdometer(selectedVehicle!.id);
-                  setStep('enter-odometer');
+                  goToOdometer();
                 }}
                 className="w-full bg-amber-600 text-white py-4 rounded-lg font-semibold hover:bg-amber-700 transition-colors"
               >
@@ -1241,9 +1347,8 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
             <div className="space-y-3">
               <button
-                onClick={async () => {
-                  await loadExpectedOdometer(selectedVehicle!.id);
-                  setStep('enter-odometer');
+                onClick={() => {
+                  goToOdometer();
                 }}
                 className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 transition-colors"
               >
@@ -1337,8 +1442,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                   }
 
                   setPrdpWarning(false);
-                  await loadExpectedOdometer(selectedVehicle!.id);
-                  setStep('enter-odometer');
+                  goToOdometer();
                 }}
                 className="w-full bg-amber-600 text-white py-4 rounded-lg font-semibold hover:bg-amber-700 transition-colors"
               >
