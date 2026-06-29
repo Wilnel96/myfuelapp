@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { Camera, RefreshCw, X, Scan, Keyboard, Zap } from 'lucide-react';
+import { Camera, RefreshCw, X, Keyboard, Zap, CheckCircle, Wifi } from 'lucide-react';
 import { BrowserPDF417Reader } from '@zxing/browser';
 import { DecodeHintType, BarcodeFormat } from '@zxing/library';
 
@@ -9,213 +9,278 @@ interface BarcodeScannerProps {
   label: string;
 }
 
-interface ScanControls {
-  stop: () => void;
-  streamVideoConstraintsApply?: (constraints: MediaTrackConstraints) => Promise<void>;
+// Returns true if Chrome/Android native BarcodeDetector is available
+function hasNativeDetector(): boolean {
+  return typeof window !== 'undefined' && 'BarcodeDetector' in window;
 }
 
 export default function BarcodeScanner({ onScan, onCancel, label }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const controlsRef = useRef<ScanControls | null>(null);
-  const readerRef = useRef<BrowserPDF417Reader | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zxingControlsRef = useRef<any>(null);
+  const activeRef = useRef(true);
+  const detectorRef = useRef<any>(null);
 
-  const [scannedData, setScannedData] = useState<string>('');
-  const [error, setError] = useState<string>('');
+  const [scannedData, setScannedData] = useState('');
+  const [error, setError] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [manualInput, setManualInput] = useState('');
+  const [scanMethod, setScanMethod] = useState<'native' | 'zxing' | null>(null);
+  const [framesScanned, setFramesScanned] = useState(0);
   const [torchOn, setTorchOn] = useState(false);
   const [torchAvailable, setTorchAvailable] = useState(false);
 
-  const stopScanning = useCallback(() => {
-    if (controlsRef.current) {
-      try { controlsRef.current.stop(); } catch (_) { /* ignore */ }
-      controlsRef.current = null;
+  const stopAll = useCallback(() => {
+    activeRef.current = false;
+    if (scanTimerRef.current) {
+      clearTimeout(scanTimerRef.current);
+      scanTimerRef.current = null;
     }
-    readerRef.current = null;
+    if (zxingControlsRef.current) {
+      try { zxingControlsRef.current.stop(); } catch (_) {}
+      zxingControlsRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
     setIsScanning(false);
   }, []);
 
-  const startScanning = useCallback(async () => {
-    stopScanning();
-    setError('');
-    setScannedData('');
-    setTorchOn(false);
-    setTorchAvailable(false);
+  const handleFound = useCallback((data: string) => {
+    if (!data || !data.trim()) return;
+    stopAll();
+    setScannedData(data.trim());
+  }, [stopAll]);
 
-    // Wait for the video element to be in the DOM
-    if (!videoRef.current) {
-      await new Promise<void>(resolve => setTimeout(resolve, 100));
-    }
-    if (!videoRef.current) {
-      setError('Could not initialise camera. Please tap Retry.');
+  // ---------- Native BarcodeDetector scan loop (Chrome / Android) ----------
+  const runNativeLoop = useCallback(async () => {
+    const detector = detectorRef.current;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!detector || !video || !canvas || !activeRef.current) return;
+    if (video.readyState < 2 || !video.videoWidth) {
+      scanTimerRef.current = setTimeout(runNativeLoop, 150);
       return;
     }
 
+    const w = video.videoWidth;
+    const h = video.videoHeight;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, w, h);
+    setFramesScanned(n => n + 1);
+
     try {
-      const hints = new Map();
-      hints.set(DecodeHintType.TRY_HARDER, true);
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.PDF_417]);
-
-      const reader = new BrowserPDF417Reader(hints, {
-        delayBetweenScanAttempts: 150,
-        delayBetweenScanSuccess: 500,
-      });
-      readerRef.current = reader;
-
-      // Use rear camera — ZXing owns the stream lifecycle
-      const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      };
-
-      setIsScanning(true);
-
-      const controls = await reader.decodeFromConstraints(
-        constraints,
-        videoRef.current,
-        (result, err, ctrl) => {
-          if (!controlsRef.current) {
-            // Already stopped — ignore stale callbacks
-            return;
-          }
-
-          if (result) {
-            const text = result.getText();
-            controlsRef.current = null;
-            ctrl.stop();
-            readerRef.current = null;
-            setIsScanning(false);
-            setScannedData(text);
-            return;
-          }
-
-          // Check if torch is available after stream starts (first callback)
-          if (ctrl && typeof (ctrl as any).switchTorch === 'function' && !torchAvailable) {
-            setTorchAvailable(true);
-          }
+      const barcodes: any[] = await detector.detect(canvas);
+      if (barcodes && barcodes.length > 0) {
+        const found =
+          barcodes.find(b => (b.format || '').toLowerCase().includes('pdf')) ||
+          barcodes[0];
+        if (found?.rawValue) {
+          handleFound(found.rawValue);
+          return;
         }
-      );
-
-      // Store controls so we can stop from outside the callback
-      controlsRef.current = controls as ScanControls;
-
-      // Check torch availability via the controls object
-      if (typeof (controls as any).switchTorch === 'function') {
-        setTorchAvailable(true);
       }
+    } catch (_) {}
 
-    } catch (err: any) {
-      console.error('Scanner error:', err);
-      setIsScanning(false);
-      controlsRef.current = null;
-      readerRef.current = null;
+    if (activeRef.current) {
+      scanTimerRef.current = setTimeout(runNativeLoop, 120);
+    }
+  }, [handleFound]);
 
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setError('Camera permission denied. On your phone, go to Settings > Apps > Browser > Permissions and enable Camera, then tap Retry.');
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        setError('No camera found on this device. Enter the registration number manually using the button below.');
-      } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
-        setError('Camera could not start with HD settings. Retrying with basic settings...');
-        setTimeout(() => startScanningBasic(), 500);
-      } else if (err.message?.includes('Could not start video source') || err.name === 'AbortError') {
-        setError('Camera is in use by another app. Close other apps using the camera then tap Retry.');
+  const startNativeScanning = useCallback(async (stream: MediaStream): Promise<boolean> => {
+    if (!hasNativeDetector()) return false;
+    try {
+      let formats: string[] = [];
+      try {
+        formats = await (window as any).BarcodeDetector.getSupportedFormats();
+      } catch (_) {}
+
+      let detector: any;
+      if (formats.length > 0) {
+        // Use all supported formats — pdf417 data arrives as whatever format string Chrome uses
+        detector = new (window as any).BarcodeDetector({ formats });
       } else {
-        setError(`Camera error: ${err.message || err.name}. Tap Retry or enter manually.`);
+        detector = new (window as any).BarcodeDetector();
       }
+      detectorRef.current = detector;
+    } catch {
+      return false;
     }
-  }, [stopScanning]);
 
-  const startScanningBasic = useCallback(async () => {
-    setError('');
+    setScanMethod('native');
+    setIsScanning(true);
+
+    // Check torch availability on the camera track
+    const track = stream.getVideoTracks()[0];
+    if (track) {
+      try {
+        const caps = track.getCapabilities() as any;
+        if (caps?.torch) setTorchAvailable(true);
+      } catch (_) {}
+    }
+
+    runNativeLoop();
+    return true;
+  }, [runNativeLoop]);
+
+  // ---------- ZXing fallback ----------
+  const startZxingScanning = useCallback(async (stream: MediaStream) => {
+    if (!videoRef.current) return;
+    setScanMethod('zxing');
+    setIsScanning(true);
+
+    const hints = new Map();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.PDF_417]);
+
+    const reader = new BrowserPDF417Reader(hints, {
+      delayBetweenScanAttempts: 100,
+      delayBetweenScanSuccess: 500,
+    });
+
     try {
-      const hints = new Map();
-      hints.set(DecodeHintType.TRY_HARDER, true);
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.PDF_417]);
-
-      const reader = new BrowserPDF417Reader(hints, {
-        delayBetweenScanAttempts: 200,
-        delayBetweenScanSuccess: 500,
-      });
-      readerRef.current = reader;
-
-      setIsScanning(true);
-
-      const controls = await reader.decodeFromConstraints(
-        { video: true },
-        videoRef.current!,
-        (result, _err, ctrl) => {
-          if (!controlsRef.current) return;
-          if (result) {
-            const text = result.getText();
-            controlsRef.current = null;
-            ctrl.stop();
-            readerRef.current = null;
-            setIsScanning(false);
-            setScannedData(text);
-          }
+      const controls = await reader.decodeFromStream(
+        stream,
+        videoRef.current,
+        (result) => {
+          if (result && activeRef.current) handleFound(result.getText());
         }
       );
-
-      controlsRef.current = controls as ScanControls;
-    } catch (err: any) {
-      setIsScanning(false);
-      setError('Could not start camera. Please enter the registration number manually.');
+      zxingControlsRef.current = controls;
+      if (typeof (controls as any).switchTorch === 'function') setTorchAvailable(true);
+    } catch (e) {
+      console.error('ZXing error:', e);
     }
-  }, []);
+  }, [handleFound]);
+
+  // ---------- Main start ----------
+  const startScanning = useCallback(async () => {
+    stopAll();
+    activeRef.current = true;
+    setError('');
+    setScannedData('');
+    setFramesScanned(0);
+    setTorchOn(false);
+    setTorchAvailable(false);
+    setScanMethod(null);
+    detectorRef.current = null;
+
+    await new Promise<void>(r => setTimeout(r, 80));
+    if (!videoRef.current) {
+      setError('Camera could not initialise. Tap Retry.');
+      return;
+    }
+
+    let stream: MediaStream | null = null;
+    // Try HD first, fall back to default
+    for (const hd of [true, false]) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: hd ? {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+          } : { facingMode: { ideal: 'environment' } },
+        });
+        break;
+      } catch (_) {}
+    }
+
+    if (!stream) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (err: any) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setError('Camera permission denied. In your browser settings, allow camera access for this site, then tap Retry.');
+        } else if (err.name === 'NotFoundError') {
+          setError('No camera found. Enter the registration number manually.');
+        } else {
+          setError(`Camera error: ${err.message || err.name}. Tap Retry or enter manually.`);
+        }
+        return;
+      }
+    }
+
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      try { await videoRef.current.play(); } catch (_) {}
+    }
+
+    const nativeOk = await startNativeScanning(stream);
+    if (!nativeOk) {
+      await startZxingScanning(stream);
+    }
+  }, [stopAll, startNativeScanning, startZxingScanning]);
 
   useEffect(() => {
     startScanning();
-    return () => {
-      stopScanning();
-    };
+    return () => stopAll();
   }, []);
 
   const handleToggleTorch = async () => {
-    if (!controlsRef.current) return;
-    const ctrl = controlsRef.current as any;
-    if (typeof ctrl.switchTorch !== 'function') return;
-    try {
-      const next = !torchOn;
-      await ctrl.switchTorch(next);
-      setTorchOn(next);
-    } catch (_) { /* torch not supported */ }
+    const next = !torchOn;
+    // Try native track torch
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (track) {
+      try {
+        await (track as any).applyConstraints({ advanced: [{ torch: next }] });
+        setTorchOn(next);
+        return;
+      } catch (_) {}
+    }
+    // ZXing torch fallback
+    if (zxingControlsRef.current?.switchTorch) {
+      try { await zxingControlsRef.current.switchTorch(next); setTorchOn(next); } catch (_) {}
+    }
   };
 
   const handleRescan = () => {
     setScannedData('');
-    setError('');
     setShowManual(false);
     startScanning();
   };
 
   const handleConfirm = () => {
-    if (scannedData) {
-      onScan(scannedData);
-    }
+    if (scannedData) onScan(scannedData);
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = manualInput.trim().toUpperCase();
-    if (trimmed) {
-      onScan(trimmed);
-    }
+    const val = manualInput.trim().toUpperCase();
+    if (val) onScan(val);
   };
 
   const handleCancel = () => {
-    stopScanning();
+    stopAll();
     onCancel();
   };
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      <div className="bg-gray-900 p-4 flex items-center justify-between flex-shrink-0">
-        <h2 className="text-white text-lg font-semibold">{label}</h2>
-        <button onClick={handleCancel} className="text-white hover:text-gray-300 p-1">
+      {/* Header */}
+      <div className="bg-gray-900 px-4 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-white text-base font-semibold truncate">{label}</h2>
+          {scanMethod && (
+            <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-1">
+              <Wifi className="w-3 h-3 flex-shrink-0" />
+              {scanMethod === 'native' ? 'Hardware scanner active' : 'Software scanner active'}
+              {framesScanned > 0 && (
+                <span className="ml-1 text-green-400">{framesScanned} frames processed</span>
+              )}
+            </p>
+          )}
+        </div>
+        <button onClick={handleCancel} className="text-white hover:text-gray-300 p-1 ml-3 flex-shrink-0">
           <X className="w-6 h-6" />
         </button>
       </div>
@@ -223,7 +288,10 @@ export default function BarcodeScanner({ onScan, onCancel, label }: BarcodeScann
       {!showManual ? (
         <>
           <div className="flex-1 bg-black relative overflow-hidden">
-            {/* Video element always rendered so ZXing can attach to it */}
+            {/* Hidden canvas used for native BarcodeDetector frame capture */}
+            <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
+
+            {/* Live video feed */}
             <video
               ref={videoRef}
               style={{
@@ -234,105 +302,119 @@ export default function BarcodeScanner({ onScan, onCancel, label }: BarcodeScann
               }}
               playsInline
               muted
+              autoPlay
             />
 
+            {/* Scan overlay */}
             {!scannedData && isScanning && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                {/* Scan target overlay */}
-                <div className="border-2 border-green-400 rounded-lg w-[85%] h-[28%] relative">
+              <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center px-4">
+                {/* Wide rectangle target — PDF417 barcodes are wide, not square */}
+                <div className="relative w-full max-w-sm" style={{ aspectRatio: '4.5 / 1' }}>
+                  <div className="absolute inset-0 border-2 border-green-400/40 rounded" />
                   {/* Corner accents */}
-                  <div className="absolute -top-1 -left-1 w-5 h-5 border-t-4 border-l-4 border-green-400 rounded-tl" />
-                  <div className="absolute -top-1 -right-1 w-5 h-5 border-t-4 border-r-4 border-green-400 rounded-tr" />
-                  <div className="absolute -bottom-1 -left-1 w-5 h-5 border-b-4 border-l-4 border-green-400 rounded-bl" />
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 border-b-4 border-r-4 border-green-400 rounded-br" />
-                  {/* Scan line */}
-                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-green-400 opacity-80 animate-[scan_2s_ease-in-out_infinite]" />
+                  <div className="absolute top-0 left-0 w-7 h-7 border-t-4 border-l-4 border-green-400 rounded-tl-sm" />
+                  <div className="absolute top-0 right-0 w-7 h-7 border-t-4 border-r-4 border-green-400 rounded-tr-sm" />
+                  <div className="absolute bottom-0 left-0 w-7 h-7 border-b-4 border-l-4 border-green-400 rounded-bl-sm" />
+                  <div className="absolute bottom-0 right-0 w-7 h-7 border-b-4 border-r-4 border-green-400 rounded-br-sm" />
+                  {/* Animated red scan line */}
+                  <div
+                    className="absolute left-1 right-1 h-0.5 bg-red-500 opacity-90"
+                    style={{ animation: 'scanline 1.6s ease-in-out infinite' }}
+                  />
                 </div>
 
-                <div className="mt-4 bg-black bg-opacity-60 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm">
-                  <Scan className="w-4 h-4 animate-pulse text-green-400 flex-shrink-0" />
-                  <span>Align the PDF417 barcode inside the frame</span>
+                <div className="mt-4 bg-black/75 rounded-xl px-4 py-2 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse flex-shrink-0" />
+                  <span className="text-white text-sm font-medium">Scanning for PDF417 barcode</span>
+                </div>
+
+                <div className="mt-2 bg-black/60 rounded-lg px-3 py-1.5 text-center max-w-xs">
+                  <p className="text-gray-300 text-xs leading-relaxed">
+                    The barcode is the <strong className="text-white">stack of thin lines</strong> on the bottom-right of the license disk sticker
+                  </p>
                 </div>
               </div>
             )}
 
+            {/* Camera starting */}
             {!scannedData && !isScanning && !error && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-white text-center">
                   <Camera className="w-12 h-12 mx-auto mb-3 animate-pulse" />
-                  <p>Starting camera...</p>
+                  <p className="text-sm">Starting camera...</p>
                 </div>
               </div>
             )}
 
-            {scannedData && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-900 p-6">
-                <div className="bg-green-50 border border-green-200 rounded-xl p-6 w-full max-w-md">
-                  <div className="text-center mb-4">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500 rounded-full mb-3">
-                      <Scan className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-green-900 mb-1">Barcode Scanned!</h3>
-                    <p className="text-sm text-green-700">License disk barcode captured successfully.</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-green-300">
-                    <p className="text-xs font-medium text-gray-500 mb-1">Raw Data:</p>
-                    <p className="text-xs text-gray-700 font-mono break-all bg-gray-50 p-2 rounded border border-gray-200 max-h-24 overflow-y-auto">
-                      {scannedData}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Torch toggle button — top right over video */}
+            {/* Torch button */}
             {torchAvailable && isScanning && !scannedData && (
               <button
                 onClick={handleToggleTorch}
-                className={`absolute top-3 right-3 p-2 rounded-full transition-colors pointer-events-auto ${
-                  torchOn ? 'bg-yellow-400 text-gray-900' : 'bg-black bg-opacity-60 text-white'
+                className={`absolute top-3 right-3 p-2.5 rounded-full pointer-events-auto shadow-lg transition-colors ${
+                  torchOn ? 'bg-yellow-400 text-gray-900' : 'bg-black/70 text-white'
                 }`}
               >
                 <Zap className="w-5 h-5" />
               </button>
             )}
+
+            {/* Success overlay */}
+            {scannedData && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/95 p-6">
+                <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center shadow-2xl">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500 rounded-full mb-4">
+                    <CheckCircle className="w-9 h-9 text-white" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Barcode Captured!</h3>
+                  <p className="text-sm text-gray-500 mb-4">License disk barcode read successfully.</p>
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-left">
+                    <p className="text-xs font-medium text-gray-400 mb-1">Raw data ({scannedData.length} chars)</p>
+                    <p className="text-xs font-mono text-gray-700 break-all line-clamp-4">
+                      {scannedData.substring(0, 200)}{scannedData.length > 200 ? '…' : ''}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Error banner */}
           {error && (
             <div className="bg-red-700 text-white px-4 py-3 flex-shrink-0">
-              <p className="text-sm text-center">{error}</p>
+              <p className="text-sm text-center leading-snug">{error}</p>
             </div>
           )}
 
+          {/* Bottom controls */}
           <div className="bg-gray-900 p-4 flex-shrink-0">
             {scannedData ? (
-              <div className="flex gap-3 justify-center">
+              <div className="flex gap-3">
                 <button
                   onClick={handleRescan}
-                  className="flex-1 bg-gray-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-600 transition-colors"
+                  className="flex-1 bg-gray-700 text-white py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-600 active:bg-gray-500 transition-colors"
                 >
-                  <RefreshCw className="w-5 h-5" />
+                  <RefreshCw className="w-4 h-4" />
                   Rescan
                 </button>
                 <button
                   onClick={handleConfirm}
-                  className="flex-1 bg-green-600 text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 transition-colors font-semibold"
+                  className="flex-1 bg-green-600 text-white py-3.5 rounded-xl font-semibold hover:bg-green-700 active:bg-green-800 transition-colors"
                 >
-                  Confirm
+                  Use This Scan
                 </button>
               </div>
             ) : (
               <div className="flex gap-3">
                 <button
                   onClick={handleRescan}
-                  className="flex-1 bg-blue-600 text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
+                  className="flex-1 bg-blue-600 text-white py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-700 active:bg-blue-800 transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Retry
                 </button>
                 <button
-                  onClick={() => { stopScanning(); setShowManual(true); }}
-                  className="flex-1 bg-gray-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-600 transition-colors"
+                  onClick={() => { stopAll(); setShowManual(true); }}
+                  className="flex-1 bg-gray-700 text-white py-3.5 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-600 active:bg-gray-500 transition-colors"
                 >
                   <Keyboard className="w-4 h-4" />
                   Enter Manually
@@ -342,35 +424,37 @@ export default function BarcodeScanner({ onScan, onCancel, label }: BarcodeScann
           </div>
         </>
       ) : (
-        <div className="flex-1 bg-gray-900 flex items-center justify-center p-6">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Enter Registration Number</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Type the vehicle registration number exactly as it appears on the license disk.
+        /* Manual entry */
+        <div className="flex-1 bg-gray-900 flex items-start justify-center p-6 pt-10 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Enter Registration Number</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Type the registration exactly as shown on the license disk (e.g. CA 123 456).
             </p>
             <form onSubmit={handleManualSubmit} className="space-y-4">
               <input
                 type="text"
                 value={manualInput}
                 onChange={e => setManualInput(e.target.value.toUpperCase())}
-                className="w-full border-2 border-gray-300 rounded-lg px-4 py-4 text-xl font-bold tracking-widest uppercase text-center focus:border-blue-500 focus:outline-none"
-                placeholder="e.g. CA123456"
+                className="w-full border-2 border-gray-300 rounded-xl px-4 py-4 text-2xl font-bold tracking-widest uppercase text-center focus:border-blue-500 focus:outline-none"
+                placeholder="CA 123 456"
                 autoFocus
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
+                inputMode="text"
               />
               <button
                 type="submit"
                 disabled={!manualInput.trim()}
-                className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="w-full bg-green-600 text-white py-4 rounded-xl font-semibold text-base hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
                 Use This Registration
               </button>
               <button
                 type="button"
                 onClick={() => { setShowManual(false); startScanning(); }}
-                className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-gray-100 text-gray-700 py-3.5 rounded-xl font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
               >
                 <Camera className="w-4 h-4" />
                 Try Camera Again
@@ -379,6 +463,13 @@ export default function BarcodeScanner({ onScan, onCancel, label }: BarcodeScann
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes scanline {
+          0%, 100% { top: 5%; }
+          50% { top: 85%; }
+        }
+      `}</style>
     </div>
   );
 }
