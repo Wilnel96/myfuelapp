@@ -54,8 +54,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Invalidate all existing sessions for this driver before creating a new one.
-    // This enforces single-device login — the previous device will be kicked out.
+    // Block login if this driver already has an active session on another device.
+    const { data: existingSession } = await supabase
+      .from('driver_sessions')
+      .select('id')
+      .eq('driver_id', driver.id)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+
+    if (existingSession) {
+      return new Response(
+        JSON.stringify({ error: 'This driver is already logged in on another device. Please log out from the other device first.' }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    // Clean up any expired sessions before creating a new one.
     await supabase
       .from('driver_sessions')
       .delete()
