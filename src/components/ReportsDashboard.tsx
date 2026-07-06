@@ -356,6 +356,11 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
       const amount = parseFloat(t.total_amount || 0);
       const commission = parseFloat(t.commission_amount || 0);
 
+      const prevOdo = t.previous_odometer_reading ? parseInt(t.previous_odometer_reading) : null;
+      const currOdo = t.odometer_reading ? parseInt(t.odometer_reading) : null;
+      const kmThisFill = prevOdo && currOdo && currOdo > prevOdo ? currOdo - prevOdo : null;
+      const lPer100kmThisFill = kmThisFill && liters > 0 ? (liters / kmThisFill) * 100 : null;
+
       vehicleData[vehicleId].transactions.push({
         date: t.transaction_date,
         driver: t.drivers ? `${t.drivers.first_name} ${t.drivers.surname}` : 'Unknown',
@@ -366,6 +371,9 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
         amount: amount,
         commission: commission,
         odometer: t.odometer_reading,
+        prev_odometer: t.previous_odometer_reading,
+        km_this_fill: kmThisFill,
+        l_per_100km: lPer100kmThisFill,
       });
 
       vehicleData[vehicleId].total_liters += liters;
@@ -906,24 +914,24 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
 
       case 'vehicle':
         if (orgSettings?.is_management_org) {
-          csv = 'Vehicle,Date,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Commission,Odometer\n';
+          csv = 'Vehicle,Date,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Commission,Odometer,L/100km\n';
           reportData.vehicleData?.forEach((v: any) => {
             csv += `\n${v.license_plate} (${v.make} ${v.model})\n`;
             v.transactions?.forEach((t: any) => {
-              csv += `,"${new Date(t.date).toLocaleDateString()}","${t.driver}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${(t.commission || 0).toFixed(2)},${t.odometer || ''}\n`;
+              csv += `,"${new Date(t.date).toLocaleDateString()}","${t.driver}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${(t.commission || 0).toFixed(2)},${t.odometer || ''},${t.l_per_100km != null ? t.l_per_100km.toFixed(2) : ''}\n`;
             });
-            csv += `,,,TOTALS:,${(v.total_liters || 0).toFixed(2)},,${(v.total_amount || 0).toFixed(2)},${(v.total_commission || 0).toFixed(2)}\n`;
+            csv += `,,,TOTALS:,${(v.total_liters || 0).toFixed(2)},,${(v.total_amount || 0).toFixed(2)},${(v.total_commission || 0).toFixed(2)},,${v.consumption_per_100km > 0 ? v.consumption_per_100km.toFixed(2) : ''}\n`;
             const kmPerLiter1 = v.consumption_per_100km > 0 ? (100 / v.consumption_per_100km).toFixed(2) : '—';
             csv += `,,,KM Travelled: ${v.km_travelled} | L/100km: ${(v.consumption_per_100km || 0).toFixed(2)} | KM/L: ${kmPerLiter1}\n`;
           });
         } else {
-          csv = 'Vehicle,Date,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Odometer\n';
+          csv = 'Vehicle,Date,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Odometer,L/100km\n';
           reportData.vehicleData?.forEach((v: any) => {
             csv += `\n${v.license_plate} (${v.make} ${v.model})\n`;
             v.transactions?.forEach((t: any) => {
-              csv += `,"${new Date(t.date).toLocaleDateString()}","${t.driver}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${t.odometer || ''}\n`;
+              csv += `,"${new Date(t.date).toLocaleDateString()}","${t.driver}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${t.odometer || ''},${t.l_per_100km != null ? t.l_per_100km.toFixed(2) : ''}\n`;
             });
-            csv += `,,,TOTALS:,${(v.total_liters || 0).toFixed(2)},,${(v.total_amount || 0).toFixed(2)}\n`;
+            csv += `,,,TOTALS:,${(v.total_liters || 0).toFixed(2)},,${(v.total_amount || 0).toFixed(2)},,${v.consumption_per_100km > 0 ? v.consumption_per_100km.toFixed(2) : ''}\n`;
             const kmPerLiter2 = v.consumption_per_100km > 0 ? (100 / v.consumption_per_100km).toFixed(2) : '—';
             csv += `,,,KM Travelled: ${v.km_travelled} | L/100km: ${(v.consumption_per_100km || 0).toFixed(2)} | KM/L: ${kmPerLiter2}\n`;
           });
@@ -1231,6 +1239,7 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
                               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Commission</th>
                             )}
                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Odometer</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">L/100km</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -1249,6 +1258,9 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
                                 <td className="px-4 py-3 text-sm text-right text-orange-600">R {(t.commission || 0).toFixed(2)}</td>
                               )}
                               <td className="px-4 py-3 text-sm text-right text-gray-900">{t.odometer || '-'}</td>
+                              <td className="px-4 py-3 text-sm text-right font-medium text-blue-700">
+                                {t.l_per_100km != null ? t.l_per_100km.toFixed(2) : '—'}
+                              </td>
                             </tr>
                           ))}
                           <tr className="bg-gray-50 font-semibold">
@@ -1260,6 +1272,9 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
                               <td className="px-4 py-3 text-sm text-right text-orange-600">R {(vehicle.total_commission || 0).toFixed(2)}</td>
                             )}
                             <td className="px-4 py-3"></td>
+                            <td className="px-4 py-3 text-sm text-right text-blue-700 font-semibold">
+                              {vehicle.consumption_per_100km > 0 ? vehicle.consumption_per_100km.toFixed(2) : '—'}
+                            </td>
                           </tr>
                         </tbody>
                       </table>
