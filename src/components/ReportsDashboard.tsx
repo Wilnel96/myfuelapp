@@ -913,7 +913,8 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
               csv += `,"${new Date(t.date).toLocaleDateString()}","${t.driver}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${(t.commission || 0).toFixed(2)},${t.odometer || ''}\n`;
             });
             csv += `,,,TOTALS:,${(v.total_liters || 0).toFixed(2)},,${(v.total_amount || 0).toFixed(2)},${(v.total_commission || 0).toFixed(2)}\n`;
-            csv += `,,,KM Travelled: ${v.km_travelled} | L/100km: ${(v.consumption_per_100km || 0).toFixed(2)}\n`;
+            const kmPerLiter1 = v.consumption_per_100km > 0 ? (100 / v.consumption_per_100km).toFixed(2) : '—';
+            csv += `,,,KM Travelled: ${v.km_travelled} | L/100km: ${(v.consumption_per_100km || 0).toFixed(2)} | KM/L: ${kmPerLiter1}\n`;
           });
         } else {
           csv = 'Vehicle,Date,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Odometer\n';
@@ -923,7 +924,8 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
               csv += `,"${new Date(t.date).toLocaleDateString()}","${t.driver}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${t.odometer || ''}\n`;
             });
             csv += `,,,TOTALS:,${(v.total_liters || 0).toFixed(2)},,${(v.total_amount || 0).toFixed(2)}\n`;
-            csv += `,,,KM Travelled: ${v.km_travelled} | L/100km: ${(v.consumption_per_100km || 0).toFixed(2)}\n`;
+            const kmPerLiter2 = v.consumption_per_100km > 0 ? (100 / v.consumption_per_100km).toFixed(2) : '—';
+            csv += `,,,KM Travelled: ${v.km_travelled} | L/100km: ${(v.consumption_per_100km || 0).toFixed(2)} | KM/L: ${kmPerLiter2}\n`;
           });
         }
         break;
@@ -1207,10 +1209,11 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
                       <h3 className="text-lg font-bold text-gray-900">
                         {vehicle.license_plate} - {vehicle.make} {vehicle.model}
                       </h3>
-                      <div className="flex gap-6 mt-2 text-sm text-gray-600">
-                        <span>Transactions: {vehicle.transaction_count}</span>
-                        <span>KM Travelled: {vehicle.km_travelled}</span>
-                        <span>L/100km: {(vehicle.consumption_per_100km || 0).toFixed(2)}</span>
+                      <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
+                        <span>Transactions: <span className="font-medium text-gray-900">{vehicle.transaction_count}</span></span>
+                        <span>KM Travelled: <span className="font-medium text-gray-900">{(vehicle.km_travelled || 0).toLocaleString()}</span></span>
+                        <span>L/100km: <span className="font-medium text-gray-900">{(vehicle.consumption_per_100km || 0).toFixed(2)}</span></span>
+                        <span className="text-green-700">KM/L: <span className="font-semibold text-green-800">{vehicle.consumption_per_100km > 0 ? (100 / vehicle.consumption_per_100km).toFixed(2) : '—'}</span></span>
                       </div>
                     </div>
                     <div className="overflow-x-auto">
