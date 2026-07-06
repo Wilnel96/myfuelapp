@@ -1268,7 +1268,16 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
 
             {selectedReport === 'fuel-theft' && reportData.alerts && (
               <div>
-                <h3 className="text-lg font-semibold mb-4 text-red-600">Fuel Consumption Alerts</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-red-600">Fuel Consumption Alerts</h3>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <span>
+                      From: <span className="font-medium text-gray-900">{new Date(startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                      &nbsp;&nbsp;To: <span className="font-medium text-gray-900">{new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                    </span>
+                  </div>
+                </div>
                 {reportData.alerts.length === 0 ? (
                   <p className="text-gray-600">No anomalies detected</p>
                 ) : (
