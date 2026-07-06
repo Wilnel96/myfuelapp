@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName } from '../lib/fuelTypes';
-import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, TruckIcon, MessageSquare } from 'lucide-react';
+import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare } from 'lucide-react';
 import DailyTripReport from './DailyTripReport';
 import UnreturnedVehiclesReport from './UnreturnedVehiclesReport';
 import VehicleReturnNotesReport from './VehicleReturnNotesReport';
@@ -45,7 +45,7 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
     { id: 'unreturned-vehicles', name: 'Vehicles Not Returned', description: 'Vehicles drawn on a specific day that were never returned', icon: AlertTriangle },
     { id: 'return-notes', name: 'Vehicle Return Notes', description: 'Driver notes submitted at vehicle return — conditions, issues, trip feedback', icon: MessageSquare },
     { id: 'overview', name: 'Fuel Transactions', description: 'General fuel purchase statistics', icon: BarChart3 },
-    { id: 'fuel-theft', name: 'Fuel Theft Alerts', description: 'Anomalies and suspicious patterns', icon: AlertTriangle },
+    { id: 'fuel-theft', name: 'Fuel Usage Exceptions', description: 'Anomalies and suspicious patterns', icon: AlertTriangle },
     { id: 'driver', name: 'Driver Reports', description: 'Performance and usage by driver', icon: FileText },
     { id: 'exceptions', name: 'Vehicle Exception Report', description: 'Unresolved exceptions only (use Custom Report Builder for historical analysis)', icon: AlertCircle },
     { id: 'vehicle', name: 'Vehicle Reports', description: 'Efficiency and usage by vehicle', icon: TrendingUp },
