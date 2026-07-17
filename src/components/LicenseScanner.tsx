@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { Camera, RefreshCw, X, Scan, Keyboard } from 'lucide-react';
+import { Camera, RefreshCw, X, Scan, Keyboard, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { BrowserPDF417Reader } from '@zxing/browser';
 import { DecodeHintType, BarcodeFormat } from '@zxing/library';
 
@@ -149,6 +149,8 @@ export default function LicenseScanner({ onScan, onCancel }: LicenseScannerProps
   const [manualFields, setManualFields] = useState({ firstName: '', lastName: '', idNumber: '', licenseNumber: '', licenseType: 'Code EB', licenseIssueDate: '', licenseExpiryDate: '' });
   const codeReaderRef = useRef<BrowserPDF417Reader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoDecoding, setPhotoDecoding] = useState(false);
 
   useEffect(() => {
     startScanning();
@@ -226,6 +228,46 @@ export default function LicenseScanner({ onScan, onCancel }: LicenseScannerProps
 
   const handleConfirmParsed = () => {
     if (parsedData) onScan(parsedData);
+  };
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) { e.target.value = ''; return; }
+    setPhotoDecoding(true);
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          const hints = new Map();
+          hints.set(DecodeHintType.TRY_HARDER, true);
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.PDF_417]);
+          const reader = new BrowserPDF417Reader(hints);
+          const result = await reader.decodeFromImageElement(img);
+          const text = result.getText();
+          URL.revokeObjectURL(url);
+          setPhotoDecoding(false);
+          stopScanning();
+          setScannedRaw(text);
+          const parsed = parseSouthAfricanLicense(text);
+          setParsedData(parsed);
+        } catch (err: any) {
+          URL.revokeObjectURL(url);
+          setPhotoDecoding(false);
+          setError('Could not read barcode from photo. Try holding the camera closer and keeping the card flat, or use Retry.');
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        setPhotoDecoding(false);
+        setError('Could not load the photo. Please try again.');
+      };
+      img.src = url;
+    } catch (err: any) {
+      setPhotoDecoding(false);
+      setError(`Photo error: ${err?.message || err}`);
+    }
+    e.target.value = '';
   };
 
   const handleConfirmManual = (e: React.FormEvent) => {
@@ -438,6 +480,14 @@ export default function LicenseScanner({ onScan, onCancel }: LicenseScannerProps
               Retry
             </button>
             <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={photoDecoding}
+              className="flex-1 bg-green-600 text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700 disabled:opacity-60 transition-colors"
+            >
+              {photoDecoding ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+              {photoDecoding ? 'Decoding...' : 'Capture Photo'}
+            </button>
+            <button
               onClick={() => { stopScanning(); setShowManual(true); }}
               className="flex-1 bg-gray-700 text-white py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-600 transition-colors"
             >
@@ -447,6 +497,15 @@ export default function LicenseScanner({ onScan, onCancel }: LicenseScannerProps
           </div>
         )}
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handlePhotoCapture}
+        className="hidden"
+      />
 
       <style>{`
         @keyframes scan {
