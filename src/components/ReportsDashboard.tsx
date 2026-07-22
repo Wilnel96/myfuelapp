@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName } from '../lib/fuelTypes';
-import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare } from 'lucide-react';
+import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare, Clock } from 'lucide-react';
 import DailyTripReport from './DailyTripReport';
 import UnreturnedVehiclesReport from './UnreturnedVehiclesReport';
 import VehicleReturnNotesReport from './VehicleReturnNotesReport';
@@ -458,6 +458,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
           expected_consumption: parseFloat(vehicle.average_fuel_consumption_per_100km || 10),
           total_liters: 0,
           total_km: 0,
+          last_transaction_date: null as string | null,
         };
       }
 
@@ -465,6 +466,10 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
       if (km > 0) {
         vehicleStats[vehicleId].total_liters += parseFloat(t.liters || 0);
         vehicleStats[vehicleId].total_km += km;
+      }
+      const txDate = t.transaction_date;
+      if (txDate && (!vehicleStats[vehicleId].last_transaction_date || txDate > vehicleStats[vehicleId].last_transaction_date)) {
+        vehicleStats[vehicleId].last_transaction_date = txDate;
       }
     });
 
@@ -479,6 +484,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
           actual: actual,
           variance: variance,
           severity: Math.abs(variance) > 50 ? 'High' : 'Medium',
+          last_transaction_date: v.last_transaction_date,
         };
       })
       .filter((alert: any) => Math.abs(alert.variance) > 30);
@@ -947,17 +953,17 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         break;
 
       case 'fuel-theft':
-        csv = 'Vehicle,Expected L/100km,Actual L/100km,Variance %,Severity\n';
+        csv = 'Vehicle,Expected L/100km,Actual L/100km,Variance %,Severity,Last Transaction Date\n';
         reportData.alerts?.forEach((a: any) => {
-          csv += `${a.vehicle},${a.expected},${a.actual},${a.variance},${a.severity}\n`;
+          csv += `${a.vehicle},${a.expected},${a.actual},${a.variance},${a.severity},${a.last_transaction_date ? new Date(a.last_transaction_date).toLocaleString('en-GB') : ''}\n`;
         });
         break;
 
       case 'exceptions':
         csv = 'Unresolved Vehicle Exceptions Report\n\n';
-        csv += 'Date,Vehicle,Driver,Exception Type,Garage (Actual Refuel),Description,Expected Value,Actual Value,Status\n';
+        csv += 'Date & Time,Vehicle,Driver,Exception Type,Garage (Actual Refuel),Description,Expected Value,Actual Value,Status\n';
         reportData.exceptions?.forEach((e: any) => {
-          csv += `"${new Date(e.date).toLocaleDateString()}","${e.vehicle}","${e.driver}","${e.exception_type}","${e.actual_garage || ''}","${e.description}","${e.expected_value || ''}","${e.actual_value || ''}","${e.resolved ? 'Resolved' : 'Pending'}"\n`;
+          csv += `"${new Date(e.date).toLocaleString('en-GB')}","${e.vehicle}","${e.driver}","${e.exception_type}","${e.actual_garage || ''}","${e.description}","${e.expected_value || ''}","${e.actual_value || ''}","${e.resolved ? 'Resolved' : 'Pending'}"\n`;
         });
         break;
 
@@ -1318,6 +1324,12 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                               Actual: {(parseFloat(alert.actual) || 0).toFixed(2)} L/100km |
                               Variance: {(parseFloat(alert.variance) || 0).toFixed(1)}%
                             </p>
+                            {alert.last_transaction_date && (
+                              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                Last transaction: {new Date(alert.last_transaction_date).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            )}
                           </div>
                           <span className={`px-3 py-1 rounded-full text-sm font-medium ${alert.severity === 'High' ? 'bg-red-600 text-white' : 'bg-yellow-600 text-white'}`}>
                             {alert.severity}
@@ -1389,8 +1401,10 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                                   </div>
                                 )}
 
-                                <div className="flex items-center gap-4 text-sm text-gray-600">
-                                  <span>Date: {new Date(exception.date).toLocaleString()}</span>
+                                <div className="flex items-center gap-2 text-sm text-gray-700 bg-gray-100 rounded-lg px-3 py-2 mt-2">
+                                  <Clock className="w-4 h-4 text-gray-500" />
+                                  <span className="font-medium">Date & Time:</span>
+                                  <span>{new Date(exception.date).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
 
                                 {exception.resolved && exception.resolution_notes && (
