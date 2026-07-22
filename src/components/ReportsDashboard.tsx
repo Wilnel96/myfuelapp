@@ -518,7 +518,7 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
       resolved: e.resolved,
       resolved_at: e.resolved_at,
       resolution_notes: e.resolution_notes,
-      expected_garage: e.expected_garage || '',
+      actual_garage: e.actual_garage || '',
       organization_name: e.organizations?.name || '',
       organization_city: e.organizations?.city || '',
     }));
@@ -948,9 +948,9 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
 
       case 'exceptions':
         csv = 'Unresolved Vehicle Exceptions Report\n\n';
-        csv += 'Date,Vehicle,Driver,Exception Type,Expected Garage,Description,Expected Value,Actual Value,Status\n';
+        csv += 'Date,Vehicle,Driver,Exception Type,Garage (Actual Refuel),Description,Expected Value,Actual Value,Status\n';
         reportData.exceptions?.forEach((e: any) => {
-          csv += `"${new Date(e.date).toLocaleDateString()}","${e.vehicle}","${e.driver}","${e.exception_type}","${e.expected_garage || ''}","${e.description}","${e.expected_value || ''}","${e.actual_value || ''}","${e.resolved ? 'Resolved' : 'Pending'}"\n`;
+          csv += `"${new Date(e.date).toLocaleDateString()}","${e.vehicle}","${e.driver}","${e.exception_type}","${e.actual_garage || ''}","${e.description}","${e.expected_value || ''}","${e.actual_value || ''}","${e.resolved ? 'Resolved' : 'Pending'}"\n`;
         });
         break;
 
@@ -1357,10 +1357,10 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
                                   <p className="text-sm text-gray-900">{exception.exception_type}</p>
                                 </div>
 
-                                {exception.expected_garage && (
+                                {exception.actual_garage && (
                                   <div>
-                                    <p className="text-sm font-medium text-gray-700">Expected Garage:</p>
-                                    <p className="text-sm text-blue-700 font-medium">{exception.expected_garage}</p>
+                                    <p className="text-sm font-medium text-gray-700">Garage (Actual Refuel):</p>
+                                    <p className="text-sm text-blue-700 font-medium">{exception.actual_garage}</p>
                                   </div>
                                 )}
 
