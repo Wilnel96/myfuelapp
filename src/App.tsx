@@ -86,7 +86,7 @@ function App() {
   const [userMode, setUserMode] = useState<UserMode>(null);
   const [clientPortalType, setClientPortalType] = useState<ClientPortalType>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'backup' | null>(() => {
+  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'exception-reports' | 'backup' | null>(() => {
     const saved = sessionStorage.getItem('appCurrentView');
     return saved ? saved as any : null;
   });
@@ -1211,6 +1211,8 @@ function App() {
           <BackOffice key="backoffice" userRole={userRole} paymentOption={paymentOption} onNavigateToMain={() => setCurrentView(null)} onNavigate={setCurrentView} />
         ) : currentView === 'custom-reports' ? (
           <CustomReportBuilder key="custom-reports" onNavigate={setCurrentView} />
+        ) : currentView === 'exception-reports' ? (
+          <ReportsDashboard key="exception-reports" onNavigate={setCurrentView} exceptionReportsOnly />
         ) : currentView === 'backup' ? (
           userRole === 'super_admin' ? <BackupManagement key="backup" /> : null
         ) : null}

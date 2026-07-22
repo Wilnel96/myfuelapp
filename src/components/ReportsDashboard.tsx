@@ -15,10 +15,31 @@ interface ReportType {
 
 interface ReportsDashboardProps {
   onNavigate?: (view: string | null) => void;
+  exceptionReportsOnly?: boolean;
 }
 
-export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) {
-  const [selectedReport, setSelectedReport] = useState<string>('daily-trip-report');
+const regularReportTypes: ReportType[] = [
+    { id: 'daily-trip-report', name: 'Daily Trip Report', description: 'View daily vehicle usage, KM travelled, and trip descriptions', icon: TruckIcon },
+    { id: 'unreturned-vehicles', name: 'Vehicles Not Returned', description: 'Vehicles drawn on a specific day that were never returned', icon: AlertTriangle },
+    { id: 'return-notes', name: 'Vehicle Return Notes', description: 'Driver notes submitted at vehicle return — conditions, issues, trip feedback', icon: MessageSquare },
+    { id: 'overview', name: 'Fuel Transactions', description: 'General fuel purchase statistics', icon: BarChart3 },
+    { id: 'driver', name: 'Driver Reports', description: 'Performance and usage by driver', icon: FileText },
+    { id: 'vehicle', name: 'Vehicle Reports', description: 'Efficiency and usage by vehicle', icon: TrendingUp },
+    { id: 'vehicles-to-service', name: 'Vehicles to be Serviced', description: 'Vehicles within 1000 km of service', icon: Wrench },
+    { id: 'service-due', name: 'Next Service Due Date', description: 'Estimated service due dates for vehicles', icon: Wrench },
+    { id: 'vehicles-overdue-service', name: 'Vehicles Overdue for Service', description: 'Vehicles that exceeded service interval', icon: AlertCircle },
+    { id: 'monthly', name: 'Monthly Summary', description: 'Month-end consolidated reports', icon: Calendar },
+    { id: 'annual', name: 'Annual Summary', description: 'Year-end consolidated reports', icon: Calendar },
+  ];
+
+const exceptionReportTypes: ReportType[] = [
+    { id: 'fuel-theft', name: 'Fuel Usage Exceptions', description: 'Anomalies and suspicious patterns', icon: AlertTriangle },
+    { id: 'exceptions', name: 'Vehicle Exception Report', description: 'Unresolved exceptions only (use Custom Report Builder for historical analysis)', icon: AlertCircle },
+  ];
+
+export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = false }: ReportsDashboardProps) {
+  const availableReportTypes = exceptionReportsOnly ? exceptionReportTypes : regularReportTypes;
+  const [selectedReport, setSelectedReport] = useState<string>(availableReportTypes[0].id);
   const [startDate, setStartDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() - 30);
@@ -40,21 +61,7 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
       : `${dateStr}T00:00:00.000Z`;
   };
 
-  const reportTypes: ReportType[] = [
-    { id: 'daily-trip-report', name: 'Daily Trip Report', description: 'View daily vehicle usage, KM travelled, and trip descriptions', icon: TruckIcon },
-    { id: 'unreturned-vehicles', name: 'Vehicles Not Returned', description: 'Vehicles drawn on a specific day that were never returned', icon: AlertTriangle },
-    { id: 'return-notes', name: 'Vehicle Return Notes', description: 'Driver notes submitted at vehicle return — conditions, issues, trip feedback', icon: MessageSquare },
-    { id: 'overview', name: 'Fuel Transactions', description: 'General fuel purchase statistics', icon: BarChart3 },
-    { id: 'fuel-theft', name: 'Fuel Usage Exceptions', description: 'Anomalies and suspicious patterns', icon: AlertTriangle },
-    { id: 'driver', name: 'Driver Reports', description: 'Performance and usage by driver', icon: FileText },
-    { id: 'exceptions', name: 'Vehicle Exception Report', description: 'Unresolved exceptions only (use Custom Report Builder for historical analysis)', icon: AlertCircle },
-    { id: 'vehicle', name: 'Vehicle Reports', description: 'Efficiency and usage by vehicle', icon: TrendingUp },
-    { id: 'vehicles-to-service', name: 'Vehicles to be Serviced', description: 'Vehicles within 1000 km of service', icon: Wrench },
-    { id: 'service-due', name: 'Next Service Due Date', description: 'Estimated service due dates for vehicles', icon: Wrench },
-    { id: 'vehicles-overdue-service', name: 'Vehicles Overdue for Service', description: 'Vehicles that exceeded service interval', icon: AlertCircle },
-    { id: 'monthly', name: 'Monthly Summary', description: 'Month-end consolidated reports', icon: Calendar },
-    { id: 'annual', name: 'Annual Summary', description: 'Year-end consolidated reports', icon: Calendar },
-  ];
+
 
 
   useEffect(() => {
@@ -1059,7 +1066,7 @@ export default function ReportsDashboard({ onNavigate }: ReportsDashboardProps) 
 
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Report Type</h3>
         <div className="space-y-2 mb-6">
-          {reportTypes.map((type) => {
+          {availableReportTypes.map((type) => {
             const Icon = type.icon;
             return (
               <button
