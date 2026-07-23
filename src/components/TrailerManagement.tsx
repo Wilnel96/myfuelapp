@@ -7,6 +7,7 @@ interface Trailer {
   registration_number: string;
   description: string;
   gvm_weight: number;
+  vin_number: string | null;
   status: string;
   organization_id: string;
   organizations?: { name: string };
@@ -40,6 +41,7 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
     registration_number: '',
     description: '',
     gvm_weight: 750,
+    vin_number: '',
     organization_id: '',
   });
 
@@ -60,7 +62,8 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
       const searchLower = searchTerm.toLowerCase();
       const filtered = trailers.filter(t =>
         t.registration_number.toLowerCase().includes(searchLower) ||
-        t.description?.toLowerCase().includes(searchLower)
+        t.description?.toLowerCase().includes(searchLower) ||
+        t.vin_number?.toLowerCase().includes(searchLower)
       );
       setFilteredTrailers(filtered);
     }
@@ -163,6 +166,7 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
         registration_number: formData.registration_number.toUpperCase().trim(),
         description: formData.description.trim(),
         gvm_weight: formData.gvm_weight,
+        vin_number: formData.vin_number.trim() || null,
         organization_id: formData.organization_id,
       };
 
@@ -173,6 +177,7 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
             registration_number: payload.registration_number,
             description: payload.description,
             gvm_weight: payload.gvm_weight,
+            vin_number: payload.vin_number,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingTrailer.id);
@@ -188,7 +193,7 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
 
       setShowForm(false);
       setEditingTrailer(null);
-      setFormData({ registration_number: '', description: '', gvm_weight: 750, organization_id: selectedOrgId !== 'all' ? selectedOrgId : '' });
+      setFormData({ registration_number: '', description: '', gvm_weight: 750, vin_number: '', organization_id: selectedOrgId !== 'all' ? selectedOrgId : '' });
       await loadTrailers();
     } catch (err: any) {
       setError(err.message || 'Failed to save trailer');
@@ -203,6 +208,7 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
       registration_number: trailer.registration_number,
       description: trailer.description || '',
       gvm_weight: trailer.gvm_weight,
+      vin_number: trailer.vin_number || '',
       organization_id: trailer.organization_id,
     });
     setShowForm(true);
@@ -238,6 +244,7 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
       registration_number: '',
       description: '',
       gvm_weight: 750,
+      vin_number: '',
       organization_id: selectedOrgId !== 'all' ? selectedOrgId : organizations[0]?.id || '',
     });
     setShowForm(true);
@@ -300,7 +307,7 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by registration or description..."
+            placeholder="Search by registration, VIN, or description..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
           />
         </div>
@@ -321,6 +328,7 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registration</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">VIN Number</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">GVM (kg)</th>
                   {showOrgSelector && (
@@ -335,6 +343,9 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
                   <tr key={trailer.id} className={`hover:bg-gray-50 ${trailer.status === 'inactive' ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <p className="text-sm font-semibold text-gray-900">{trailer.registration_number}</p>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {trailer.vin_number || '-'}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                       {trailer.description || '-'}
@@ -444,6 +455,19 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  VIN Number <span className="text-gray-400 text-xs">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.vin_number}
+                  onChange={(e) => setFormData({ ...formData, vin_number: e.target.value.toUpperCase() })}
+                  placeholder="e.g., AAAAAAAAAAAAAAAAA"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">GVM Weight (kg)</label>
                 <input
                   type="number"
@@ -514,3 +538,5 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
     </div>
   );
 }
+
+export default TrailerManagement
