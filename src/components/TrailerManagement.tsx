@@ -260,25 +260,14 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
           <Truck className="w-6 h-6 text-orange-600" />
           <h2 className="text-2xl font-bold text-gray-900">Trailer Management</h2>
         </div>
-        <div className="flex items-center gap-2">
-          {onNavigate && (
-            <button
-              onClick={() => onNavigate('vehicles')}
-              className="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm transition-colors"
-            >
-              <Truck className="w-4 h-4" />
-              Manage Vehicles
-            </button>
-          )}
-          <button
-            onClick={openAddForm}
-            disabled={loadingOrganizations || organizations.length === 0}
-            className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Add Trailer
-          </button>
-        </div>
+        <button
+          onClick={openAddForm}
+          disabled={loadingOrganizations || organizations.length === 0}
+          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+        >
+          <Plus className="w-5 h-5" />
+          Add Trailer
+        </button>
       </div>
 
       {error && (
@@ -525,6 +514,3 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
     </div>
   );
 }
-
-
-export default TrailerManagement
