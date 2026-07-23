@@ -488,6 +488,15 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
           )}
           {onNavigate && (
             <button
+              onClick={() => onNavigate('trailers')}
+              className="bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 flex items-center gap-2 text-sm transition-colors"
+            >
+              <Truck className="w-4 h-4" />
+              Manage Trailers
+            </button>
+          )}
+          {onNavigate && (
+            <button
               onClick={() => onNavigate(null)}
               className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 px-3 py-1.5 text-sm"
             >
