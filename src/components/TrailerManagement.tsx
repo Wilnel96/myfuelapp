@@ -22,7 +22,7 @@ interface TrailerManagementProps {
   onNavigate?: (view: string | null) => void;
 }
 
-export default function TrailerManagement({ onNavigate }: TrailerManagementProps = {}) {
+function TrailerManagement({ onNavigate }: TrailerManagementProps = {}) {
   const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [filteredTrailers, setFilteredTrailers] = useState<Trailer[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -539,4 +539,4 @@ export default function TrailerManagement({ onNavigate }: TrailerManagementProps
   );
 }
 
-export default TrailerManagement
+export default TrailerManagement;
