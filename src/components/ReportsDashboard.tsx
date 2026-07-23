@@ -396,10 +396,23 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
     // Calculate km travelled and consumption for each vehicle
     Object.keys(vehicleData).forEach(vehicleId => {
       const vData = vehicleData[vehicleId];
+
+      // Sort transactions by date ascending to identify the earliest refuel in the period
+      vData.transactions.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
       if (vData.odometers.length > 0) {
         const maxOdometer = Math.max(...vData.odometers);
-        const minOdometer = Math.min(...vData.odometers);
-        vData.km_travelled = maxOdometer - minOdometer;
+
+        // Use the previous_odometer of the earliest transaction in the period as the
+        // starting point. This represents the odometer at the last refuel BEFORE the
+        // selected period, giving us the true distance travelled across the period.
+        const earliestTx = vData.transactions[0];
+        const prevOdoOfEarliest = earliestTx?.prev_odometer ? parseInt(earliestTx.prev_odometer) : null;
+        const startingOdometer = (prevOdoOfEarliest !== null && prevOdoOfEarliest < maxOdometer)
+          ? prevOdoOfEarliest
+          : Math.min(...vData.odometers);
+
+        vData.km_travelled = maxOdometer - startingOdometer;
 
         if (vData.km_travelled > 0) {
           vData.consumption_per_100km = (vData.total_liters / vData.km_travelled) * 100;
