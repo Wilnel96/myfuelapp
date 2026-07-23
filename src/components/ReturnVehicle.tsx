@@ -17,6 +17,14 @@ interface DrawTransaction {
   vehicle_id: string;
   odometer_reading: number;
   created_at: string;
+  trailer_id?: string | null;
+}
+
+interface Trailer {
+  id: string;
+  registration_number: string;
+  description: string | null;
+  gvm_weight: number;
 }
 
 interface ReturnVehicleProps {
@@ -39,6 +47,7 @@ export default function ReturnVehicle({ organizationId, driverId, onBack, drawnV
   const [success, setSuccess] = useState(false);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [kmDriven, setKmDriven] = useState<number | null>(null);
+  const [drawnTrailer, setDrawnTrailer] = useState<Trailer | null>(null);
 
   useEffect(() => {
     loadVehicles();
@@ -105,6 +114,16 @@ export default function ReturnVehicle({ organizationId, driverId, onBack, drawnV
 
       setSelectedVehicle(vehicle);
       setDrawTransaction(drawTx);
+      if (drawTx.trailer_id) {
+        const { data: trailer } = await supabase
+          .from('trailers')
+          .select('id, registration_number, description, gvm_weight')
+          .eq('id', drawTx.trailer_id)
+          .maybeSingle();
+        setDrawnTrailer(trailer || null);
+      } else {
+        setDrawnTrailer(null);
+      }
       setStep('enter-odometer');
     } catch (err: any) {
       console.error('Error loading drawn vehicle:', err);
@@ -139,6 +158,16 @@ export default function ReturnVehicle({ organizationId, driverId, onBack, drawnV
 
     setSelectedVehicle(vehicle);
     setDrawTransaction(drawTx);
+    if (drawTx.trailer_id) {
+      const { data: trailer } = await supabase
+        .from('trailers')
+        .select('id, registration_number, description, gvm_weight')
+        .eq('id', drawTx.trailer_id)
+        .maybeSingle();
+      setDrawnTrailer(trailer || null);
+    } else {
+      setDrawnTrailer(null);
+    }
     setStep('enter-odometer');
   };
 
@@ -298,6 +327,7 @@ export default function ReturnVehicle({ organizationId, driverId, onBack, drawnV
     setNotes('');
     setSuccess(false);
     setKmDriven(null);
+    setDrawnTrailer(null);
     setError('');
     onBack();
   };
@@ -319,6 +349,9 @@ export default function ReturnVehicle({ organizationId, driverId, onBack, drawnV
           <CheckCircle className="w-16 h-16 text-green-600 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Vehicle Returned Successfully!</h2>
           <p className="text-gray-600 mb-2">Vehicle: {selectedVehicle?.registration_number}</p>
+          {drawnTrailer && (
+            <p className="text-gray-600 mb-2">Trailer Towed: {drawnTrailer.registration_number} ({drawnTrailer.gvm_weight} kg)</p>
+          )}
           <p className="text-gray-600 mb-2">Closing Odometer: {parseInt(odometerReading).toLocaleString()} km</p>
           {kmDriven !== null && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 mb-6">
@@ -443,6 +476,12 @@ export default function ReturnVehicle({ organizationId, driverId, onBack, drawnV
               <p className="text-sm text-green-900 font-medium">Vehicle:</p>
               <p className="text-lg font-bold text-green-900">{selectedVehicle?.registration_number}</p>
               <p className="text-sm text-green-700">{selectedVehicle?.make} {selectedVehicle?.model}</p>
+              {drawnTrailer && (
+                <div className="mt-2 pt-2 border-t border-green-200">
+                  <p className="text-xs text-green-600">Trailer Towed:</p>
+                  <p className="text-sm font-semibold text-green-800">{drawnTrailer.registration_number} ({drawnTrailer.gvm_weight} kg GVM)</p>
+                </div>
+              )}
               <p className="text-xs text-green-600 mt-2">
                 License Expires: {selectedVehicle && new Date(selectedVehicle.license_disk_expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
               </p>

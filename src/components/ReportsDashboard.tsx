@@ -440,6 +440,31 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
       .not('odometer_reading', 'is', null)
       .not('previous_odometer_reading', 'is', null);
 
+    // Fetch draw transactions with trailers in the same period to adjust expected consumption
+    const { data: trailerDraws } = await supabase
+      .from('vehicle_transactions')
+      .select(`
+        vehicle_id,
+        trailer_id,
+        trailers (gvm_weight)
+      `)
+      .eq('organization_id', orgId)
+      .eq('transaction_type', 'draw')
+      .gte('created_at', startDateTime)
+      .lte('created_at', endDateTime)
+      .not('trailer_id', 'is', null);
+
+    // Build a map of vehicle_id -> max trailer GVM in the period
+    const vehicleTrailerWeights: Record<string, number> = {};
+    trailerDraws?.forEach((d: any) => {
+      const gvm = d.trailers?.gvm_weight || 0;
+      if (d.vehicle_id && gvm > 0) {
+        if (!vehicleTrailerWeights[d.vehicle_id] || gvm > vehicleTrailerWeights[d.vehicle_id]) {
+          vehicleTrailerWeights[d.vehicle_id] = gvm;
+        }
+      }
+    });
+
     console.log('Fuel Theft Query Error:', error);
     console.log('Fuel Theft Transactions Found:', transactions?.length);
 
@@ -455,7 +480,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
           license_plate: vehicle.registration_number,
           make: vehicle.make,
           model: vehicle.model,
-          expected_consumption: parseFloat(vehicle.average_fuel_consumption_per_100km || 10),
+          expected_consumption: parseFloat(vehicle.average_fuel_consumption_per_100km || 10) + (vehicleTrailerWeights[ft.vehicle_id] ? (vehicleTrailerWeights[ft.vehicle_id] / 1000) * 5 : 0),
           total_liters: 0,
           total_km: 0,
           last_transaction_date: null as string | null,

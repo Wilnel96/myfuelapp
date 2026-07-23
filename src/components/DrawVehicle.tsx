@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Camera, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Camera, AlertCircle, CheckCircle, ArrowLeft, Package } from 'lucide-react';
 import BarcodeScanner from './BarcodeScanner';
 import { supabase } from '../lib/supabase';
 
@@ -16,6 +16,13 @@ interface Vehicle {
   initial_odometer_reading?: number;
 }
 
+interface Trailer {
+  id: string;
+  registration_number: string;
+  description: string | null;
+  gvm_weight: number;
+}
+
 interface DrawVehicleProps {
   organizationId: string;
   driverId: string;
@@ -23,7 +30,7 @@ interface DrawVehicleProps {
 }
 
 export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVehicleProps) {
-  const [step, setStep] = useState<'scan' | 'scan-vehicle-disk' | 'enter-odometer' | 'confirm-mismatch' | 'confirm-license-warning' | 'confirm-prdp-warning' | 'confirm-unreturned-vehicle'>('scan');
+  const [step, setStep] = useState<'scan' | 'scan-vehicle-disk' | 'select-trailer' | 'confirm-trailer-license-warning' | 'enter-odometer' | 'confirm-mismatch' | 'confirm-license-warning' | 'confirm-prdp-warning' | 'confirm-unreturned-vehicle'>('scan');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [vehicleSearch, setVehicleSearch] = useState('');
@@ -49,6 +56,10 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   const [requireLicenseScan, setRequireLicenseScan] = useState(false);
   const [vehicleIdentifiedByScan, setVehicleIdentifiedByScan] = useState(false);
   const [showVerificationScanner, setShowVerificationScanner] = useState(false);
+  const [availableTrailers, setAvailableTrailers] = useState<Trailer[]>([]);
+  const [selectedTrailer, setSelectedTrailer] = useState<Trailer | null>(null);
+  const [trailerWarning, setTrailerWarning] = useState(false);
+  const [pendingTrailer, setPendingTrailer] = useState<Trailer | null>(null);
 
   useEffect(() => {
     loadVehicles();
@@ -189,14 +200,71 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
     setPrdpWarning(false);
     await loadExpectedOdometer(vehicle.id);
-    setStep('enter-odometer');
+    goToOdometer();
   };
 
   // All paths to enter-odometer go through here so scan enforcement is centralised
-  const goToOdometer = () => {
+  const goToOdometer = async () => {
     if (requireLicenseScan && !vehicleIdentifiedByScan) {
       setStep('scan-vehicle-disk');
+      return;
+    }
+
+    // Check if the organization has any active trailers
+    try {
+      const { data: trailers } = await supabase
+        .from('trailers')
+        .select('id, registration_number, description, gvm_weight')
+        .eq('organization_id', organizationId)
+        .eq('status', 'active')
+        .is('deleted_at', null)
+        .order('registration_number');
+
+      if (trailers && trailers.length > 0) {
+        setAvailableTrailers(trailers);
+        setStep('select-trailer');
+      } else {
+        setAvailableTrailers([]);
+        setSelectedTrailer(null);
+        setStep('enter-odometer');
+      }
+    } catch {
+      // If trailer lookup fails, proceed without trailer (non-blocking)
+      setSelectedTrailer(null);
+      setStep('enter-odometer');
+    }
+  };
+
+  const checkTrailerLicenseQualifies = async (trailer: Trailer): Promise<boolean> => {
+    const { data, error } = await supabase
+      .rpc('check_driver_trailer_license_qualifies', {
+        p_driver_license_code: driverLicenseCode || 'Code B',
+        p_trailer_gvm_weight: trailer.gvm_weight,
+      });
+
+    if (error) {
+      console.error('Error checking trailer license qualification:', error);
+      return false;
+    }
+
+    return data === true;
+  };
+
+  const handleTrailerSelected = async (trailer: Trailer | null) => {
+    if (!trailer) {
+      setSelectedTrailer(null);
+      setStep('enter-odometer');
+      return;
+    }
+
+    const qualifies = await checkTrailerLicenseQualifies(trailer);
+    if (!qualifies) {
+      setPendingTrailer(trailer);
+      setTrailerWarning(true);
+      setStep('confirm-trailer-license-warning');
     } else {
+      setSelectedTrailer(trailer);
+      setTrailerWarning(false);
       setStep('enter-odometer');
     }
   };
@@ -234,7 +302,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     }
     // Confirmed — mark as scan-verified and proceed
     setVehicleIdentifiedByScan(true);
-    setStep('enter-odometer');
+    goToOdometer();
   };
 
   const loadExpectedOdometer = async (vehicleId: string) => {
@@ -565,11 +633,11 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       setOdometerMismatch(true);
       setStep('confirm-mismatch');
     } else {
-      handleSubmit(false, licenseWarning, prdpWarning, unreturnedVehicleWarning);
+      handleSubmit(false, licenseWarning, prdpWarning, unreturnedVehicleWarning, trailerWarning);
     }
   };
 
-  const handleSubmit = async (logOdometerException: boolean, logLicenseException: boolean = false, logPrdpException: boolean = false, logUnreturnedException: boolean = false) => {
+  const handleSubmit = async (logOdometerException: boolean, logLicenseException: boolean = false, logPrdpException: boolean = false, logUnreturnedException: boolean = false, logTrailerException: boolean = false) => {
     if (!odometerReading || !selectedVehicle) return;
 
     console.log('handleSubmit called with:', {
@@ -623,6 +691,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
           odometer_reading: parseInt(odometerReading),
           location: location ? `${location.lat},${location.lng}` : 'Unknown',
           trip_description: tripDescription.trim() || null,
+          trailer_id: selectedTrailer?.id || null,
         })
         .select()
         .single();
@@ -726,6 +795,26 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
         }
       }
 
+      if (logTrailerException && selectedTrailer) {
+        const { error: trailerExceptionError } = await supabase
+          .from('vehicle_exceptions')
+          .insert({
+            vehicle_id: selectedVehicle.id,
+            driver_id: driverId,
+            organization_id: organizationId,
+            exception_type: 'unauthorized_trailer_license',
+            description: `Driver does not have the required license to tow trailer ${selectedTrailer.registration_number} (${selectedTrailer.gvm_weight} kg GVM). Driver has ${driverLicenseCode}, but towing a trailer over 750 kg requires Code EB or higher.`,
+            expected_value: selectedTrailer.gvm_weight > 750 ? 'Code EB or higher' : 'Code B or higher',
+            actual_value: driverLicenseCode,
+            transaction_id: transaction.id,
+            resolved: false,
+          });
+
+        if (trailerExceptionError) {
+          console.error('FAILED to log trailer license exception:', trailerExceptionError);
+        }
+      }
+
       if (logUnreturnedException && previousDriverInfo) {
         console.log('Attempting to log unreturned vehicle exception:', {
           driver_id: driverId,
@@ -789,6 +878,10 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     setWarning('');
     setVehicleIdentifiedByScan(false);
     setShowVerificationScanner(false);
+    setSelectedTrailer(null);
+    setTrailerWarning(false);
+    setPendingTrailer(null);
+    setAvailableTrailers([]);
     onBack();
   };
 
@@ -1065,7 +1158,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                     resolved: false,
                   }).catch(() => {/* non-critical */});
                   setVehicleIdentifiedByScan(true);
-                  setStep('enter-odometer');
+                  goToOdometer();
                 }}
                 className="w-full bg-amber-100 text-amber-800 border border-amber-300 py-3 rounded-lg font-medium hover:bg-amber-200 transition-colors text-sm"
               >
@@ -1099,6 +1192,16 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                 License Expires: {selectedVehicle && new Date(selectedVehicle.license_disk_expiry).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
               </p>
             </div>
+
+            {selectedTrailer && (
+              <div className="bg-teal-50 rounded-lg p-3 mb-4 flex items-center gap-3">
+                <Package className="w-5 h-5 text-teal-600 flex-shrink-0" />
+                <div>
+                  <p className="text-sm text-teal-900 font-medium">Towing Trailer:</p>
+                  <p className="text-sm font-bold text-teal-900">{selectedTrailer.registration_number} ({selectedTrailer.gvm_weight} kg)</p>
+                </div>
+              </div>
+            )}
 
             {expectedOdometer !== null && (
               <div className="bg-blue-50 rounded-lg p-4 mb-4 flex items-start gap-3">
@@ -1167,6 +1270,154 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
           </div>
         )}
 
+        {step === 'select-trailer' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5 text-teal-600" />
+              Will you be towing a trailer?
+            </h2>
+
+            <div className="bg-green-50 rounded-lg p-3 mb-4">
+              <p className="text-sm text-green-900 font-medium">Vehicle:</p>
+              <p className="text-base font-bold text-green-900">{selectedVehicle?.registration_number}</p>
+              <p className="text-sm text-green-700">{selectedVehicle?.make} {selectedVehicle?.model}</p>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Select a trailer from your organization's list, or choose "No trailer" to proceed without one.
+            </p>
+
+            <div className="space-y-2 mb-6">
+              <button
+                onClick={() => handleTrailerSelected(null)}
+                disabled={loading}
+                className="w-full text-left bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg p-4 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Package className="w-5 h-5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">No trailer</p>
+                    <p className="text-xs text-gray-500">Proceed without towing a trailer</p>
+                  </div>
+                </div>
+              </button>
+
+              {availableTrailers.map((trailer) => (
+                <button
+                  key={trailer.id}
+                  onClick={() => handleTrailerSelected(trailer)}
+                  disabled={loading}
+                  className="w-full text-left bg-white hover:bg-teal-50 border border-gray-200 hover:border-teal-300 rounded-lg p-4 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-teal-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Package className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900">{trailer.registration_number}</p>
+                      <p className="text-xs text-gray-500">
+                        {trailer.description ? `${trailer.description} · ` : ''}{trailer.gvm_weight} kg GVM
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {trailer.gvm_weight > 750 ? (
+                        <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">Requires Code EB+</span>
+                      ) : (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Code B OK</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => { setStep('scan'); setSelectedVehicle(null); }}
+              className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+            >
+              Select Different Vehicle
+            </button>
+          </div>
+        )}
+
+        {step === 'confirm-trailer-license-warning' && pendingTrailer && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-amber-900 mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5 text-amber-600" />
+              Trailer License Warning
+            </h2>
+
+            <div className="bg-amber-50 rounded-lg p-4 mb-6">
+              <AlertCircle className="w-12 h-12 text-amber-600 mx-auto mb-3" />
+              <p className="text-sm font-medium text-amber-900 text-center mb-4">
+                Your license does not authorize you to tow this trailer.
+              </p>
+
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-amber-700">Your License:</span>
+                  <span className="text-lg font-bold text-amber-900">{driverLicenseCode}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-amber-700">Trailer:</span>
+                  <span className="text-lg font-bold text-amber-900">{pendingTrailer.registration_number}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-amber-700">Trailer GVM:</span>
+                  <span className="text-lg font-bold text-amber-900">{pendingTrailer.gvm_weight} kg</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-amber-200">
+                  <span className="text-sm text-amber-700">Required License:</span>
+                  <span className="text-lg font-bold text-amber-900">
+                    {pendingTrailer.gvm_weight > 750 ? 'Code EB or higher' : 'Code B or higher'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-sm font-medium text-red-900 mb-2">Warning:</p>
+              <ul className="text-xs text-red-800 space-y-1 list-disc list-inside">
+                <li>Towing a trailer without the proper license is illegal</li>
+                <li>You may be personally liable for any accidents or damage</li>
+                <li>Your organization's insurance may not cover incidents</li>
+                <li>This exception will be logged and reported to management</li>
+              </ul>
+            </div>
+
+            <p className="text-sm text-gray-700 mb-6">
+              If you choose to proceed, an exception report will be logged for investigation by your organization.
+              It is strongly recommended that you select a different trailer or contact your supervisor.
+            </p>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setSelectedTrailer(pendingTrailer);
+                  setTrailerWarning(true);
+                  setStep('enter-odometer');
+                }}
+                className="w-full bg-amber-600 text-white py-4 rounded-lg font-semibold hover:bg-amber-700 transition-colors"
+              >
+                I Understand, Continue Anyway
+              </button>
+
+              <button
+                onClick={() => {
+                  setPendingTrailer(null);
+                  setTrailerWarning(false);
+                  setStep('select-trailer');
+                }}
+                className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Select Different Trailer
+              </button>
+            </div>
+          </div>
+        )}
+
         {step === 'confirm-mismatch' && (
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-red-900 mb-4">Odometer Reading Mismatch</h2>
@@ -1212,7 +1463,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
             <div className="space-y-3">
               <button
-                onClick={() => handleSubmit(true, licenseWarning, prdpWarning, unreturnedVehicleWarning)}
+                onClick={() => handleSubmit(true, licenseWarning, prdpWarning, unreturnedVehicleWarning, trailerWarning)}
                 disabled={loading}
                 className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
@@ -1300,6 +1551,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                     return;
                   }
                   setPrdpWarning(false);
+                  await loadExpectedOdometer(selectedVehicle!.id);
                   goToOdometer();
                 }}
                 className="w-full bg-amber-600 text-white py-4 rounded-lg font-semibold hover:bg-amber-700 transition-colors"

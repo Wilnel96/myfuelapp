@@ -88,6 +88,7 @@ export default function CustomReportBuilder({ onNavigate }: CustomReportBuilderP
         { name: 'vehicles', displayName: 'Vehicles' },
         { name: 'drivers', displayName: 'Drivers' },
         { name: 'vehicle_exceptions', displayName: 'Vehicle Exceptions' },
+        { name: 'trailers', displayName: 'Trailers' },
         { name: 'garages', displayName: 'Garages' },
         ...(clientOrg ? [] : [
           { name: 'organizations', displayName: 'Client Organizations' },
@@ -130,7 +131,7 @@ export default function CustomReportBuilder({ onNavigate }: CustomReportBuilderP
                 !['commission_rate', 'commission_amount', 'net_amount', 'organization_id'].includes(col.name)
               );
               console.log('After filtering:', columns.length, columns.map(c => c.name));
-            } else if (['vehicles', 'drivers', 'vehicle_exceptions', 'organization_users'].includes(table.name)) {
+            } else if (['vehicles', 'drivers', 'vehicle_exceptions', 'trailers', 'organization_users'].includes(table.name)) {
               // Remove organization_id from other tables for client organizations
               columns = columns.filter(col => col.name !== 'organization_id');
             }
@@ -261,6 +262,16 @@ export default function CustomReportBuilder({ onNavigate }: CustomReportBuilderP
         { name: 'resolution_notes', type: 'string' },
         { name: 'created_at', type: 'string' },
         { name: 'updated_at', type: 'string' },
+      ],
+      'trailers': [
+        { name: 'organization_id', type: 'string' },
+        { name: 'registration_number', type: 'string' },
+        { name: 'description', type: 'string' },
+        { name: 'gvm_weight', type: 'number' },
+        { name: 'status', type: 'string' },
+        { name: 'created_at', type: 'string' },
+        { name: 'updated_at', type: 'string' },
+        { name: 'deleted_at', type: 'string' },
       ],
       'garages': [
         { name: 'name', type: 'string' },

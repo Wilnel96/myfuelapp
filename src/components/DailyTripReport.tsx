@@ -18,6 +18,8 @@ interface TripRecord {
   trip_description: string | null;
   return_notes: string | null;
   status: 'in_progress' | 'completed';
+  trailer_registration: string | null;
+  trailer_gvm: number | null;
 }
 
 interface DailyTripReportProps {
@@ -83,6 +85,7 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
           odometer_reading,
           created_at,
           trip_description,
+          trailer_id,
           vehicles (
             registration_number,
             make,
@@ -91,6 +94,10 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
           drivers (
             first_name,
             surname
+          ),
+          trailers (
+            registration_number,
+            gvm_weight
           )
         `)
         .eq('organization_id', organizationId)
@@ -170,6 +177,8 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
             trip_description: draw.trip_description,
             return_notes: returnData?.notes || null,
             status: returnData ? 'completed' : 'in_progress',
+            trailer_registration: draw.trailers?.registration_number || null,
+            trailer_gvm: draw.trailers?.gvm_weight || null,
           });
         }
       }
@@ -189,6 +198,8 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
       'Make': trip.vehicle_make,
       'Model': trip.vehicle_model,
       'Driver': trip.driver_name,
+      'Trailer': trip.trailer_registration || '-',
+      'Trailer GVM (kg)': trip.trailer_gvm || '-',
       'Draw Date': new Date(trip.draw_time).toLocaleDateString('en-GB'),
       'Draw Time': new Date(trip.draw_time).toLocaleTimeString('en-GB'),
       'Draw Odometer (km)': trip.draw_odometer,
@@ -324,6 +335,7 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Driver</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trailer</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Draw Time</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Return Time</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">KM Travelled</th>
@@ -342,6 +354,16 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                         {trip.driver_name}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm">
+                        {trip.trailer_registration ? (
+                          <div>
+                            <p className="font-semibold text-gray-900">{trip.trailer_registration}</p>
+                            <p className="text-xs text-gray-500">{trip.trailer_gvm} kg</p>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div>

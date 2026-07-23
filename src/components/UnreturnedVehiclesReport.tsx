@@ -14,6 +14,8 @@ interface UnreturnedRow {
   odometer_reading: number;
   trip_description: string | null;
   hours_out: number;
+  trailer_registration: string | null;
+  trailer_gvm: number | null;
 }
 
 export default function UnreturnedVehiclesReport() {
@@ -59,8 +61,10 @@ export default function UnreturnedVehiclesReport() {
           related_transaction_id,
           vehicle_id,
           driver_id,
+          trailer_id,
           vehicles (registration_number, make, model),
-          drivers (first_name, surname)
+          drivers (first_name, surname),
+          trailers (registration_number, gvm_weight)
         `)
         .eq('organization_id', orgId)
         .eq('transaction_type', 'draw')
@@ -94,6 +98,7 @@ export default function UnreturnedVehiclesReport() {
 
           const v = draw.vehicles as any;
           const d = draw.drivers as any;
+          const t = draw.trailers as any;
 
           unreturned.push({
             draw_id: draw.id,
@@ -107,6 +112,8 @@ export default function UnreturnedVehiclesReport() {
             odometer_reading: draw.odometer_reading,
             trip_description: draw.trip_description ?? null,
             hours_out: hoursOut,
+            trailer_registration: t?.registration_number ?? null,
+            trailer_gvm: t?.gvm_weight ?? null,
           });
         }
       }
@@ -123,10 +130,11 @@ export default function UnreturnedVehiclesReport() {
 
   const exportCSV = () => {
     if (!rows.length) return;
-    let csv = 'Vehicle,Make/Model,Driver,Drawn At,Hours Out,Odometer,Trip Description\n';
+    let csv = 'Vehicle,Make/Model,Driver,Trailer,Drawn At,Hours Out,Odometer,Trip Description\n';
     rows.forEach((r) => {
       const drawnAt = new Date(r.drawn_at).toLocaleString();
-      csv += `"${r.registration_number}","${r.make} ${r.model}","${r.driver_name}","${drawnAt}",${r.hours_out},${r.odometer_reading},"${r.trip_description ?? ''}"\n`;
+      const trailerStr = r.trailer_registration ? `${r.trailer_registration} (${r.trailer_gvm}kg)` : '';
+      csv += `"${r.registration_number}","${r.make} ${r.model}","${r.driver_name}","${trailerStr}","${drawnAt}",${r.hours_out},${r.odometer_reading},"${r.trip_description ?? ''}"\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -209,6 +217,7 @@ export default function UnreturnedVehiclesReport() {
                     <tr className="bg-gray-100 border-b border-gray-200">
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Vehicle</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Driver</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Trailer</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Drawn At</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Hours Out</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Odometer</th>
@@ -232,6 +241,16 @@ export default function UnreturnedVehiclesReport() {
                             <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
                             <span className="text-gray-800">{row.driver_name}</span>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {row.trailer_registration ? (
+                            <div>
+                              <p className="font-semibold text-gray-900">{row.trailer_registration}</p>
+                              <p className="text-xs text-gray-500">{row.trailer_gvm} kg</p>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-gray-700">
                           {new Date(row.drawn_at).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })}

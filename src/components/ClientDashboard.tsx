@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Truck, Users, FileText, Store, Settings, BarChart3, LogOut, ArrowLeft, DollarSign, CreditCard, AlertCircle } from 'lucide-react';
+import { Truck, Users, FileText, Store, Settings, BarChart3, LogOut, ArrowLeft, DollarSign, CreditCard, AlertCircle, Package } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ClientDashboardProps {
@@ -282,6 +282,21 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
               <h3 className="font-semibold text-gray-900">Vehicles</h3>
             </div>
             <p className="text-sm text-gray-600">Manage your fleet vehicles</p>
+          </button>
+        )}
+
+        {canAccessVehicles && (
+          <button
+            onClick={() => onNavigate('trailers')}
+            className="bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-teal-50 rounded-lg">
+                <Package className="w-6 h-6 text-teal-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900">Trailers</h3>
+            </div>
+            <p className="text-sm text-gray-600">Manage your fleet trailers</p>
           </button>
         )}
 

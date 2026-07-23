@@ -1,4 +1,4 @@
-import { Building2, Store, Truck, Users, FileText, BarChart3, Database, Fuel } from 'lucide-react';
+import { Building2, Store, Truck, Users, FileText, BarChart3, Database, Fuel, Package } from 'lucide-react';
 
 interface SuperAdminDashboardProps {
   onNavigate: (view: string) => void;
@@ -26,6 +26,13 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'View all client vehicles',
       icon: Truck,
       color: 'orange',
+    },
+    {
+      id: 'trailers',
+      title: 'Trailers',
+      description: 'View and manage client trailers',
+      icon: Package,
+      color: 'teal',
     },
     {
       id: 'drivers',
@@ -71,6 +78,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       orange: { bg: 'bg-orange-100', hover: 'group-hover:bg-orange-600', icon: 'text-orange-600' },
       cyan: { bg: 'bg-cyan-100', hover: 'group-hover:bg-cyan-600', icon: 'text-cyan-600' },
       teal: { bg: 'bg-teal-100', hover: 'group-hover:bg-teal-600', icon: 'text-teal-600' },
+      trailer: { bg: 'bg-teal-100', hover: 'group-hover:bg-teal-600', icon: 'text-teal-600' },
       amber: { bg: 'bg-amber-100', hover: 'group-hover:bg-amber-600', icon: 'text-amber-600' },
       gray: { bg: 'bg-gray-100', hover: 'group-hover:bg-gray-600', icon: 'text-gray-600' },
       violet: { bg: 'bg-violet-100', hover: 'group-hover:bg-violet-600', icon: 'text-violet-600' },

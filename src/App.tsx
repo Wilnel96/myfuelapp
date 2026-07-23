@@ -7,6 +7,7 @@ import GaragePortal from './components/GaragePortal';
 import DriverMobileApp from './components/DriverMobileApp';
 import MobileFuelPurchase from './components/MobileFuelPurchase';
 import VehicleManagement from './components/VehicleManagement';
+import TrailerManagement from './components/TrailerManagement';
 import GarageManagement from './components/GarageManagement';
 import DriverManagement from './components/DriverManagement';
 import OrganizationManagement from './components/OrganizationManagement';
@@ -86,7 +87,7 @@ function App() {
   const [userMode, setUserMode] = useState<UserMode>(null);
   const [clientPortalType, setClientPortalType] = useState<ClientPortalType>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'exception-reports' | 'backup' | null>(() => {
+  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'trailers' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'exception-reports' | 'backup' | null>(() => {
     const saved = sessionStorage.getItem('appCurrentView');
     return saved ? saved as any : null;
   });
@@ -1169,6 +1170,8 @@ function App() {
             : <ClientFinancialInfo key="client-financial-info-self" onNavigate={setCurrentView} clientSelfMode={true} backView="backoffice" />
         ) : currentView === 'vehicles' ? (
           <VehicleManagement key="vehicles" onNavigate={setCurrentView} />
+        ) : currentView === 'trailers' ? (
+          <TrailerManagement key="trailers" onNavigate={setCurrentView} />
         ) : currentView === 'garages' ? (
           userRole === 'super_admin' ? (
             <GarageManagement key="garages" onNavigate={setCurrentView} />
