@@ -151,11 +151,20 @@ export default function ClientFinancialInfo({ onNavigate, clientSelfMode = false
 
     try {
       setError('');
+      // Clients may not change the fees charged — those are set by the Management
+      // company in the System portal. Only include them in the update when acting
+      // as Management (non-client-self mode).
+      const feeFields = clientSelfMode
+        ? {}
+        : {
+            monthly_fee_per_vehicle: editForm.monthly_fee_per_vehicle,
+            monthly_fee_per_driver: editForm.monthly_fee_per_driver,
+          };
+
       const { error: updateError } = await supabase
         .from('organizations')
         .update({
-          monthly_fee_per_vehicle: editForm.monthly_fee_per_vehicle,
-          monthly_fee_per_driver: editForm.monthly_fee_per_driver,
+          ...feeFields,
           daily_spending_limit: editForm.daily_spending_limit,
           monthly_spending_limit: editForm.monthly_spending_limit,
           month_end_day: editForm.month_end_day,
@@ -307,29 +316,37 @@ export default function ClientFinancialInfo({ onNavigate, clientSelfMode = false
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
                       Monthly Fee Per Vehicle (R)
+                      {clientSelfMode && (
+                        <span className="ml-1 text-[10px] font-normal text-gray-400">(set by Management)</span>
+                      )}
                     </label>
                     <input
                       type="text"
                       inputMode="decimal"
                       value={editForm.monthly_fee_per_vehicle ?? 0}
+                      readOnly={clientSelfMode}
                       onChange={(e) =>
                         setEditForm({ ...editForm, monthly_fee_per_vehicle: parseFloat(e.target.value) })
                       }
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                      className={`w-full px-2 py-1.5 text-sm border border-gray-300 rounded ${clientSelfMode ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
                       Monthly Fee Per Driver (R)
+                      {clientSelfMode && (
+                        <span className="ml-1 text-[10px] font-normal text-gray-400">(set by Management)</span>
+                      )}
                     </label>
                     <input
                       type="text"
                       inputMode="decimal"
                       value={editForm.monthly_fee_per_driver ?? 0}
+                      readOnly={clientSelfMode}
                       onChange={(e) =>
                         setEditForm({ ...editForm, monthly_fee_per_driver: parseFloat(e.target.value) })
                       }
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                      className={`w-full px-2 py-1.5 text-sm border border-gray-300 rounded ${clientSelfMode ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
                     />
                   </div>
                   <div>
