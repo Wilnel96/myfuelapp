@@ -425,7 +425,7 @@ export default function GarageNewClientSetup({
         )}
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-semibold">New Garage-Managed Client Setup</h2>
-          <p className="text-xs text-teal-100 mt-0.5">{garageName} — Local Account</p>
+          <p className="text-xs text-teal-100 mt-0.5">{garageName} — Garage Account</p>
         </div>
       </div>
 
@@ -566,7 +566,7 @@ export default function GarageNewClientSetup({
           <div className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2 text-sm text-blue-800">
               <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              The main user will manage this client account through the Client Portal. This is a garage-managed local account — payment is not by card.
+              The main user will manage this client account through the Client Portal. This is a garage-managed account — payment is not by card.
             </div>
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-gray-700">Main User Details</p>
@@ -621,7 +621,7 @@ export default function GarageNewClientSetup({
         {/* ── STEP: Account ──────────────────────────────────────────────── */}
         {step === 'account' && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">Set the local account details for this client at {garageName}.</p>
+            <p className="text-sm text-gray-600">Set the garage account details for this client at {garageName}.</p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Account Number <span className="text-red-500">*</span></label>
               <input value={accountNumber} onChange={e => setAccountNumber(up(e.target.value))}
@@ -908,7 +908,7 @@ export default function GarageNewClientSetup({
                 <p className="text-xs text-gray-500">{userForm.email}</p>
               </div>
               <div className="px-4 py-3 bg-gray-50">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Local Account at {garageName}</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Garage Account at {garageName}</p>
                 <p className="text-sm text-gray-900 mt-1">Account No: <span className="font-semibold">{accountNumber}</span></p>
                 {monthlyLimit && <p className="text-xs text-gray-500">Monthly limit: R{parseFloat(monthlyLimit).toFixed(2)}</p>}
               </div>

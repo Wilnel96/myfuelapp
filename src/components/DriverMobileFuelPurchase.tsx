@@ -1991,7 +1991,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Transaction Authorized!</h2>
           <p className="text-gray-600 mb-6">
             {isLocalAccount
-              ? 'Fuel purchase authorized. Payment will be processed via your local account.'
+              ? 'Fuel purchase authorized. Payment will be processed via your garage account.'
               : 'Card details transferred. When Card transaction is processed select OK.'
             }
           </p>
@@ -2167,7 +2167,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                           )}
                           {nearestGarage.accountNumber && (
                             <span className="block mt-1 px-2 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-800">
-                              Local Account
+                              Garage Account
                             </span>
                           )}
                         </div>
@@ -2178,7 +2178,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                     {nearestGarage.accountNumber ? (
                       <div className="flex items-center gap-2 p-3 bg-teal-50 border border-teal-200 rounded-lg mb-3">
                         <CheckCircle className="w-4 h-4 text-teal-600 flex-shrink-0" />
-                        <p className="text-sm text-teal-800">Local account available — payment via account number</p>
+                        <p className="text-sm text-teal-800">Garage account available — payment via account number</p>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg mb-3">
@@ -2248,7 +2248,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                         <option value="">Choose a garage...</option>
                         {garages.map((garage) => (
                           <option key={garage.id} value={garage.id}>
-                            {garage.name} — {garage.city}{garage.accountNumber ? ' (Local Account)' : ''}
+                            {garage.name} — {garage.city}{garage.accountNumber ? ' (Garage Account)' : ''}
                           </option>
                         ))}
                       </select>
@@ -2284,7 +2284,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                       <option value="">Choose a garage to refuel at</option>
                       {garages.map((garage) => (
                         <option key={garage.id} value={garage.id}>
-                          {garage.name} — {garage.city}{garage.accountNumber ? ' (Local Account)' : ''}
+                          {garage.name} — {garage.city}{garage.accountNumber ? ' (Garage Account)' : ''}
                         </option>
                       ))}
                     </select>

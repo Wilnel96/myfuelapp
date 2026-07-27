@@ -1243,7 +1243,7 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {[
                     { value: 'card_only', label: 'Card / Debit Payments Only', description: 'Listed for card/debit transactions; no local accounts' },
-                    { value: 'external_local_accounts', label: 'External Local Accounts', description: 'Hosts local accounts for external client organizations' },
+                    { value: 'external_local_accounts', label: 'External Garage Accounts', description: 'Hosts garage accounts for external client organizations' },
                     { value: 'manages_own_clients', label: 'Manages Own Sub-Clients', description: 'Runs its own sub-client system; billed per vehicle/driver' },
                     { value: 'own_fleet', label: 'Own Fleet (Client Portal)', description: 'Operates its own fleet registered as a system client' },
                   ].map(cap => (

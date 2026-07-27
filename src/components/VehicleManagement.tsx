@@ -589,7 +589,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                      Vehicle Number (for Local Account)
+                      Vehicle Number (for Garage Account)
                     </label>
                     <input
                       type="text"
@@ -600,7 +600,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                     />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">VIN required for fuel purchase authentication (11-17 characters). Vehicle Number used for Garage Local Account.</p>
+                <p className="text-xs text-gray-500">VIN required for fuel purchase authentication (11-17 characters). Vehicle Number used for Garage Account.</p>
               </div>
 
               <div className="space-y-2">

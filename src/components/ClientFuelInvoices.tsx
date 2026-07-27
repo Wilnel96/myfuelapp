@@ -593,11 +593,11 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
             </div>
           </div>
 
-          {(selectedInvoice.payment_option === 'Card Payment' || selectedInvoice.payment_option === 'Local Account') && (
+          {(selectedInvoice.payment_option === 'Card Payment' || selectedInvoice.payment_option === 'Local Account' || selectedInvoice.payment_option === 'Both') && (
             <div className={`mt-4 rounded-lg p-3 text-center font-semibold text-sm ${selectedInvoice.payment_option === 'Card Payment' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-blue-50 text-blue-800 border border-blue-200'}`}>
               {selectedInvoice.payment_option === 'Card Payment'
                 ? `Paid by Credit/Debit Card${selectedInvoice.card_last_four_digits ? `  •  **** **** **** ${selectedInvoice.card_last_four_digits}` : ''}`
-                : 'Local Account Invoice — To be paid'}
+                : 'Garage Account Invoice — To be paid'}
             </div>
           )}
 

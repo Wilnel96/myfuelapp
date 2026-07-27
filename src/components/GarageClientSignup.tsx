@@ -325,16 +325,16 @@ export default function GarageClientSignup({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <Building2 className="w-5 h-5" />
-          <h2 className="text-base font-semibold">Add Local Account Client</h2>
+          <h2 className="text-base font-semibold">Add Garage Account Client</h2>
         </div>
         <p className="text-xs text-green-100 ml-8">
-          {garageName} — Local Account
+          {garageName} — Garage Account
         </p>
       </div>
 
       <div className="p-6 space-y-4">
         <div className="bg-teal-50 border border-teal-200 rounded-lg p-3 text-sm text-teal-800">
-          <strong>Garage-Managed Local Accounts</strong> — Use this section to register clients whose fuel account is managed by {garageName}. For clients who sign up independently with a credit/debit card, they register via the MyFuelApp client portal.
+          <strong>Garage-Managed Accounts</strong> — Use this section to register clients whose fuel account is managed by {garageName}. For clients who sign up independently with a credit/debit card, they register via the MyFuelApp client portal.
         </div>
 
         <button
@@ -348,7 +348,7 @@ export default function GarageClientSignup({
             <div>
               <h3 className="font-semibold text-gray-900">Existing MyFuelApp Client</h3>
               <p className="text-sm text-gray-600 mt-0.5">
-                Link a client already registered on MyFuelApp (card or account holder) to a local account at {garageName}
+                Link a client already registered on MyFuelApp (card or account holder) to a garage account at {garageName}
               </p>
             </div>
           </div>
@@ -365,7 +365,7 @@ export default function GarageClientSignup({
             <div>
               <h3 className="font-semibold text-gray-900">New Garage-Managed Client</h3>
               <p className="text-sm text-gray-600 mt-0.5">
-                Register a brand-new client with a garage-managed local fuel account — no card required
+                Register a brand-new client with a garage-managed fuel account — no card required
               </p>
             </div>
           </div>

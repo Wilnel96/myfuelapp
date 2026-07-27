@@ -1023,7 +1023,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
                   <h4 className="text-xs font-semibold text-blue-900 mb-2 flex items-center gap-2">
                     <CreditCard className="w-3.5 h-3.5" />
-                    Local Account Details
+                    Garage Account Details
                   </h4>
                   <div className="space-y-2 text-xs">
                     <div className="bg-white rounded p-2">
@@ -1296,7 +1296,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
               </div>
               <div className="flex-1">
                 <h3 className="text-base font-semibold text-gray-900">
-                  Add Local Account
+                  Add Garage Account
                 </h3>
                 <p className="text-xs text-gray-600 mt-0.5">
                   Adding <strong>{selectedOrganization.name}</strong> as a client
@@ -1412,7 +1412,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                initialView === 'add-client' ? 'Add New Client' :
                initialView === 'external' ? 'External Clients' :
                initialView === 'managed' ? 'My Managed Clients' :
-               'MyFuelApp Local Accounts'}
+               'MyFuelApp Garage Accounts'}
             </h2>
           </div>
           <span className="text-sm text-gray-600">
@@ -1421,12 +1421,12 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         </div>
 
         <p className="text-sm text-gray-600 mb-4">
-          {initialView === 'active' ? 'View and manage your active local account clients' :
-           initialView === 'view-invoices' ? 'View and download fuel invoices for your local account clients' :
+          {initialView === 'active' ? 'View and manage your active garage account clients' :
+           initialView === 'view-invoices' ? 'View and download fuel invoices for your garage account clients' :
            initialView === 'create-statements' ? 'Generate and manage monthly statements for your clients' :
            initialView === 'payments' ? 'Record and manage payments received from clients' :
-           initialView === 'add-client' ? 'Add new organizations to your local account client list' :
-           `Manage which organizations have local accounts at ${garageName}. These clients can refuel at your garage using their account number.`}
+           initialView === 'add-client' ? 'Add new organizations to your garage account client list' :
+           `Manage which organizations have garage accounts at ${garageName}. These clients can refuel at your garage using their account number.`}
         </p>
 
         {error && !showAddModal && (
@@ -1504,7 +1504,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                                  External Local Account
+                                  External Garage Account
                                 </span>
                               )}
                             </div>
@@ -2758,7 +2758,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
 
         {initialView === 'all' && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
-          <p className="text-blue-900 text-sm font-medium">About Local Accounts:</p>
+          <p className="text-blue-900 text-sm font-medium">About Garage Accounts:</p>
           <ul className="text-blue-800 text-sm mt-2 space-y-1 list-disc list-inside">
             <li>Add organizations that have accounts at your garage</li>
             <li>Account numbers are used by drivers during refueling</li>

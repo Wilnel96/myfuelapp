@@ -286,7 +286,7 @@ export default function ClientGaragesView({ onNavigate }: ClientGaragesViewProps
 
           {(selectedGarage.local_account_number || selectedGarage.local_monthly_spend_limit) && (
             <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Your Local Account Details</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Your Garage Account Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {selectedGarage.local_account_number && (
                   <div>

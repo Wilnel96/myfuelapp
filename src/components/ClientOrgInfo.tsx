@@ -687,11 +687,12 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       >
                         <option value="">-- Select --</option>
                         <option value="Card Payment">Credit/Debit Card Payment</option>
-                        <option value="Local Account">Local Account</option>
+                        <option value="Local Account">Garage Account</option>
+                        <option value="Both">Both Credit/Debit Cards & Garage Account</option>
                       </select>
                     </div>
 
-                    {editForm.payment_option === 'Card Payment' && (
+                    {(editForm.payment_option === 'Card Payment' || editForm.payment_option === 'Both') && (
                       <div className="bg-blue-50 border border-blue-200 rounded p-2">
                         <p className="text-xs text-blue-900 font-medium">
                           Client uses their own debit/credit card to pay for fuel purchases directly.
@@ -699,7 +700,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       </div>
                     )}
 
-                    {editForm.payment_option === 'Local Account' && (
+                    {(editForm.payment_option === 'Local Account' || editForm.payment_option === 'Both') && (
                       <div className="bg-amber-50 border border-amber-200 rounded p-2">
                         <p className="text-xs text-amber-900 font-medium">
                           Client makes their own arrangements with the garage and pays the garage directly as agreed between client and garage.
@@ -742,9 +743,10 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                         <span className={`px-2 py-0.5 text-xs font-medium rounded ${
                           org.payment_option === 'Card Payment' ? 'bg-blue-100 text-blue-800' :
                           org.payment_option === 'Local Account' ? 'bg-amber-100 text-amber-800' :
+                          org.payment_option === 'Both' ? 'bg-teal-100 text-teal-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {org.payment_option === 'Card Payment' ? 'Credit/Debit Card' : org.payment_option}
+                          {org.payment_option === 'Card Payment' ? 'Credit/Debit Card' : org.payment_option === 'Local Account' ? 'Garage Account' : org.payment_option === 'Both' ? 'Card + Garage' : org.payment_option}
                         </span>
                       )}
                     </div>
@@ -917,9 +919,10 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                                 <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
                                   org.payment_option === 'Card Payment' ? 'bg-blue-100 text-blue-800' :
                                   org.payment_option === 'Local Account' ? 'bg-amber-100 text-amber-800' :
+                                  org.payment_option === 'Both' ? 'bg-teal-100 text-teal-800' :
                                   'bg-gray-100 text-gray-800'
                                 }`}>
-                                  {org.payment_option === 'Card Payment' ? 'Credit/Debit Card Payment' : org.payment_option}
+                                  {org.payment_option === 'Card Payment' ? 'Credit/Debit Card Payment' : org.payment_option === 'Local Account' ? 'Garage Account' : org.payment_option === 'Both' ? 'Both Credit/Debit Cards & Garage Account' : org.payment_option}
                                 </span>
                                 {org.payment_option === 'Card Payment' && (
                                   <div className="mt-1">

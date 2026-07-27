@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, CheckCircle, XCircle, Loader2, Edit2, Save, X, AlertCircle, Ban, Power } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, Loader2, CreditCard as Edit2, Save, X, AlertCircle, Ban, Power } from 'lucide-react';
 
 interface Garage {
   id: string;
@@ -226,7 +226,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
             <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Local Account Number <span className="text-red-600">*</span>
+                  Garage Account Number <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="text"
@@ -299,7 +299,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="block text-xs font-medium text-gray-700">
-            Select Garages Where {organizationName} Has Local Accounts
+            Select Garages Where {organizationName} Has Garage Accounts
           </label>
           <span className="text-xs text-gray-500">
             {garageAccounts.filter(a => a.is_active).length} of {garages.length} selected

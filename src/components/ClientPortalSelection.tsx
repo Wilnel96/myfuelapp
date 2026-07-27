@@ -57,14 +57,14 @@ export default function ClientPortalSelection({ onSelectPortal, onBack }: Client
                   <Building2 className="w-10 h-10 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 mb-2">Local Account Only</h2>
+                  <h2 className="text-lg font-bold text-gray-900 mb-2">Garage Account Only</h2>
                   <p className="text-sm text-gray-700 leading-relaxed">
-                    Open local accounts at specific garages with monthly statements.
+                    Open garage accounts at specific garages with monthly statements.
                   </p>
                 </div>
                 <div className="pt-2 border-t border-amber-300 w-full">
                   <ul className="text-xs text-gray-600 mt-1 space-y-1 text-left">
-                    <li>• Local garage accounts</li>
+                    <li>• Garage accounts</li>
                     <li>• Account spending limits</li>
                     <li>• Monthly statements</li>
                   </ul>
@@ -81,7 +81,7 @@ export default function ClientPortalSelection({ onSelectPortal, onBack }: Client
                   <Layers className="w-10 h-10 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 mb-2">Card + Local Account</h2>
+                  <h2 className="text-lg font-bold text-gray-900 mb-2">Card + Garage Account</h2>
                   <p className="text-sm text-gray-700 leading-relaxed">
                     Use local accounts at preferred garages and a card for trips outside your network.
                   </p>

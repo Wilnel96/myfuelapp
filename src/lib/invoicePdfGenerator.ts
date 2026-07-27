@@ -345,7 +345,7 @@ export function renderInvoiceToPDF(
         ? `Paid by Credit/Debit Card  •  **** **** **** ${invoice.card_last_four_digits}`
         : 'Paid by Credit/Debit Card';
     } else {
-      paymentText = 'Local Account Invoice — To be paid';
+      paymentText = 'Garage Account Invoice — To be paid';
     }
     pdf.text(paymentText, pageWidth / 2, y, { align: 'center' });
     y += compact ? 6 : 8;

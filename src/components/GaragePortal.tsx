@@ -370,7 +370,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                    currentView === 'garage-info' ? 'Garage Organization Information' :
                    currentView === 'fuel-prices' ? 'Fuel Prices' :
                    currentView === 'contact-management' ? 'Contact Persons & Users' :
-                   currentView === 'local-accounts-menu' ? 'Local Account Clients' :
+                   currentView === 'local-accounts-menu' ? 'Garage Account Clients' :
                    currentView === 'local-accounts-external' ? 'External Clients' :
                    currentView === 'local-accounts-managed' ? 'My Managed Clients' :
                    currentView === 'active-accounts' ? 'Active Accounts' :
@@ -379,7 +379,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                    currentView === 'payments' ? 'Payments' :
                    currentView === 'add-new-client' ? 'Add New Client' :
                    currentView === 'fee-invoices' ? 'Fee Invoices' :
-                   currentView === 'local-accounts' ? 'Local Account Clients' :
+                   currentView === 'local-accounts' ? 'Garage Account Clients' :
                    'Other Offerings'}
                 </p>
               </div>
@@ -459,8 +459,8 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                       <Building2 className="w-6 h-6 text-amber-600 group-hover:text-white transition-colors" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">Local Account Clients</h3>
-                      <p className="text-sm text-gray-600">Manage local account client organizations and their account settings</p>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">Garage Account Clients</h3>
+                      <p className="text-sm text-gray-600">Manage garage account client organizations and their account settings</p>
                     </div>
                   </div>
                 </button>
@@ -817,8 +817,8 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
         {currentView === 'local-accounts-menu' && (
           <div className="max-w-6xl mx-auto">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Local Account Clients</h2>
-              <p className="text-sm text-gray-600 mt-1">Manage your local account client organizations</p>
+              <h2 className="text-2xl font-bold text-gray-900">Garage Account Clients</h2>
+              <p className="text-sm text-gray-600 mt-1">Manage your garage account client organizations</p>
               {hasBothLocalAccountTypes && (
                 <div className="mt-4 flex gap-3">
                   <button
@@ -850,7 +850,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">Active Accounts</h3>
-                    <p className="text-sm text-gray-600">View and manage active local account clients</p>
+                    <p className="text-sm text-gray-600">View and manage active garage account clients</p>
                   </div>
                 </div>
               </button>
@@ -910,7 +910,7 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                   </div>
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">Add New Client</h3>
-                    <p className="text-sm text-gray-600">Add a new local account client organization</p>
+                    <p className="text-sm text-gray-600">Add a new garage account client organization</p>
                   </div>
                 </div>
               </button>

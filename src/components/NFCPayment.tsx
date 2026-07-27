@@ -589,7 +589,7 @@ export function NFCPayment({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Payment Method</span>
-                <span className="font-medium">{paymentType === 'local_account' ? 'NFC Local Account' : 'NFC Card Payment'}</span>
+                <span className="font-medium">{paymentType === 'local_account' ? 'NFC Garage Account' : 'NFC Card Payment'}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">{paymentType === 'local_account' ? 'Account' : 'Card'}</span>

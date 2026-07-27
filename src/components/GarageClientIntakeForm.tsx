@@ -62,7 +62,7 @@ export default function GarageClientIntakeForm({ garageName, formType = 'organis
     ? createPortal(<Form garageName={garageName} />, portalRoot)
     : null;
 
-  const title = formType === 'individual' ? 'Individual Local Account Setup Form' : formType === 'individual-card' ? 'Individual Card Payment Setup Form' : formType === 'organisation-card' ? 'Organisation Card Payment Setup Form' : 'Organisation Local Account Setup Form';
+  const title = formType === 'individual' ? 'Individual Garage Account Setup Form' : formType === 'individual-card' ? 'Individual Card Payment Setup Form' : formType === 'organisation-card' ? 'Organisation Card Payment Setup Form' : 'Organisation Garage Account Setup Form';
 
   return (
     <>
@@ -118,7 +118,7 @@ function MiniHeader({ garageName, subtitle, today }: { garageName?: string; subt
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '5px', borderBottom: '2px solid #0d9488', marginBottom: '8px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <img src="/MyFuelApp_logo.png" alt="MyFuelApp" style={{ height: '26px', width: 'auto' }} />
-        <div style={{ fontSize: '10.5pt', fontWeight: 'bold', color: '#0d9488' }}>LOCAL ACCOUNT CLIENT SETUP FORM</div>
+        <div style={{ fontSize: '10.5pt', fontWeight: 'bold', color: '#0d9488' }}>GARAGE ACCOUNT CLIENT SETUP FORM</div>
       </div>
       <div style={{ textAlign: 'right', fontSize: '7.5px', color: '#9ca3af' }}>
         {garageName && <div style={{ color: '#0d9488', fontWeight: 'bold', fontSize: '8.5px' }}>{garageName}</div>}
@@ -371,7 +371,7 @@ function OrgPrintableForm({ garageName }: { garageName?: string }) {
           <img src="/MyFuelApp_logo.png" alt="MyFuelApp" style={{ height: '36px', width: 'auto' }} />
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '13pt', fontWeight: 'bold', color: '#0d9488', letterSpacing: '0.2px' }}>
-              LOCAL ACCOUNT — ORGANISATION SETUP FORM
+              GARAGE ACCOUNT — ORGANISATION SETUP FORM
             </div>
             <div style={{ fontSize: '8px', color: '#555', marginTop: '1px' }}>
               Garage-Managed Client Setup — Complete all required fields in block letters
@@ -427,7 +427,7 @@ function OrgPrintableForm({ garageName }: { garageName?: string }) {
           <Note>The garage will set an initial password. The client can change it after first login.</Note>
         </Section>
 
-        <Section number="3" title="Local Account Details" subtitle="Fuel account settings at this garage">
+        <Section number="3" title="Garage Account Details" subtitle="Fuel account settings at this garage">
           <Grid cols={4}>
             <F label="Account Number" required hint="Assigned by garage" />
             <F label="Monthly Spend Limit (R)" hint="Blank = no limit" />
@@ -438,7 +438,7 @@ function OrgPrintableForm({ garageName }: { garageName?: string }) {
 
         <Section number="4" title="Declaration &amp; Signature">
           <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
-            I, the undersigned, confirm that the information provided on this form is accurate and complete. I authorise {garageName || 'the garage'} to open a local fuel account on behalf of the organisation named above and to process fuel transactions for the vehicles and drivers listed. I understand that vehicle and driver information can only be updated via the Client Portal and that account number changes require written authorisation from the primary contact.
+            I, the undersigned, confirm that the information provided on this form is accurate and complete. I authorise {garageName || 'the garage'} to open a garage fuel account on behalf of the organisation named above and to process fuel transactions for the vehicles and drivers listed. I understand that vehicle and driver information can only be updated via the Client Portal and that account number changes require written authorisation from the primary contact.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
             <SigBlock label="Signature — Authorised Signatory (Client)" />
@@ -509,7 +509,7 @@ function IndividualPrintableForm({ garageName }: { garageName?: string }) {
           <img src="/MyFuelApp_logo.png" alt="MyFuelApp" style={{ height: '36px', width: 'auto' }} />
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '13pt', fontWeight: 'bold', color: '#0d9488', letterSpacing: '0.2px' }}>
-              LOCAL ACCOUNT — INDIVIDUAL CLIENT SETUP FORM
+              GARAGE ACCOUNT — INDIVIDUAL CLIENT SETUP FORM
             </div>
             <div style={{ fontSize: '8px', color: '#555', marginTop: '1px' }}>
               Personal Account Setup — Complete all required fields in block letters
@@ -569,7 +569,7 @@ function IndividualPrintableForm({ garageName }: { garageName?: string }) {
         {/* Section 3 — Declaration */}
         <Section number="3" title="Declaration &amp; Signature">
           <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
-            I, the undersigned, confirm that the information provided on this form is accurate and complete. I authorise {garageName || 'the garage'} to open a personal local fuel account in my name and to process fuel transactions for the vehicles listed overleaf. I understand that my account details can be managed via the Client Portal and that account changes may require written authorisation.
+            I, the undersigned, confirm that the information provided on this form is accurate and complete. I authorise {garageName || 'the garage'} to open a personal garage fuel account in my name and to process fuel transactions for the vehicles listed overleaf. I understand that my account details can be managed via the Client Portal and that account changes may require written authorisation.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
             <SigBlock label="Signature — Account Holder" />
@@ -593,7 +593,7 @@ function IndividualPrintableForm({ garageName }: { garageName?: string }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '4px', borderBottom: '2px solid #0d9488', marginBottom: '6px' }}>
           <img src="/MyFuelApp_logo.png" alt="MyFuelApp" style={{ height: '28px', width: 'auto' }} />
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10pt', fontWeight: 'bold', color: '#0d9488' }}>LOCAL ACCOUNT — INDIVIDUAL CLIENT SETUP FORM</div>
+            <div style={{ fontSize: '10pt', fontWeight: 'bold', color: '#0d9488' }}>GARAGE ACCOUNT — INDIVIDUAL CLIENT SETUP FORM</div>
             <div style={{ fontSize: '7.5px', color: '#555' }}>Vehicles &amp; Drivers — Page 2</div>
             {garageName && <div style={{ fontSize: '8px', color: '#0d9488', fontWeight: 'bold', marginTop: '1px' }}>{garageName}</div>}
           </div>

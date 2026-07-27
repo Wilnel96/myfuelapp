@@ -577,20 +577,21 @@ export default function ClientFinancialInfo({ onNavigate, clientSelfMode = false
                       >
                         <option value="">-- Select --</option>
                         <option value="Card Payment">Credit/Debit Card Payment</option>
-                        <option value="Local Account">Local Account</option>
+                        <option value="Local Account">Garage Account</option>
+                        <option value="Both">Both Credit/Debit Cards & Garage Account</option>
                       </select>
                     </div>
 
-                    {editForm.payment_option === 'Card Payment' && editingId && (
+                    {(editForm.payment_option === 'Card Payment' || editForm.payment_option === 'Both') && editingId && (
                       <div className="bg-white border border-blue-200 rounded p-2">
                         <OrganizationPaymentCardReadOnly organizationId={editingId} organizationName={editForm.name || ''} />
                       </div>
                     )}
 
-                    {editForm.payment_option === 'Local Account' && editingId && (
+                    {(editForm.payment_option === 'Local Account' || editForm.payment_option === 'Both') && editingId && (
                       <div className="bg-amber-50 border border-amber-200 rounded p-2 space-y-3">
                         <p className="text-xs text-amber-900 font-medium">
-                          Client has local accounts with garages. MyFuelApp manages fuel transactions and billing. Client pays MyFuelApp for management fees only. Fuel costs are settled through existing local account arrangements.
+                          Client has garage accounts with specific garages. MyFuelApp manages fuel transactions and billing. Client pays MyFuelApp for management fees only. Fuel costs are settled through existing garage account arrangements.
                         </p>
                         <p className="text-xs text-amber-800 italic">
                           Each garage has its own till/accounting system. Enter the client's specific account number for each garage below.
@@ -729,7 +730,10 @@ export default function ClientFinancialInfo({ onNavigate, clientSelfMode = false
                     </p>
                     <p>
                       <span className="font-medium">Fuel Payment:</span> {
-                        org.payment_option === 'Card Payment' ? 'Credit/Debit Card Payment' : org.payment_option || 'Not Set'
+                        org.payment_option === 'Card Payment' ? 'Credit/Debit Card Payment' :
+                        org.payment_option === 'Local Account' ? 'Garage Account' :
+                        org.payment_option === 'Both' ? 'Both Credit/Debit Cards & Garage Account' :
+                        org.payment_option || 'Not Set'
                       }
                       {org.payment_option === 'EFT Payment' && org.fuel_payment_terms && ` (${org.fuel_payment_terms})`}
                       {org.fuel_payment_interest_rate && org.fuel_payment_terms !== 'Same Day' &&

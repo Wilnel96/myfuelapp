@@ -147,7 +147,7 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
   const hasCard = paymentOption === 'Card Payment' || paymentOption === 'Both';
   const garageTitle = hasLocalAccount ? 'Garage Accounts' : 'Garages';
   const garageDescription = hasLocalAccount
-    ? 'Manage local garage accounts and spending limits'
+    ? 'Manage garage accounts and spending limits'
     : 'Browse available fuel stations';
 
   if (showInvoicesMenu) {
@@ -265,7 +265,7 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
           <span className="text-sm text-blue-700 font-medium">Card Payment</span>
           <span className="text-gray-400 mx-1">+</span>
           <Store className="w-4 h-4 text-amber-600" />
-          <span className="text-sm text-amber-700 font-medium">Local Accounts</span>
+          <span className="text-sm text-amber-700 font-medium">Garage Accounts</span>
         </div>
       )}
 

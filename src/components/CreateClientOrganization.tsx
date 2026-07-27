@@ -8,7 +8,7 @@ interface CreateClientOrganizationProps {
   /** When true: no login required, calls the public client-self-signup edge function */
   publicMode?: boolean;
   /** When set, pre-locks the payment option to this value and hides the selector */
-  lockedPaymentOption?: 'Card Payment' | 'Local Account';
+  lockedPaymentOption?: 'Card Payment' | 'Local Account' | 'Both';
   /** When set, the new organization is linked to this garage as a managed client */
   managingGarageId?: string | null;
 }
@@ -103,7 +103,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
     year_end_day: 28,
     daily_spending_limit: null as number | null,
     monthly_spending_limit: null as number | null,
-    payment_option: null as 'Card Payment' | 'Local Account' | null,
+    payment_option: null as 'Card Payment' | 'Local Account' | 'Both' | null,
     fuel_payment_terms: null as 'Same Day' | 'Next Day' | '30-Days' | null,
     fuel_payment_interest_rate: null as number | null,
   });
@@ -605,7 +605,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                           className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
                         >
                           <Printer className="w-4 h-4" />
-                          Print Local Account Form
+                          Print Garage Account Form
                         </button>
                         <button
                           onClick={() => { setIntakeFormType('organisation-card'); setShowIntakeForm(true); }}
@@ -641,7 +641,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                           className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
                         >
                           <Printer className="w-4 h-4" />
-                          Print Local Account Form
+                          Print Garage Account Form
                         </button>
                         <button
                           onClick={() => { setIntakeFormType('organisation-card'); setShowIntakeForm(true); }}
@@ -704,7 +704,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
                       >
                         <Printer className="w-4 h-4" />
-                        Print Local Account Form
+                        Print Garage Account Form
                       </button>
                       <button
                         onClick={() => { setIntakeFormType('individual-card'); setShowIntakeForm(true); }}
@@ -763,7 +763,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
                       >
                         <Printer className="w-4 h-4" />
-                        Print Local Account Form
+                        Print Garage Account Form
                       </button>
                       <button
                         onClick={() => { setIntakeFormType('individual-card'); setShowIntakeForm(true); }}
@@ -800,8 +800,8 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
             <h2 className="text-lg font-semibold text-gray-900">
               {publicMode ? 'New Client Signup' : 'Create New Client'} —{' '}
               {accountType === 'organization'
-                ? (organizationPaymentType === 'card-payment' ? 'Organization (Card Payment)' : organizationPaymentType === 'local-account' ? 'Organization (Local Account)' : 'Organization')
-                : individualPaymentType === 'card-payment' ? 'Individual (Card Payment)' : 'Individual (Local Account)'}
+                ? (organizationPaymentType === 'card-payment' ? 'Organization (Card Payment)' : organizationPaymentType === 'local-account' ? 'Organization (Garage Account)' : 'Organization')
+                : individualPaymentType === 'card-payment' ? 'Individual (Card Payment)' : 'Individual (Garage Account)'}
             </h2>
           </div>
           <div className="flex items-center gap-3">
@@ -1099,7 +1099,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
         <div className="space-y-4">
           <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
             <p className="text-xs text-teal-900">
-              <strong>Garage Local Account:</strong> Complete your personal details below and create a login. The garage will set up your account number, deposit required, and spending limit.
+              <strong>Garage Account:</strong> Complete your personal details below and create a login. The garage will set up your account number, deposit required, and spending limit.
             </p>
           </div>
 
@@ -1827,7 +1827,8 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 >
                   <option value="">-- Select Payment Option --</option>
                   <option value="Card Payment">Credit/Debit Card Payment</option>
-                  <option value="Local Account">Local Account</option>
+                  <option value="Local Account">Garage Account</option>
+                  <option value="Both">Both Credit/Debit Cards & Garage Account</option>
                 </select>
               )}
             </div>
@@ -1892,7 +1893,15 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
             {formData.payment_option === 'Local Account' && !(publicMode && accountType === 'individual') && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                 <p className="text-xs text-amber-900 font-medium">
-                  Client has existing local accounts with garages. MyFuelApp manages fuel transactions and billing. Client pays MyFuelApp for management fees only. Fuel costs are settled through existing local account arrangements.
+                  Client has existing garage accounts with garages. MyFuelApp manages fuel transactions and billing. Client pays MyFuelApp for management fees only. Fuel costs are settled through existing garage account arrangements.
+                </p>
+              </div>
+            )}
+
+            {formData.payment_option === 'Both' && !(publicMode && accountType === 'individual') && (
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+                <p className="text-xs text-teal-900 font-medium">
+                  Client uses a credit/debit card at garages where they don't have a garage account, and uses garage accounts at their usual garages. Ideal for clients who travel to other areas of the country where they don't have a local garage account. MyFuelApp manages both card and garage account transactions. Client pays MyFuelApp for management fees only.
                 </p>
               </div>
             )}
@@ -1905,7 +1914,10 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                     <span className="font-medium text-blue-700">Credit/Debit Card Payment:</span> Client's card stored securely. Drivers use PIN + NFC for payments at garages. Client pays garages directly and MyFuelApp for management fees only.
                   </div>
                   <div>
-                    <span className="font-medium text-amber-700">Local Account:</span> Client has existing accounts with garages. MyFuelApp tracks transactions. Client pays MyFuelApp for management fees only. Best for established garage relationships.
+                    <span className="font-medium text-amber-700">Garage Account:</span> Client has existing accounts with garages. MyFuelApp tracks transactions. Client pays MyFuelApp for management fees only. Best for established garage relationships.
+                  </div>
+                  <div>
+                    <span className="font-medium text-teal-700">Both Credit/Debit Cards & Garage Account:</span> Use the card at garages without a garage account, and a garage account at your usual garages. Ideal for clients who travel to other areas where they don't have a local garage account.
                   </div>
                 </div>
               </div>
