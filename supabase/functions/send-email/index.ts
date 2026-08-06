@@ -39,7 +39,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const payload: Record<string, unknown> = {
-      from: 'MyFuelApp <onboarding@resend.dev>',
+      from: 'MyFuelApp <noreply@myfuelapp.net>',
       to: Array.isArray(to) ? to : [to],
       subject,
       ...(html && { html }),

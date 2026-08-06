@@ -648,7 +648,10 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       }
 
       // Update password if user_id exists and password is provided
-      if (orgUserData?.user_id && newPassword && newPassword.trim()) {
+      // Skip this if email is also being changed — the email change function generates
+      // its own temporary password and forces a password reset
+      const emailWillChange = orgUserData?.user_id && editingUser.email !== originalEmail;
+      if (orgUserData?.user_id && newPassword && newPassword.trim() && !emailWillChange) {
         if (newPassword.length < 6) {
           throw new Error('Password must be at least 6 characters long');
         }
@@ -676,9 +679,15 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
 
       // Check if email has changed and update via edge function
       let emailChanged = false;
+      let emailSelfChange = false;
       if (orgUserData?.user_id && editingUser.email !== originalEmail) {
         emailChanged = true;
-        if (!confirm(`Are you sure you want to change this user's email from "${originalEmail}" to "${editingUser.email}"? They will need to sign in with the new email address.`)) {
+        const isSelf = orgUserData.user_id === session.user.id;
+        const confirmMsg = isSelf
+          ? `Are you sure you want to change your email from "${originalEmail}" to "${editingUser.email}"?\n\nFor security, a temporary password will be sent to the new email address. You will be signed out and must sign in again with the new email and temporary password.`
+          : `Are you sure you want to change this user's email from "${originalEmail}" to "${editingUser.email}"?\n\nFor security, a temporary password will be sent to the new email address. The user will need to sign in with the new email and temporary password, then choose a new password.`;
+
+        if (!confirm(confirmMsg)) {
           return;
         }
 
@@ -699,6 +708,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         if (!emailResponse.ok) {
           throw new Error(emailResult.error || 'Failed to update email address');
         }
+
+        emailSelfChange = emailResult.self_change === true;
       }
 
       // Update user details
@@ -739,15 +750,25 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
 
       if (updateError) throw updateError;
 
+      if (emailSelfChange) {
+        setSuccess('Email updated. A temporary password has been sent to your new email address. You will be signed out now.');
+        setEditingUser(null);
+        setNewPassword('');
+        setTimeout(async () => {
+          await supabase.auth.signOut();
+        }, 3000);
+        return;
+      }
+
       const successParts: string[] = [];
-      if (emailChanged) successParts.push('Email changed');
+      if (emailChanged) successParts.push('Email changed — temporary password sent to new address');
       if (newPassword) successParts.push('password updated');
       successParts.push('User updated');
       setSuccess(successParts.join(', ') + ' successfully');
       setEditingUser(null);
       setNewPassword('');
       loadUsers();
-      setTimeout(() => setSuccess(''), 3000);
+      setTimeout(() => setSuccess(''), 6000);
     } catch (err: any) {
       console.error('Error updating user:', err);
       setError(err.message);

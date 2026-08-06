@@ -104,7 +104,7 @@ Deno.serve(async (req: Request) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "MyFuelApp <onboarding@resend.dev>",
+          from: "MyFuelApp <noreply@myfuelapp.net>",
           to: [email],
           subject: "Your Temporary Password - MyFuelApp",
           html: `

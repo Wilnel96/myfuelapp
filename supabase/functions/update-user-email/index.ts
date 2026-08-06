@@ -6,6 +6,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
+function generateTempPassword(): string {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghijkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const special = '!@#$%^&*';
+  const all = upper + lower + digits + special;
+  let pw = '';
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  // Guarantee at least one of each required type
+  pw += upper[arr[0] % upper.length];
+  pw += lower[arr[1] % lower.length];
+  pw += digits[arr[2] % digits.length];
+  pw += special[arr[3] % special.length];
+  for (let i = 4; i < 14; i++) {
+    pw += all[arr[i] % all.length];
+  }
+  return pw;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -13,7 +33,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const authHeader = req.headers.get('Authorization');
@@ -51,7 +71,6 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(new_email)) {
       return new Response(
@@ -76,7 +95,7 @@ Deno.serve(async (req: Request) => {
 
     const isSuperAdmin = callerProfile.role === 'super_admin';
 
-    // Permission check: super admin, main user, secondary main user, or can_manage_users
+    // Permission check
     if (!isSuperAdmin) {
       const { data: callerOrgUser } = await adminClient
         .from('organization_users')
@@ -92,7 +111,6 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      // Verify the target user belongs to the same organization
       const { data: targetOrgUser } = await adminClient
         .from('organization_users')
         .select('organization_id')
@@ -107,6 +125,10 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Get the current email address (for notification)
+    const { data: targetUser } = await adminClient.auth.admin.getUserById(user_id);
+    const oldEmail = targetUser?.user?.email || '';
+
     // Check if the new email is already in use by another auth user
     const { data: { users: existingUsers } } = await adminClient.auth.admin.listUsers();
     const conflictingUser = existingUsers.find(
@@ -120,10 +142,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Update the auth user's email
+    // Generate a temporary password
+    const tempPassword = generateTempPassword();
+
+    // Update the auth user's email AND password in one call
     const { error: updateError } = await adminClient.auth.admin.updateUserById(
       user_id,
-      { email: new_email, email_confirm: true }
+      { email: new_email, password: tempPassword, email_confirm: true }
     );
 
     if (updateError) {
@@ -134,21 +159,129 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Update the email in organization_users table
+    // Update the email and password in organization_users table
     const { error: orgUpdateError } = await adminClient
       .from('organization_users')
-      .update({ email: new_email })
+      .update({ email: new_email, password: tempPassword })
       .eq('user_id', user_id);
 
     if (orgUpdateError) {
-      console.error('Failed to update organization_users email:', orgUpdateError);
-      // Auth email was updated, so still return success
+      console.error('Failed to update organization_users:', orgUpdateError);
     }
+
+    // Set password_change_required flag so user must choose a new password on next login
+    const { error: flagError } = await adminClient
+      .from('profiles')
+      .update({ password_change_required: true })
+      .eq('id', user_id);
+
+    if (flagError) {
+      console.error('Failed to set password_change_required flag:', flagError);
+    }
+
+    // Send the temporary password to the NEW email address
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    if (resendApiKey) {
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'MyFuelApp <noreply@myfuelapp.net>',
+          to: [new_email],
+          subject: 'Your Email Has Changed - MyFuelApp',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; font-size: 24px;">MyFuelApp</h1>
+                <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Email Address Changed</p>
+              </div>
+              <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+                <h2 style="color: #1f2937; font-size: 20px; margin-top: 0;">Your sign-in email has been updated</h2>
+                <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+                  The email address associated with your MyFuelApp account has been changed from
+                  <strong>${oldEmail}</strong> to <strong>${new_email}</strong>.
+                  A new temporary password has been generated for security. Please use the temporary
+                  password below to sign in, then choose a new password.
+                </p>
+                <div style="background: #ffffff; border: 2px dashed #2563eb; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+                  <span style="font-size: 22px; font-weight: bold; color: #2563eb; letter-spacing: 2px; font-family: monospace;">${tempPassword}</span>
+                </div>
+                <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+                  After signing in with this temporary password, you must set a new password
+                  that meets the following requirements:
+                </p>
+                <ul style="color: #4b5563; font-size: 14px; line-height: 1.8;">
+                  <li>At least 8 characters long</li>
+                  <li>Contains at least one uppercase letter</li>
+                  <li>Contains at least one lowercase letter</li>
+                  <li>Contains at least one number</li>
+                  <li>Contains at least one special character (!@#$%^&amp;*)</li>
+                </ul>
+                <p style="color: #6b7280; font-size: 13px; margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                  If you did not request this change, please contact your account administrator immediately.
+                </p>
+              </div>
+            </div>
+          `,
+          text: `MyFuelApp - Email Address Changed\n\nYour sign-in email has been changed from ${oldEmail} to ${new_email}.\n\nYour temporary password is: ${tempPassword}\n\nUse this to sign in, then you will be asked to choose a new password.\n\nIf you did not request this change, contact your administrator immediately.`,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        console.error('Failed to send email to new address:', await emailResponse.text());
+      }
+
+      // Also send a notification to the OLD email address
+      if (oldEmail && oldEmail.toLowerCase() !== new_email.toLowerCase()) {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'MyFuelApp <noreply@myfuelapp.net>',
+            to: [oldEmail],
+            subject: 'Security Alert: Your Email Has Been Changed - MyFuelApp',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+                  <h1 style="margin: 0; font-size: 24px;">MyFuelApp</h1>
+                  <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Security Alert</p>
+                </div>
+                <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+                  <h2 style="color: #1f2937; font-size: 20px; margin-top: 0;">Your email address has been changed</h2>
+                  <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+                    The email address associated with your MyFuelApp account has been changed from
+                    <strong>${oldEmail}</strong> to <strong>${new_email}</strong>.
+                  </p>
+                  <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+                    A new temporary password has been sent to the new email address. Your old password
+                    is no longer valid.
+                  </p>
+                  <p style="color: #6b7280; font-size: 13px; margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                    If you did not request this change, please contact your account administrator immediately.
+                  </p>
+                </div>
+              </div>
+            `,
+            text: `MyFuelApp Security Alert\n\nYour email address has been changed from ${oldEmail} to ${new_email}.\n\nA new temporary password has been sent to the new email address. Your old password is no longer valid.\n\nIf you did not request this change, contact your administrator immediately.`,
+          }),
+        });
+      }
+    }
+
+    // If the caller changed their own email, sign them out
+    const selfChange = user.id === user_id;
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Email address updated successfully. The user will need to sign in with the new email address.',
+        self_change: selfChange,
+        message: 'Email updated successfully. A temporary password has been sent to the new email address. The user must sign in with the new email and temporary password, then choose a new password.',
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
