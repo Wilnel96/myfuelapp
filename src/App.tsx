@@ -32,6 +32,7 @@ import CustomReportBuilder from './components/CustomReportBuilder';
 import BackupManagement from './components/BackupManagement';
 import ClientInvoices from './components/ClientInvoices';
 import ClientFuelInvoices from './components/ClientFuelInvoices';
+import ClientGarageStatements from './components/ClientGarageStatements';
 import FuelInvoicesPage from './components/FuelInvoicesPage';
 import AdminPasswordReset from './components/AdminPasswordReset';
 import ForcePasswordChange from './components/ForcePasswordChange';
@@ -88,7 +89,7 @@ function App() {
   const [userMode, setUserMode] = useState<UserMode>(null);
   const [clientPortalType, setClientPortalType] = useState<ClientPortalType>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'trailers' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'exception-reports' | 'backup' | null>(() => {
+  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'trailers' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'exception-reports' | 'backup' | 'garage-statements' | null>(() => {
     const saved = sessionStorage.getItem('appCurrentView');
     return saved ? saved as any : null;
   });
@@ -1247,6 +1248,8 @@ function App() {
           userRole === 'super_admin'
             ? <FuelInvoicesPage key="fuel-invoices-admin" onBack={() => setCurrentView(null)} />
             : <ClientFuelInvoices key="fuel-invoices" onNavigate={setCurrentView} />
+        ) : currentView === 'garage-statements' ? (
+          <ClientGarageStatements key="garage-statements" onNavigate={setCurrentView} />
         ) : currentView === 'reports-menu' ? (
           userRole === 'super_admin' ? (
             <SuperAdminReportsMenu key="reports-menu" onNavigate={setCurrentView} />

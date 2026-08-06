@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Truck, Users, FileText, Store, Settings, BarChart3, LogOut, ArrowLeft, DollarSign, CreditCard, AlertCircle, Package } from 'lucide-react';
+import { Truck, Users, FileText, Store, Settings, BarChart3, LogOut, ArrowLeft, DollarSign, CreditCard, AlertCircle, Package, Receipt } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ClientDashboardProps {
@@ -156,7 +156,7 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <DollarSign className="w-6 h-6 text-gray-700" />
-            <h1 className="text-xl font-bold text-gray-900">Invoices</h1>
+            <h1 className="text-xl font-bold text-gray-900">Invoices, Statements & Payments</h1>
           </div>
           <button
             onClick={() => setShowInvoicesMenu(false)}
@@ -192,6 +192,20 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
               <div>
                 <h3 className="font-semibold text-gray-900">Fuel Invoices</h3>
                 <p className="text-sm text-gray-600">Individual fuel transaction invoices</p>
+              </div>
+            </div>
+          </button>
+          <button
+            onClick={() => onNavigate('garage-statements')}
+            className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-teal-50 rounded-lg">
+                <Receipt className="w-6 h-6 text-teal-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Garage Statements & Payments</h3>
+                <p className="text-sm text-gray-600">View statements from garages and record payments for reconciliation</p>
               </div>
             </div>
           </button>
@@ -337,9 +351,9 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
               <div className="p-2 bg-blue-50 rounded-lg">
                 <DollarSign className="w-6 h-6 text-blue-600" />
               </div>
-              <h3 className="font-semibold text-gray-900">Invoices</h3>
+              <h3 className="font-semibold text-gray-900">Invoices, Statements & Payments</h3>
             </div>
-            <p className="text-sm text-gray-600">View payment and fuel invoices</p>
+            <p className="text-sm text-gray-600">Fee invoices, fuel invoices, garage statements and payment reconciliation</p>
           </button>
         )}
 

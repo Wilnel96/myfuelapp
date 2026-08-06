@@ -1,4 +1,4 @@
-import { DollarSign, Fuel, FileText, ArrowLeft } from 'lucide-react';
+import { DollarSign, Fuel, FileText, ArrowLeft, Receipt } from 'lucide-react';
 
 interface ClientInvoicesMenuProps {
   onNavigate: (view: string) => void;
@@ -19,6 +19,12 @@ export default function ClientInvoicesMenu({ onNavigate, onBack }: ClientInvoice
       description: 'Individual fuel transaction invoices',
       icon: Fuel,
     },
+    {
+      id: 'garage-statements',
+      title: 'Garage Statements & Payments',
+      description: 'View statements from garages and record payments for reconciliation',
+      icon: Receipt,
+    },
   ];
 
   return (
@@ -26,7 +32,7 @@ export default function ClientInvoicesMenu({ onNavigate, onBack }: ClientInvoice
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <FileText className="w-6 h-6 text-gray-700" />
-          <h1 className="text-xl font-bold text-gray-900">Invoices</h1>
+          <h1 className="text-xl font-bold text-gray-900">Invoices, Statements & Payments</h1>
         </div>
         <button
           onClick={onBack}
