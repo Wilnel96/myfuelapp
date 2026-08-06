@@ -560,10 +560,13 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
     }
   };
 
+  const [originalEmail, setOriginalEmail] = useState('');
+
   const handleEditUser = (user: OrganizationUser) => {
     console.log('Editing user:', user);
     console.log('is_main_user:', user.is_main_user, 'is_secondary_main_user:', user.is_secondary_main_user);
     setEditingUser(user);
+    setOriginalEmail(user.email);
     setNewPassword('');
     setShowAddForm(false);
   };
@@ -671,10 +674,38 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         }
       }
 
+      // Check if email has changed and update via edge function
+      let emailChanged = false;
+      if (orgUserData?.user_id && editingUser.email !== originalEmail) {
+        emailChanged = true;
+        if (!confirm(`Are you sure you want to change this user's email from "${originalEmail}" to "${editingUser.email}"? They will need to sign in with the new email address.`)) {
+          return;
+        }
+
+        const emailUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-email`;
+        const emailResponse = await fetch(emailUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: orgUserData.user_id,
+            new_email: editingUser.email,
+          }),
+        });
+
+        const emailResult = await emailResponse.json();
+        if (!emailResponse.ok) {
+          throw new Error(emailResult.error || 'Failed to update email address');
+        }
+      }
+
       // Update user details
       const { error: updateError } = await supabase
         .from('organization_users')
         .update({
+          email: editingUser.email,
           first_name: editingUser.first_name,
           surname: editingUser.surname,
           title: editingUser.title,
@@ -708,7 +739,11 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
 
       if (updateError) throw updateError;
 
-      setSuccess(newPassword ? 'User and password updated successfully' : 'User updated successfully');
+      const successParts: string[] = [];
+      if (emailChanged) successParts.push('Email changed');
+      if (newPassword) successParts.push('password updated');
+      successParts.push('User updated');
+      setSuccess(successParts.join(', ') + ' successfully');
       setEditingUser(null);
       setNewPassword('');
       loadUsers();
@@ -1502,10 +1537,18 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                 <input
                   type="email"
                   value={editingUser.email}
-                  disabled
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded bg-gray-50 text-gray-500 cursor-not-allowed"
+                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                  className={`w-full px-2 py-1.5 text-sm border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    editingUser.email !== originalEmail
+                      ? 'border-amber-400 bg-amber-50'
+                      : 'border-gray-300'
+                  }`}
                 />
-                <p className="text-xs text-gray-500 mt-0.5">Email cannot be changed</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {editingUser.email !== originalEmail
+                    ? 'Email changed — user will sign in with the new email'
+                    : 'Edit to change the sign-in email address'}
+                </p>
               </div>
               {(isMainUser || isSecondaryMainUser || canManageUsers || isSuperAdmin) && (
                 <div>
