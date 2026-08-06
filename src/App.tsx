@@ -34,6 +34,7 @@ import ClientInvoices from './components/ClientInvoices';
 import ClientFuelInvoices from './components/ClientFuelInvoices';
 import FuelInvoicesPage from './components/FuelInvoicesPage';
 import AdminPasswordReset from './components/AdminPasswordReset';
+import ForcePasswordChange from './components/ForcePasswordChange';
 import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3, FileText, Settings, CreditCard as Edit3, ArrowLeft, UserPlus } from 'lucide-react';
 import { DriverData } from './components/DriverAuth';
 
@@ -106,6 +107,8 @@ function App() {
   const [showPublicSignup, setShowPublicSignup] = useState(false);
   const [showGarageSignup, setShowGarageSignup] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [forcePasswordChange, setForcePasswordChange] = useState(false);
+  const [forcePasswordEmail, setForcePasswordEmail] = useState('');
   const [userRole, setUserRole] = useState<string>('admin');
   // 'client' = Client Portal login, 'system_admin' = System Admin login
   const [loginPortal, setLoginPortal] = useState<'client' | 'system_admin' | null>(null);
@@ -281,7 +284,7 @@ function App() {
         Promise.all([
           supabase
             .from('profiles')
-            .select('role, organization_id, organizations(name, payment_option, is_management_org, organization_type)')
+            .select('role, organization_id, password_change_required, organizations(name, payment_option, is_management_org, organization_type)')
             .eq('id', session.user.id)
             .maybeSingle(),
           supabase
@@ -291,6 +294,17 @@ function App() {
             .maybeSingle()
         ]).then(([{ data: profile, error: profileError }, { data: orgUser }]) => {
             clearTimeout(profileTimeout);
+
+            if (!mounted) return;
+
+            // Check if user must change password before proceeding
+            if (profile?.password_change_required) {
+              setForcePasswordChange(true);
+              setForcePasswordEmail(session.user.email || '');
+              setLoading(false);
+              return;
+            }
+            setForcePasswordChange(false);
 
             if (!mounted) return;
 
@@ -500,7 +514,7 @@ function App() {
         Promise.all([
           supabase
             .from('profiles')
-            .select('role, organization_id, organizations(name, payment_option, is_management_org, organization_type)')
+            .select('role, organization_id, password_change_required, organizations(name, payment_option, is_management_org, organization_type)')
             .eq('id', currentSession.user.id)
             .maybeSingle(),
           supabase
@@ -510,6 +524,15 @@ function App() {
             .maybeSingle()
         ]).then(([{ data: profile }, { data: orgUser }]) => {
             if (!mounted) return;
+
+            // Check if user must change password before proceeding
+            if (profile?.password_change_required) {
+              setForcePasswordChange(true);
+              setForcePasswordEmail(currentSession.user.email || '');
+              setLoading(false);
+              return;
+            }
+            setForcePasswordChange(false);
 
             if (!profile) {
               console.log('No profile found on mount');
@@ -659,6 +682,7 @@ function App() {
     setShowModeSelection(true);
     setShowPortalSelection(false);
     setShowSignup(false);
+    setForcePasswordChange(false);
     setLoading(false);
   };
 
@@ -1025,6 +1049,27 @@ function App() {
           setUserMode(null);
           setShowModeSelection(true);
           setShowPortalSelection(false);
+        }}
+      />
+    );
+  }
+
+  if (forcePasswordChange && session) {
+    return (
+      <ForcePasswordChange
+        email={forcePasswordEmail}
+        onSuccess={() => {
+          setForcePasswordChange(false);
+          // Reload the app so the normal auth flow picks up
+          window.location.reload();
+        }}
+        onCancel={async () => {
+          await supabase.auth.signOut();
+          setForcePasswordChange(false);
+          setSession(null);
+          setUserMode(null);
+          setShowModeSelection(true);
+          setLoading(false);
         }}
       />
     );
