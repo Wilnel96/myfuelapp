@@ -35,11 +35,20 @@ export default function AdminPasswordReset() {
         throw new Error(data.error || 'Failed to request password reset');
       }
 
-      setStep(2);
-      setMessage({
-        type: 'success',
-        text: 'If an account exists for that email, a temporary password has been sent. Check your inbox and enter it below with your new password.',
-      });
+      if (data.email_sent === false) {
+        setMessage({
+          type: 'error',
+          text: data.debug
+            ? `Password was reset but the email could not be delivered (${data.debug}). Please contact your administrator for the temporary password.`
+            : 'Password was reset but the email could not be delivered. Please contact your administrator for the temporary password.',
+        });
+      } else {
+        setStep(2);
+        setMessage({
+          type: 'success',
+          text: 'A temporary password has been sent to your email. Check your inbox (and spam folder) and enter it below with your new password.',
+        });
+      }
     } catch (error: any) {
       console.error('Password reset request error:', error);
       setMessage({ type: 'error', text: error.message || 'An error occurred' });
