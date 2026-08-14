@@ -42,6 +42,7 @@ interface OrganizationUser {
   can_edit_invoice_management: boolean;
   can_view_fuel_price_update: boolean;
   can_edit_fuel_price_update: boolean;
+  system_role?: string;
 }
 
 interface UserManagementProps {
@@ -120,6 +121,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
     can_edit_invoice_management: false,
     can_view_fuel_price_update: false,
     can_edit_fuel_price_update: false,
+    system_role: 'none',
   });
 
   const permissionTemplates = {
@@ -474,6 +476,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
             can_edit_invoice_management: newUser.can_edit_invoice_management,
             can_view_fuel_price_update: newUser.can_view_fuel_price_update,
             can_edit_fuel_price_update: newUser.can_edit_fuel_price_update,
+            system_role: newUser.system_role || 'none',
           }],
         };
       } else {
@@ -551,6 +554,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         can_edit_invoice_management: false,
         can_view_fuel_price_update: false,
         can_edit_fuel_price_update: false,
+        system_role: 'none',
       });
       loadUsers();
       setTimeout(() => setSuccess(''), 5000);
@@ -745,6 +749,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
           can_view_fuel_price_update: editingUser.can_view_fuel_price_update,
           can_edit_fuel_price_update: editingUser.can_edit_fuel_price_update,
           is_active: editingUser.is_active,
+          ...(editingUser.system_role ? { system_role: editingUser.system_role } : {}),
         })
         .eq('id', editingUser.id);
 
@@ -1459,8 +1464,35 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
 
                   {managementMode && (
                     <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
-                      <h5 className="text-xs font-semibold text-blue-900 mb-1">Back Office Access</h5>
-                      <p className="text-xs text-blue-700 mb-2">Controls what this user can access in the Back Office.</p>
+                      <h5 className="text-xs font-semibold text-blue-900 mb-1">System Portal Role &amp; Back Office Access</h5>
+                      <p className="text-xs text-blue-700 mb-2">Select a system role to quickly set Back Office permissions. You can fine-tune individual permissions below.</p>
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">System Portal Role</label>
+                        <select
+                          value={newUser.system_role || 'none'}
+                          onChange={(e) => {
+                            const role = e.target.value;
+                            const rolePerms: Record<string, Record<string, boolean>> = {
+                              system_admin: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: true, can_view_client_settings: true, can_edit_client_settings: true, can_view_invoice_management: true, can_edit_invoice_management: true, can_view_fuel_price_update: true, can_edit_fuel_price_update: true, can_manage_users: true },
+                              system_manager: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: true, can_view_client_settings: true, can_edit_client_settings: false, can_view_invoice_management: true, can_edit_invoice_management: true, can_view_fuel_price_update: true, can_edit_fuel_price_update: true, can_manage_users: true },
+                              system_operator: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: false, can_view_client_settings: false, can_edit_client_settings: false, can_view_invoice_management: true, can_edit_invoice_management: true, can_view_fuel_price_update: true, can_edit_fuel_price_update: true, can_manage_users: false },
+                              system_viewer: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: false, can_view_client_settings: true, can_edit_client_settings: false, can_view_invoice_management: true, can_edit_invoice_management: false, can_view_fuel_price_update: true, can_edit_fuel_price_update: false, can_manage_users: false },
+                              system_back_office: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: false, can_view_client_settings: false, can_edit_client_settings: false, can_view_invoice_management: true, can_edit_invoice_management: false, can_view_fuel_price_update: false, can_edit_fuel_price_update: false, can_manage_users: false },
+                              none: { can_access_back_office: false, can_view_org_info: false, can_edit_org_info: false, can_view_client_settings: false, can_edit_client_settings: false, can_view_invoice_management: false, can_edit_invoice_management: false, can_view_fuel_price_update: false, can_edit_fuel_price_update: false, can_manage_users: false },
+                            };
+                            const perms = rolePerms[role] || rolePerms.none;
+                            setNewUser({ ...newUser, system_role: role, ...perms });
+                          }}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                        >
+                          <option value="none">No Back Office Access</option>
+                          <option value="system_admin">System Admin (full access)</option>
+                          <option value="system_manager">System Manager (no client financial settings edit)</option>
+                          <option value="system_operator">System Operator (invoices + fuel price)</option>
+                          <option value="system_viewer">System Viewer (read-only)</option>
+                          <option value="system_back_office">Back Office Only (limited view)</option>
+                        </select>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <label className="flex items-center gap-2 cursor-pointer col-span-2">
                           <input type="checkbox" checked={newUser.can_access_back_office} onChange={(e) => setNewUser({ ...newUser, can_access_back_office: e.target.checked })} className="rounded border-gray-300 text-green-600 focus:ring-green-500" />
@@ -1872,8 +1904,35 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
 
                 {managementMode && (
                   <div className="col-span-2 border border-blue-200 bg-blue-50 rounded p-2">
-                    <h5 className="text-xs font-semibold text-blue-900 mb-1">Back Office Access</h5>
-                    <p className="text-xs text-blue-700 mb-2">Controls what this user can access in the Back Office. Main User and Secondary Main User always have full access.</p>
+                    <h5 className="text-xs font-semibold text-blue-900 mb-1">System Portal Role &amp; Back Office Access</h5>
+                    <p className="text-xs text-blue-700 mb-2">Select a system role to quickly set Back Office permissions. Main User and Secondary Main User always have full access.</p>
+                    <div className="mb-3">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">System Portal Role</label>
+                      <select
+                        value={editingUser.system_role || 'none'}
+                        onChange={(e) => {
+                          const role = e.target.value;
+                          const rolePerms: Record<string, Record<string, boolean>> = {
+                            system_admin: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: true, can_view_client_settings: true, can_edit_client_settings: true, can_view_invoice_management: true, can_edit_invoice_management: true, can_view_fuel_price_update: true, can_edit_fuel_price_update: true, can_manage_users: true },
+                            system_manager: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: true, can_view_client_settings: true, can_edit_client_settings: false, can_view_invoice_management: true, can_edit_invoice_management: true, can_view_fuel_price_update: true, can_edit_fuel_price_update: true, can_manage_users: true },
+                            system_operator: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: false, can_view_client_settings: false, can_edit_client_settings: false, can_view_invoice_management: true, can_edit_invoice_management: true, can_view_fuel_price_update: true, can_edit_fuel_price_update: true, can_manage_users: false },
+                            system_viewer: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: false, can_view_client_settings: true, can_edit_client_settings: false, can_view_invoice_management: true, can_edit_invoice_management: false, can_view_fuel_price_update: true, can_edit_fuel_price_update: false, can_manage_users: false },
+                            system_back_office: { can_access_back_office: true, can_view_org_info: true, can_edit_org_info: false, can_view_client_settings: false, can_edit_client_settings: false, can_view_invoice_management: true, can_edit_invoice_management: false, can_view_fuel_price_update: false, can_edit_fuel_price_update: false, can_manage_users: false },
+                            none: { can_access_back_office: false, can_view_org_info: false, can_edit_org_info: false, can_view_client_settings: false, can_edit_client_settings: false, can_view_invoice_management: false, can_edit_invoice_management: false, can_view_fuel_price_update: false, can_edit_fuel_price_update: false, can_manage_users: false },
+                          };
+                          const perms = rolePerms[role] || rolePerms.none;
+                          setEditingUser({ ...editingUser, system_role: role, ...perms });
+                        }}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      >
+                        <option value="none">No Back Office Access</option>
+                        <option value="system_admin">System Admin (full access)</option>
+                        <option value="system_manager">System Manager (no client financial settings edit)</option>
+                        <option value="system_operator">System Operator (invoices + fuel price)</option>
+                        <option value="system_viewer">System Viewer (read-only)</option>
+                        <option value="system_back_office">Back Office Only (limited view)</option>
+                      </select>
+                    </div>
                     <div className="grid grid-cols-2 gap-1.5">
                       <label className="flex items-center gap-2 cursor-pointer col-span-2">
                         <input

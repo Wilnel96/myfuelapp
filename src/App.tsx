@@ -36,7 +36,7 @@ import ClientGarageStatements from './components/ClientGarageStatements';
 import FuelInvoicesPage from './components/FuelInvoicesPage';
 import AdminPasswordReset from './components/AdminPasswordReset';
 import ForcePasswordChange from './components/ForcePasswordChange';
-import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3, FileText, Settings, CreditCard as Edit3, ArrowLeft, UserPlus } from 'lucide-react';
+import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3, FileText, Settings, CreditCard as Edit3, ArrowLeft, UserPlus, ShieldAlert } from 'lucide-react';
 import { DriverData } from './components/DriverAuth';
 
 type UserMode = 'admin' | 'driver' | 'garage' | null;
@@ -111,6 +111,9 @@ function App() {
   const [forcePasswordChange, setForcePasswordChange] = useState(false);
   const [forcePasswordEmail, setForcePasswordEmail] = useState('');
   const [userRole, setUserRole] = useState<string>('admin');
+  const [isManagementUser, setIsManagementUser] = useState(false);
+  const [isRealSuperAdmin, setIsRealSuperAdmin] = useState(false);
+  const [mgmtPermissions, setMgmtPermissions] = useState<Record<string, boolean> | null>(null);
   // 'client' = Client Portal login, 'system_admin' = System Admin login
   const [loginPortal, setLoginPortal] = useState<'client' | 'system_admin' | null>(null);
   // Ref mirror so onAuthStateChange (registered once) always reads the current value
@@ -293,7 +296,7 @@ function App() {
             .select('role, organization_id')
             .eq('user_id', session.user.id)
             .maybeSingle()
-        ]).then(([{ data: profile, error: profileError }, { data: orgUser }]) => {
+        ]).then(async ([{ data: profile, error: profileError }, { data: orgUser }]) => {
             clearTimeout(profileTimeout);
 
             if (!mounted) return;
@@ -389,15 +392,46 @@ function App() {
               'is_management_org' in profile.organizations &&
               (profile.organizations as any).is_management_org === true;
 
-            const effectiveRole = isManagementUser ? 'super_admin' : profile.role;
+            const realSuperAdmin = profile.role === 'super_admin';
+            const effectiveRole = realSuperAdmin ? 'super_admin' : (isManagementUser ? 'admin' : profile.role);
 
-            console.log('Auth state - Effective role:', effectiveRole, 'Is management org:', isManagementUser);
+            setIsManagementUser(!!isManagementUser);
+            setIsRealSuperAdmin(realSuperAdmin);
+
+            console.log('Auth state - Effective role:', effectiveRole, 'Is management org:', isManagementUser, 'Is real super admin:', realSuperAdmin);
+
+            // Load Back Office permissions for management-org users who aren't real super_admin
+            if (isManagementUser && !realSuperAdmin) {
+              const { data: ou } = await supabase
+                .from('organization_users')
+                .select('is_main_user, is_secondary_main_user, can_access_back_office, can_view_org_info, can_edit_org_info, can_view_client_settings, can_edit_client_settings, can_view_invoice_management, can_edit_invoice_management, can_view_fuel_price_update, can_edit_fuel_price_update, can_manage_users')
+                .eq('user_id', session.user.id)
+                .eq('is_active', true)
+                .maybeSingle();
+              const mainOrSec = !!(ou?.is_main_user || ou?.is_secondary_main_user);
+              setMgmtPermissions({
+                is_main_user: !!ou?.is_main_user,
+                is_secondary_main_user: !!ou?.is_secondary_main_user,
+                can_access_back_office: mainOrSec || !!ou?.can_access_back_office,
+                can_view_org_info: mainOrSec || !!ou?.can_view_org_info,
+                can_edit_org_info: mainOrSec || !!ou?.can_edit_org_info,
+                can_view_client_settings: mainOrSec || !!ou?.can_view_client_settings,
+                can_edit_client_settings: mainOrSec || !!ou?.can_edit_client_settings,
+                can_view_invoice_management: mainOrSec || !!ou?.can_view_invoice_management,
+                can_edit_invoice_management: mainOrSec || !!ou?.can_edit_invoice_management,
+                can_view_fuel_price_update: mainOrSec || !!ou?.can_view_fuel_price_update,
+                can_edit_fuel_price_update: mainOrSec || !!ou?.can_edit_fuel_price_update,
+                can_manage_users: mainOrSec || !!ou?.can_manage_users,
+              });
+            } else {
+              setMgmtPermissions(null);
+            }
 
             // Portal access validation — use the ref value so we always have
             // the current portal choice, not the stale closure value.
             if (_event === 'SIGNED_IN' && currentLoginPortal) {
               const isClientRole = !isManagementUser && effectiveRole !== 'garage_user' && effectiveRole !== 'super_admin';
-              const isAdminRole = isManagementUser || effectiveRole === 'super_admin';
+              const isAdminRole = isManagementUser || realSuperAdmin;
 
               if (currentLoginPortal === 'client' && !isClientRole) {
                 // Wrong portal — sign out and show error
@@ -523,7 +557,7 @@ function App() {
             .select('role, organization_id')
             .eq('user_id', currentSession.user.id)
             .maybeSingle()
-        ]).then(([{ data: profile }, { data: orgUser }]) => {
+        ]).then(async ([{ data: profile }, { data: orgUser }]) => {
             if (!mounted) return;
 
             // Check if user must change password before proceeding
@@ -604,7 +638,38 @@ function App() {
               'is_management_org' in profile.organizations &&
               (profile.organizations as any).is_management_org === true;
 
-            const effectiveRole = isManagementUser ? 'super_admin' : profile.role;
+            const realSuperAdmin = profile.role === 'super_admin';
+            const effectiveRole = realSuperAdmin ? 'super_admin' : (isManagementUser ? 'admin' : profile.role);
+
+            setIsManagementUser(!!isManagementUser);
+            setIsRealSuperAdmin(realSuperAdmin);
+
+            // Load Back Office permissions for management-org users who aren't real super_admin
+            if (isManagementUser && !realSuperAdmin) {
+              const { data: ou } = await supabase
+                .from('organization_users')
+                .select('is_main_user, is_secondary_main_user, can_access_back_office, can_view_org_info, can_edit_org_info, can_view_client_settings, can_edit_client_settings, can_view_invoice_management, can_edit_invoice_management, can_view_fuel_price_update, can_edit_fuel_price_update, can_manage_users')
+                .eq('user_id', currentSession.user.id)
+                .eq('is_active', true)
+                .maybeSingle();
+              const mainOrSec = !!(ou?.is_main_user || ou?.is_secondary_main_user);
+              setMgmtPermissions({
+                is_main_user: !!ou?.is_main_user,
+                is_secondary_main_user: !!ou?.is_secondary_main_user,
+                can_access_back_office: mainOrSec || !!ou?.can_access_back_office,
+                can_view_org_info: mainOrSec || !!ou?.can_view_org_info,
+                can_edit_org_info: mainOrSec || !!ou?.can_edit_org_info,
+                can_view_client_settings: mainOrSec || !!ou?.can_view_client_settings,
+                can_edit_client_settings: mainOrSec || !!ou?.can_edit_client_settings,
+                can_view_invoice_management: mainOrSec || !!ou?.can_view_invoice_management,
+                can_edit_invoice_management: mainOrSec || !!ou?.can_edit_invoice_management,
+                can_view_fuel_price_update: mainOrSec || !!ou?.can_view_fuel_price_update,
+                can_edit_fuel_price_update: mainOrSec || !!ou?.can_edit_fuel_price_update,
+                can_manage_users: mainOrSec || !!ou?.can_manage_users,
+              });
+            } else {
+              setMgmtPermissions(null);
+            }
 
             setUserRole(effectiveRole);
             setUserMode('admin');
@@ -679,6 +744,9 @@ function App() {
     pendingViewRef.current = null;
     setPortalError('');
     setUserRole('admin');
+    setIsManagementUser(false);
+    setIsRealSuperAdmin(false);
+    setMgmtPermissions(null);
     setCurrentView(null);
     setShowModeSelection(true);
     setShowPortalSelection(false);
@@ -1144,13 +1212,13 @@ function App() {
       )}
 
       <main className="flex-1 overflow-auto">
-        <div className={`max-w-7xl mx-auto ${(currentView === 'garages' && userRole !== 'super_admin') || (currentView === 'reports' && userRole !== 'super_admin') ? 'px-4' : 'px-4 py-6'}`}>
+        <div className={`max-w-7xl mx-auto ${(currentView === 'garages' && !isRealSuperAdmin) || (currentView === 'reports' && !isRealSuperAdmin) ? 'px-4' : 'px-4 py-6'}`}>
         {!showNavigation && (
           <div className="flex items-center justify-between mb-6 no-print">
             <div className="flex items-center gap-2">
               <Fuel className="w-8 h-8 text-blue-600" />
               <div>
-                {userRole === 'super_admin' ? (
+                {isRealSuperAdmin ? (
                   <>
                     <div className="text-sm font-semibold text-gray-700">Fuel Empowerment Systems (Pty) Ltd</div>
                     <h1 className="text-lg font-bold text-gray-900">MyFuelApp</h1>
@@ -1171,8 +1239,16 @@ function App() {
         )}
 
         {!currentView ? (
-          userRole === 'super_admin' ? (
-            <SuperAdminDashboard key="dashboard-super" onNavigate={setCurrentView} />
+          isRealSuperAdmin || (isManagementUser && mgmtPermissions?.can_access_back_office) ? (
+            <SuperAdminDashboard key="dashboard-super" onNavigate={setCurrentView} permissions={mgmtPermissions} isRealSuperAdmin={isRealSuperAdmin} />
+          ) : isManagementUser ? (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="text-center">
+                <ShieldAlert className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600 font-medium">You do not have access to the System Portal.</p>
+                <p className="text-gray-400 text-sm mt-1">Contact your administrator if you believe this is an error.</p>
+              </div>
+            </div>
           ) : (
             <ClientDashboard key="dashboard-client" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} paymentOption={paymentOption} />
           )
@@ -1203,15 +1279,15 @@ function App() {
         ) : currentView === 'create-client-org' ? (
           <CreateClientOrganization key="create-client-org" onNavigate={setCurrentView} />
         ) : currentView === 'client-org-info' ? (
-          userRole === 'super_admin'
+          isRealSuperAdmin || (isManagementUser && (mgmtPermissions?.can_manage_users || mgmtPermissions?.is_main_user))
             ? <ClientOrgInfo key="client-org-info" onNavigate={setCurrentView} />
             : <ClientOrgInfo key="client-org-info-self" onNavigate={setCurrentView} clientSelfMode={true} backView="backoffice" />
         ) : currentView === 'client-user-info' ? (
-          userRole === 'super_admin'
+          isRealSuperAdmin || (isManagementUser && (mgmtPermissions?.can_manage_users || mgmtPermissions?.is_main_user))
             ? <UserManagement key="client-user-info" onNavigate={setCurrentView} />
             : <UserManagement key="client-user-info-self" onNavigate={setCurrentView} clientSelfMode={true} />
         ) : currentView === 'client-financial-info' ? (
-          userRole === 'super_admin'
+          isRealSuperAdmin || (isManagementUser && (mgmtPermissions?.can_view_org_info || mgmtPermissions?.is_main_user))
             ? <ClientFinancialInfo key="client-financial-info" onNavigate={setCurrentView} />
             : <ClientFinancialInfo key="client-financial-info-self" onNavigate={setCurrentView} clientSelfMode={true} backView="backoffice" />
         ) : currentView === 'vehicles' ? (
@@ -1219,7 +1295,7 @@ function App() {
         ) : currentView === 'trailers' ? (
           <TrailerManagement key="trailers" onNavigate={setCurrentView} />
         ) : currentView === 'garages' ? (
-          userRole === 'super_admin' ? (
+          isRealSuperAdmin ? (
             <GarageManagement key="garages" onNavigate={setCurrentView} />
           ) : paymentOption === 'Local Account' || paymentOption === 'Both' ? (
             <div className="space-y-6">
@@ -1239,33 +1315,43 @@ function App() {
         ) : currentView === 'drivers' ? (
           <DriverManagement key="drivers" onNavigate={setCurrentView} />
         ) : currentView === 'invoices' ? (
-          userRole === 'super_admin' ? <BackOffice key="backoffice-invoices" userRole={userRole} paymentOption={paymentOption} onNavigateToMain={() => setCurrentView(null)} /> : <ClientInvoices key="invoices" />
+          isRealSuperAdmin || (isManagementUser && mgmtPermissions?.can_access_back_office) ? <BackOffice key="backoffice-invoices" userRole={userRole} isManagementOrg={isManagementUser} isRealSuperAdmin={isRealSuperAdmin} permissions={mgmtPermissions} paymentOption={paymentOption} onNavigateToMain={() => setCurrentView(null)} /> : <ClientInvoices key="invoices" />
         ) : currentView === 'invoices-menu' ? (
           <ClientDashboard key="invoices-menu" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="invoices" paymentOption={paymentOption} />
         ) : currentView === 'fee-invoices' ? (
           <ClientInvoices key="fee-invoices" onNavigate={setCurrentView} />
         ) : currentView === 'fuel-invoices' ? (
-          userRole === 'super_admin'
+          isRealSuperAdmin || (isManagementUser && (mgmtPermissions?.can_view_invoice_management || mgmtPermissions?.is_main_user))
             ? <FuelInvoicesPage key="fuel-invoices-admin" onBack={() => setCurrentView(null)} />
             : <ClientFuelInvoices key="fuel-invoices" onNavigate={setCurrentView} />
         ) : currentView === 'garage-statements' ? (
           <ClientGarageStatements key="garage-statements" onNavigate={setCurrentView} />
         ) : currentView === 'reports-menu' ? (
-          userRole === 'super_admin' ? (
+          isRealSuperAdmin ? (
             <SuperAdminReportsMenu key="reports-menu" onNavigate={setCurrentView} />
           ) : (
             <ClientDashboard key="reports-menu" onNavigate={setCurrentView} onSignOut={handleAdminSignOut} initialView="reports" paymentOption={paymentOption} />
           )
         ) : currentView === 'reports' ? (
-          userRole === 'super_admin' ? <ConsolidatedReports key="reports" onNavigate={setCurrentView} /> : <ReportsDashboard key="reports" onNavigate={setCurrentView} />
+          isRealSuperAdmin ? <ConsolidatedReports key="reports" onNavigate={setCurrentView} /> : <ReportsDashboard key="reports" onNavigate={setCurrentView} />
         ) : currentView === 'backoffice' ? (
-          <BackOffice key="backoffice" userRole={userRole} paymentOption={paymentOption} onNavigateToMain={() => setCurrentView(null)} onNavigate={setCurrentView} />
+          (isRealSuperAdmin || (isManagementUser && mgmtPermissions?.can_access_back_office)) ? (
+            <BackOffice key="backoffice" userRole={userRole} isManagementOrg={isManagementUser} isRealSuperAdmin={isRealSuperAdmin} permissions={mgmtPermissions} paymentOption={paymentOption} onNavigateToMain={() => setCurrentView(null)} onNavigate={setCurrentView} />
+          ) : (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="text-center">
+                <ShieldAlert className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600 font-medium">You do not have access to the Back Office.</p>
+                <p className="text-gray-400 text-sm mt-1">Contact your administrator if you believe this is an error.</p>
+              </div>
+            </div>
+          )
         ) : currentView === 'custom-reports' ? (
           <CustomReportBuilder key="custom-reports" onNavigate={setCurrentView} />
         ) : currentView === 'exception-reports' ? (
           <ReportsDashboard key="exception-reports" onNavigate={setCurrentView} exceptionReportsOnly />
         ) : currentView === 'backup' ? (
-          userRole === 'super_admin' ? <BackupManagement key="backup" /> : null
+          isRealSuperAdmin ? <BackupManagement key="backup" /> : null
         ) : null}
         </div>
       </main>

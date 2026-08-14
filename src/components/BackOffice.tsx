@@ -14,6 +14,9 @@ import PriceZoneImport from './PriceZoneImport';
 
 interface BackOfficeProps {
   userRole?: string;
+  isManagementOrg?: boolean;
+  isRealSuperAdmin?: boolean;
+  permissions?: Record<string, boolean> | null;
   paymentOption?: string | null;
   onNavigateToMain?: () => void;
   onNavigate?: (view: string) => void;
@@ -37,7 +40,31 @@ interface MgmtPermissions {
 
 type BackOfficeView = 'menu' | 'management-org-menu' | 'org-info' | 'user-info' | 'financial-info' | 'fee-structure' | 'fuel-price-update' | 'invoice-management' | 'local-accounts' | 'payment-card' | 'client-standard-settings' | 'price-zone-import';
 
-export default function BackOffice({ userRole, paymentOption, onNavigateToMain, onNavigate }: BackOfficeProps) {
+function AccessDenied({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="space-y-4">
+      <button
+        onClick={onBack}
+        className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 no-print"
+      >
+        ← Back to Back Office
+      </button>
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+        <div className="flex items-start gap-3">
+          <Lock className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-amber-900 mb-1">Access Restricted</h3>
+            <p className="text-amber-800 text-sm">
+              You do not have permission to access this section. Please contact the Main User to request access.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function BackOffice({ userRole, isManagementOrg, isRealSuperAdmin, permissions, paymentOption, onNavigateToMain, onNavigate }: BackOfficeProps) {
   const [currentView, setCurrentView] = useState<BackOfficeView>('menu');
   const [organizationId, setOrganizationId] = useState<string>('');
   const [organizationName, setOrganizationName] = useState<string>('');
@@ -72,7 +99,7 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
       }
 
       // Super admin always has full access
-      if (profile?.role === 'super_admin') {
+      if (profile?.role === 'super_admin' || isRealSuperAdmin) {
         setMgmtPerms({
           isMainUser: true,
           isSecondaryMainUser: false,
@@ -92,22 +119,22 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
         return;
       }
 
-      // For management org users, load their specific permissions
-      if (userRole === 'super_admin' || profile?.role === 'super_admin') {
+      // For management org users who are not real super_admin, load their specific permissions
+      if (isManagementOrg && !isRealSuperAdmin && permissions) {
         setMgmtPerms({
-          isMainUser: true,
-          isSecondaryMainUser: false,
-          can_access_back_office: true,
-          can_view_org_info: true,
-          can_edit_org_info: true,
-          can_view_client_settings: true,
-          can_edit_client_settings: true,
-          can_view_invoice_management: true,
-          can_edit_invoice_management: true,
-          can_view_fuel_price_update: true,
-          can_edit_fuel_price_update: true,
-          can_manage_users: true,
-          can_view_financial_data: true,
+          isMainUser: permissions.is_main_user || false,
+          isSecondaryMainUser: permissions.is_secondary_main_user || false,
+          can_access_back_office: permissions.can_access_back_office || false,
+          can_view_org_info: permissions.can_view_org_info || false,
+          can_edit_org_info: permissions.can_edit_org_info || false,
+          can_view_client_settings: permissions.can_view_client_settings || false,
+          can_edit_client_settings: permissions.can_edit_client_settings || false,
+          can_view_invoice_management: permissions.can_view_invoice_management || false,
+          can_edit_invoice_management: permissions.can_edit_invoice_management || false,
+          can_view_fuel_price_update: permissions.can_view_fuel_price_update || false,
+          can_edit_fuel_price_update: permissions.can_edit_fuel_price_update || false,
+          can_manage_users: permissions.can_manage_users || false,
+          can_view_financial_data: permissions.can_view_org_info || false,
         });
         setLoadingPerms(false);
         return;
@@ -169,8 +196,8 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
     );
   }
 
-  // For management org users: block access unless main/secondary or explicitly granted
-  if (userRole === 'super_admin' && mgmtPerms && !mgmtPerms.isMainUser && !mgmtPerms.isSecondaryMainUser && !mgmtPerms.can_access_back_office) {
+  // Block access for management org users without back office permission
+  if (isMgmtOrgCheck && mgmtPerms && !mgmtPerms.isMainUser && !mgmtPerms.isSecondaryMainUser && !mgmtPerms.can_access_back_office) {
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
         <div className="flex items-start gap-3">
@@ -277,10 +304,19 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
   }
 
   if (currentView === 'price-zone-import') {
+    if (!isRealSuperAdmin && !isManagementOrg) {
+      return <AccessDenied onBack={() => setCurrentView('menu')} />;
+    }
+    if (isManagementOrg && !isFullAccess && !mgmtPerms?.can_view_fuel_price_update) {
+      return <AccessDenied onBack={() => setCurrentView('menu')} />;
+    }
     return <PriceZoneImport onBack={() => setCurrentView('menu')} />;
   }
 
   if (currentView === 'org-info') {
+    if (isManagementOrg && !isRealSuperAdmin && !isFullAccess && !mgmtPerms?.can_view_org_info) {
+      return <AccessDenied onBack={() => setCurrentView('management-org-menu')} />;
+    }
     return <OrganizationManagement onBack={() => setCurrentView('management-org-menu')} />;
   }
 
@@ -297,6 +333,9 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
   }
 
   if (currentView === 'fuel-price-update') {
+    if (isManagementOrg && !isRealSuperAdmin && !isFullAccess && !mgmtPerms?.can_view_fuel_price_update) {
+      return <AccessDenied onBack={() => setCurrentView('menu')} />;
+    }
     return (
       <div className="space-y-4">
         <button
@@ -315,10 +354,16 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
   }
 
   if (currentView === 'client-standard-settings') {
-    return <ClientStandardSettings onBack={() => setCurrentView('menu')} />;
+    if (isManagementOrg && !isRealSuperAdmin && !isFullAccess && !mgmtPerms?.can_view_client_settings) {
+      return <AccessDenied onBack={() => setCurrentView('menu')} />;
+    }
+    return <ClientStandardSettings onBack={() => setCurrentView('menu')} readOnly={isManagementOrg && !isRealSuperAdmin && !isFullAccess && !mgmtPerms?.can_edit_client_settings} />;
   }
 
   if (currentView === 'invoice-management') {
+    if (isManagementOrg && !isRealSuperAdmin && !isFullAccess && !mgmtPerms?.can_view_invoice_management) {
+      return <AccessDenied onBack={() => setCurrentView('menu')} />;
+    }
     return (
       <div className="space-y-4">
         <button
@@ -370,9 +415,10 @@ export default function BackOffice({ userRole, paymentOption, onNavigateToMain, 
     );
   }
 
+  const isMgmtOrgCheck = isRealSuperAdmin || isManagementOrg;
   // Build main menu based on user type and permissions
-  const isMgmtOrg = userRole === 'super_admin';
-  const isFullAccess = mgmtPerms?.isMainUser || mgmtPerms?.isSecondaryMainUser;
+  const isMgmtOrg = isRealSuperAdmin || isManagementOrg;
+  const isFullAccess = isRealSuperAdmin || mgmtPerms?.isMainUser || mgmtPerms?.isSecondaryMainUser;
 
   const menuItems = [
     // Management org entry point

@@ -1,10 +1,29 @@
 import { Building2, Store, Truck, Users, FileText, BarChart3, Database, Fuel, Package } from 'lucide-react';
 
-interface SuperAdminDashboardProps {
-  onNavigate: (view: string) => void;
+interface MgmtPermissions {
+  is_main_user?: boolean;
+  is_secondary_main_user?: boolean;
+  can_access_back_office?: boolean;
+  can_view_org_info?: boolean;
+  can_edit_org_info?: boolean;
+  can_view_client_settings?: boolean;
+  can_edit_client_settings?: boolean;
+  can_view_invoice_management?: boolean;
+  can_edit_invoice_management?: boolean;
+  can_view_fuel_price_update?: boolean;
+  can_edit_fuel_price_update?: boolean;
+  can_manage_users?: boolean;
 }
 
-export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardProps) {
+interface SuperAdminDashboardProps {
+  onNavigate: (view: string) => void;
+  permissions?: MgmtPermissions | null;
+  isRealSuperAdmin?: boolean;
+}
+
+export default function SuperAdminDashboard({ onNavigate, permissions, isRealSuperAdmin = true }: SuperAdminDashboardProps) {
+  const full = isRealSuperAdmin || permissions?.is_main_user || permissions?.is_secondary_main_user;
+
   const menuItems = [
     {
       id: 'client-organizations-menu',
@@ -12,6 +31,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'Manage client organizations, users, and finances',
       icon: Building2,
       color: 'blue',
+      gate: full || permissions?.can_manage_users,
     },
     {
       id: 'garages',
@@ -19,6 +39,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'Manage garage network',
       icon: Store,
       color: 'green',
+      gate: full,
     },
     {
       id: 'vehicles',
@@ -26,6 +47,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'View all client vehicles',
       icon: Truck,
       color: 'orange',
+      gate: true,
     },
     {
       id: 'trailers',
@@ -33,6 +55,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'View and manage client trailers',
       icon: Package,
       color: 'teal',
+      gate: true,
     },
     {
       id: 'drivers',
@@ -40,6 +63,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'View all client drivers',
       icon: Users,
       color: 'cyan',
+      gate: true,
     },
     {
       id: 'fuel-invoices',
@@ -47,6 +71,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'Review client fuel transaction invoices',
       icon: Fuel,
       color: 'orange',
+      gate: full || permissions?.can_view_invoice_management,
     },
     {
       id: 'reports-menu',
@@ -54,6 +79,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'Consolidated reports and custom report builder',
       icon: FileText,
       color: 'amber',
+      gate: true,
     },
     {
       id: 'backoffice',
@@ -61,6 +87,7 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'System settings and EFT processing',
       icon: BarChart3,
       color: 'gray',
+      gate: full || permissions?.can_access_back_office,
     },
     {
       id: 'backup',
@@ -68,8 +95,9 @@ export default function SuperAdminDashboard({ onNavigate }: SuperAdminDashboardP
       description: 'Create and manage database backups',
       icon: Database,
       color: 'emerald',
+      gate: full,
     },
-  ];
+  ].filter(item => item.gate !== false);
 
   const getColorClasses = (color: string) => {
     const colors: Record<string, { bg: string; hover: string; icon: string }> = {

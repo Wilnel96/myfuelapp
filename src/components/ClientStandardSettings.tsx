@@ -3,11 +3,12 @@ import { supabase } from '../lib/supabase';
 import {
   Settings, Save, X, AlertCircle, CheckCircle, ArrowLeft, Info,
   Car, Users, ChevronDown, ChevronUp, RefreshCw, CreditCard,
-  Calendar, Clock, Percent,
+  Calendar, Clock, Percent, Lock,
 } from 'lucide-react';
 
 interface ClientStandardSettingsProps {
   onBack: () => void;
+  readOnly?: boolean;
 }
 
 interface OrgRow {
@@ -165,7 +166,7 @@ function ExclusionPanel({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ClientStandardSettings({ onBack }: ClientStandardSettingsProps) {
+export default function ClientStandardSettings({ onBack, readOnly = false }: ClientStandardSettingsProps) {
   // Financial defaults
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [form, setForm] = useState<Record<string, string>>({});
@@ -435,7 +436,7 @@ export default function ClientStandardSettings({ onBack }: ClientStandardSetting
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={saving || !hasChanges}
+                  disabled={saving || !hasChanges || readOnly}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -448,6 +449,12 @@ export default function ClientStandardSettings({ onBack }: ClientStandardSetting
       </div>
 
       <div className="space-y-6 max-w-2xl">
+        {readOnly && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+            <Lock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="text-amber-800 text-sm">You have view-only access to these settings. Contact the Main User to request edit permission.</div>
+          </div>
+        )}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />

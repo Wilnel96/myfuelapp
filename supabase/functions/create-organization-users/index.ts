@@ -123,6 +123,16 @@ Deno.serve(async (req: Request) => {
           can_view_custom_reports: true,
           can_manage_users: true,
           can_view_financial_data: true,
+          can_access_back_office: true,
+          can_view_org_info: true,
+          can_edit_org_info: true,
+          can_view_client_settings: true,
+          can_edit_client_settings: true,
+          can_view_invoice_management: true,
+          can_edit_invoice_management: true,
+          can_view_fuel_price_update: true,
+          can_edit_fuel_price_update: true,
+          system_role: 'system_admin',
         } : {
           can_add_vehicles: userData.can_add_vehicles ?? false,
           can_edit_vehicles: userData.can_edit_vehicles ?? false,
@@ -137,6 +147,16 @@ Deno.serve(async (req: Request) => {
           can_view_custom_reports: userData.can_view_custom_reports ?? false,
           can_manage_users: userData.can_manage_users ?? false,
           can_view_financial_data: userData.can_view_financial_data ?? false,
+          can_access_back_office: userData.can_access_back_office ?? false,
+          can_view_org_info: userData.can_view_org_info ?? false,
+          can_edit_org_info: userData.can_edit_org_info ?? false,
+          can_view_client_settings: userData.can_view_client_settings ?? false,
+          can_edit_client_settings: userData.can_edit_client_settings ?? false,
+          can_view_invoice_management: userData.can_view_invoice_management ?? false,
+          can_edit_invoice_management: userData.can_edit_invoice_management ?? false,
+          can_view_fuel_price_update: userData.can_view_fuel_price_update ?? false,
+          can_edit_fuel_price_update: userData.can_edit_fuel_price_update ?? false,
+          system_role: userData.system_role ?? 'none',
         };
 
         const title = userData.title || (userData.is_main_user ? 'Main User' : 'User');
