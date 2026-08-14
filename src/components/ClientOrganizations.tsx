@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Building2, Plus, CreditCard as Edit2, Save, X, AlertCircle, CheckCircle, Search, Trash2, Store } from 'lucide-react';
 
@@ -134,6 +134,7 @@ export default function ClientOrganizations() {
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [viewingPermissionsUserId, setViewingPermissionsUserId] = useState<string | null>(null);
   const [garageNames, setGarageNames] = useState<Record<string, string>>({});
+  const formRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -190,6 +191,12 @@ export default function ClientOrganizations() {
   useEffect(() => {
     loadOrganizations();
   }, []);
+
+  useEffect(() => {
+    if (showForm && formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [showForm]);
 
   useEffect(() => {
     if (searchTerm.trim() === '') {
@@ -770,7 +777,7 @@ export default function ClientOrganizations() {
       )}
 
       {showForm && (
-        <div className="bg-white rounded-lg shadow p-6">
+        <div ref={formRef} className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-bold text-gray-900">
