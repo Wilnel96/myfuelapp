@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import BulkInvoicePayment from './BulkInvoicePayment';
 import CreditNoteManagement from './CreditNoteManagement';
 import DebitOrderRun from './DebitOrderRun';
+import StatementRun from './StatementRun';
 
 interface Invoice {
   id: string;
@@ -56,7 +57,7 @@ interface ManagementOrganization {
 }
 
 export default function InvoiceManagement() {
-  const [currentView, setCurrentView] = useState<'menu' | 'fee' | 'bulk-payment' | 'credit-notes' | 'debit-order-run'>('menu');
+  const [currentView, setCurrentView] = useState<'menu' | 'fee' | 'bulk-payment' | 'credit-notes' | 'debit-order-run' | 'statements'>('menu');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -811,6 +812,21 @@ export default function InvoiceManagement() {
               </div>
             </div>
           </button>
+
+          <button
+            onClick={() => setCurrentView('statements')}
+            className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-50 rounded-lg">
+                <FileText className="w-6 h-6 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Statements</h3>
+                <p className="text-sm text-gray-600">Generate account statements and email them to clients</p>
+              </div>
+            </div>
+          </button>
         </div>
       </div>
     );
@@ -826,6 +842,10 @@ export default function InvoiceManagement() {
 
   if (currentView === 'bulk-payment') {
     return <BulkInvoicePayment onBack={() => setCurrentView('menu')} />;
+  }
+
+  if (currentView === 'statements') {
+    return <StatementRun onBack={() => setCurrentView('menu')} />;
   }
 
   if (currentView === 'fee') {
