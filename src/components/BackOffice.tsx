@@ -197,7 +197,7 @@ export default function BackOffice({ userRole, isManagementOrg, isRealSuperAdmin
   }
 
   // Block access for management org users without back office permission
-  if (isMgmtOrgCheck && mgmtPerms && !mgmtPerms.isMainUser && !mgmtPerms.isSecondaryMainUser && !mgmtPerms.can_access_back_office) {
+  if (isManagementOrg && !isRealSuperAdmin && mgmtPerms && !mgmtPerms.isMainUser && !mgmtPerms.isSecondaryMainUser && !mgmtPerms.can_access_back_office) {
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
         <div className="flex items-start gap-3">
