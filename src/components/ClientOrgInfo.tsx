@@ -442,7 +442,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                     <input
                       type="text"
                       value={editForm.name || ''}
-                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value.toUpperCase() })}
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                     />
                   </div>
@@ -470,7 +470,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       <input
                         type="text"
                         value={editForm.entity_type_other || ''}
-                        onChange={(e) => setEditForm({ ...editForm, entity_type_other: e.target.value })}
+                        onChange={(e) => setEditForm({ ...editForm, entity_type_other: e.target.value.toUpperCase() })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                         placeholder="e.g., Non-profit Organisation"
                       />
@@ -482,7 +482,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       <input
                         type="text"
                         value={editForm.company_registration_number || ''}
-                        onChange={(e) => setEditForm({ ...editForm, company_registration_number: e.target.value })}
+                        onChange={(e) => setEditForm({ ...editForm, company_registration_number: e.target.value.toUpperCase() })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                       />
                     </div>
@@ -493,7 +493,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       <input
                         type="text"
                         value={editForm.vat_number || ''}
-                        onChange={(e) => setEditForm({ ...editForm, vat_number: e.target.value })}
+                        onChange={(e) => setEditForm({ ...editForm, vat_number: e.target.value.toUpperCase() })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                       />
                     </div>
@@ -512,7 +512,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                     <input
                       type="text"
                       value={editForm.address_line_1 || ''}
-                      onChange={(e) => setEditForm({ ...editForm, address_line_1: e.target.value })}
+                      onChange={(e) => setEditForm({ ...editForm, address_line_1: e.target.value.toUpperCase() })}
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                     />
                   </div>
@@ -521,7 +521,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                     <input
                       type="text"
                       value={editForm.address_line_2 || ''}
-                      onChange={(e) => setEditForm({ ...editForm, address_line_2: e.target.value })}
+                      onChange={(e) => setEditForm({ ...editForm, address_line_2: e.target.value.toUpperCase() })}
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                     />
                   </div>
@@ -530,7 +530,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                     <input
                       type="text"
                       value={editForm.city || ''}
-                      onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                      onChange={(e) => setEditForm({ ...editForm, city: e.target.value.toUpperCase() })}
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                     />
                   </div>
@@ -558,7 +558,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                     <input
                       type="text"
                       value={editForm.postal_code || ''}
-                      onChange={(e) => setEditForm({ ...editForm, postal_code: e.target.value })}
+                      onChange={(e) => setEditForm({ ...editForm, postal_code: e.target.value.toUpperCase() })}
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                     />
                   </div>
@@ -567,7 +567,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                     <input
                       type="text"
                       value={editForm.country || ''}
-                      onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                      onChange={(e) => setEditForm({ ...editForm, country: e.target.value.toUpperCase() })}
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                       placeholder="South Africa"
                     />
@@ -593,7 +593,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       <input
                         type="text"
                         value={editForm.main_user_name || ''}
-                        onChange={(e) => setEditForm({ ...editForm, main_user_name: e.target.value })}
+                        onChange={(e) => setEditForm({ ...editForm, main_user_name: e.target.value.toUpperCase() })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                       />
                     </div>
@@ -602,7 +602,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       <input
                         type="text"
                         value={editForm.main_user_surname || ''}
-                        onChange={(e) => setEditForm({ ...editForm, main_user_surname: e.target.value })}
+                        onChange={(e) => setEditForm({ ...editForm, main_user_surname: e.target.value.toUpperCase() })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                       />
                     </div>
@@ -663,7 +663,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       <input
                         type="text"
                         value={editForm.billing_user_name || ''}
-                        onChange={(e) => setEditForm({ ...editForm, billing_user_name: e.target.value })}
+                        onChange={(e) => setEditForm({ ...editForm, billing_user_name: e.target.value.toUpperCase() })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                       />
                     </div>
@@ -672,7 +672,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       <input
                         type="text"
                         value={editForm.billing_user_surname || ''}
-                        onChange={(e) => setEditForm({ ...editForm, billing_user_surname: e.target.value })}
+                        onChange={(e) => setEditForm({ ...editForm, billing_user_surname: e.target.value.toUpperCase() })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                       />
                     </div>
