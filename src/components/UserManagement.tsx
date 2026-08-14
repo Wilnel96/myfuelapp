@@ -1169,8 +1169,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                 <input
                   type="text"
                   value={newUser.first_name}
-                  onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
                   required
                 />
               </div>
@@ -1181,8 +1181,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                 <input
                   type="text"
                   value={newUser.surname}
-                  onChange={(e) => setNewUser({ ...newUser, surname: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={(e) => setNewUser({ ...newUser, surname: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
                   required
                 />
               </div>
@@ -1258,8 +1258,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                 <input
                   type="tel"
                   value={newUser.phone_office}
-                  onChange={(e) => setNewUser({ ...newUser, phone_office: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={(e) => setNewUser({ ...newUser, phone_office: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
                 />
               </div>
               <div>
@@ -1267,8 +1267,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                 <input
                   type="tel"
                   value={newUser.phone_mobile}
-                  onChange={(e) => setNewUser({ ...newUser, phone_mobile: e.target.value })}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={(e) => setNewUser({ ...newUser, phone_mobile: e.target.value.toUpperCase() })}
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase"
                 />
               </div>
               <div className="col-span-2">
@@ -1624,8 +1624,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                 <input
                   type="text"
                   value={editingUser.first_name || ''}
-                  onChange={(e) => setEditingUser({ ...editingUser, first_name: e.target.value })}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => setEditingUser({ ...editingUser, first_name: e.target.value.toUpperCase() })}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
                   readOnly={false}
                   required
                 />
@@ -1635,8 +1635,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                 <input
                   type="text"
                   value={editingUser.surname || ''}
-                  onChange={(e) => setEditingUser({ ...editingUser, surname: e.target.value })}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => setEditingUser({ ...editingUser, surname: e.target.value.toUpperCase() })}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
                   readOnly={false}
                   required
                 />
@@ -1691,8 +1691,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                 <input
                   type="tel"
                   value={editingUser.phone_office || ''}
-                  onChange={(e) => setEditingUser({ ...editingUser, phone_office: e.target.value })}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => setEditingUser({ ...editingUser, phone_office: e.target.value.toUpperCase() })}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
                   readOnly={false}
                 />
               </div>
@@ -1701,8 +1701,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                 <input
                   type="tel"
                   value={editingUser.phone_mobile || ''}
-                  onChange={(e) => setEditingUser({ ...editingUser, phone_mobile: e.target.value })}
-                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => setEditingUser({ ...editingUser, phone_mobile: e.target.value.toUpperCase() })}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
                   readOnly={false}
                 />
               </div>
