@@ -231,6 +231,45 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
 
       if (updateError) throw updateError;
 
+      // Check if the main user email has changed
+      const { data: mainUserRow } = await supabase
+        .from('organization_users')
+        .select('id, user_id, email')
+        .eq('organization_id', editingId)
+        .eq('is_main_user', true)
+        .maybeSingle();
+
+      const oldEmail = mainUserRow?.email || '';
+      const newEmail = editForm.main_user_email || '';
+      const emailChanged = newEmail && newEmail.toLowerCase() !== oldEmail.toLowerCase();
+
+      if (emailChanged && mainUserRow?.user_id) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not authenticated');
+
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-email`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: mainUserRow.user_id,
+            new_email: newEmail,
+          }),
+        });
+
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => ({}));
+          throw new Error(errBody.error || `Failed to update email (status ${response.status})`);
+        }
+
+        const emailResult = await response.json();
+        if (!emailResult.success) {
+          throw new Error(emailResult.error || 'Failed to update email address');
+        }
+      }
+
       // Update main user information in organization_users table
       const { error: mainUserError } = await supabase
         .from('organization_users')
@@ -239,6 +278,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
           surname: editForm.main_user_surname,
           phone_office: editForm.main_user_phone_office || null,
           phone_mobile: editForm.main_user_phone_mobile || null,
+          ...(emailChanged ? { email: newEmail } : {}),
         })
         .eq('organization_id', editingId)
         .eq('is_main_user', true);
@@ -574,9 +614,8 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                         onChange={(e) => setEditForm({ ...editForm, main_user_email: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                         placeholder="main@example.com"
-                        disabled
                       />
-                      <p className="text-xs text-gray-500 mt-0.5">Email cannot be changed</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Changing the email will update the login email and send a temporary password</p>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Phone</label>
@@ -645,9 +684,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                         onChange={(e) => setEditForm({ ...editForm, billing_user_email: e.target.value })}
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                         placeholder="billing@example.com"
-                        disabled
                       />
-                      <p className="text-xs text-gray-500 mt-0.5">Email cannot be changed</p>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Phone</label>
