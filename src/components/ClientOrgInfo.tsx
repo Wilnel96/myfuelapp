@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, CreditCard as Edit2, Save, X, AlertCircle, CheckCircle, Search, ArrowLeft, Copy } from 'lucide-react';
+import { Building2, CreditCard as Edit2, Save, X, AlertCircle, CheckCircle, Search, ArrowLeft, Copy, Loader2 } from 'lucide-react';
 
 interface ClientOrganization {
   id: string;
@@ -53,6 +53,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
   const [editForm, setEditForm] = useState<Partial<ClientOrganization>>({});
   const [cardConfigured, setCardConfigured] = useState<Record<string, boolean>>({});
   const [canEdit, setCanEdit] = useState(!clientSelfMode);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadOrganizations();
@@ -202,11 +203,18 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
   const handleSave = async () => {
     if (!editingId) return;
 
-    try {
-      setError('');
+    setError('');
 
+    if (!editForm.main_user_email || !editForm.main_user_email.trim()) {
+      setError('Email address is compulsory. Please enter an email address for the main user before saving.');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
       // Update organization details
-      const { error: updateError } = await supabase
+      const { data: updatedOrg, error: updateError } = await supabase
         .from('organizations')
         .update({
           name: editForm.name,
@@ -227,9 +235,13 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
           fuel_payment_interest_rate: null,
           phone_number: editForm.phone_number,
         })
-        .eq('id', editingId);
+        .eq('id', editingId)
+        .select();
 
       if (updateError) throw updateError;
+      if (!updatedOrg || updatedOrg.length === 0) {
+        throw new Error('Unable to save organization details. You may not have permission to edit this organization. Please contact your administrator.');
+      }
 
       // Check if the main user email has changed
       const { data: mainUserRow } = await supabase
@@ -240,8 +252,8 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
         .maybeSingle();
 
       const oldEmail = mainUserRow?.email || '';
-      const newEmail = editForm.main_user_email || '';
-      const emailChanged = newEmail && newEmail.toLowerCase() !== oldEmail.toLowerCase();
+      const newEmail = editForm.main_user_email!.trim();
+      const emailChanged = newEmail.toLowerCase() !== oldEmail.toLowerCase();
 
       if (emailChanged && mainUserRow?.user_id) {
         const { data: { session } } = await supabase.auth.getSession();
@@ -271,7 +283,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
       }
 
       // Update main user information in organization_users table
-      const { error: mainUserError } = await supabase
+      const { data: updatedMainUser, error: mainUserError } = await supabase
         .from('organization_users')
         .update({
           first_name: editForm.main_user_name,
@@ -281,9 +293,13 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
           ...(emailChanged ? { email: newEmail } : {}),
         })
         .eq('organization_id', editingId)
-        .eq('is_main_user', true);
+        .eq('is_main_user', true)
+        .select();
 
       if (mainUserError) throw mainUserError;
+      if (!updatedMainUser || updatedMainUser.length === 0) {
+        throw new Error('Unable to save main user details. You may not have permission to manage users for this organization. Please contact your administrator.');
+      }
 
       // Update or insert billing user in organization_users table
       const billingEmail = editForm.billing_user_email || editForm.main_user_email;
@@ -350,6 +366,8 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
       setViewingId(savedId);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -378,10 +396,11 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
               </button>
               <button
                 onClick={handleSave}
-                className="flex items-center gap-2 px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium"
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Save className="w-4 h-4" />
-                Save Changes
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           ) : (
@@ -615,7 +634,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                         placeholder="main@example.com"
                       />
-                      <p className="text-xs text-gray-500 mt-0.5">Changing the email will update the login email and send a temporary password</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Email address is compulsory</p>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-0.5">Mobile Phone</label>
