@@ -182,95 +182,112 @@ Deno.serve(async (req: Request) => {
     // Send the temporary password to the NEW email address
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (resendApiKey) {
-      const emailResponse = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'MyFuelApp <noreply@myfuelapp.net>',
-          to: [new_email],
-          subject: 'Your Email Has Changed - MyFuelApp',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                <h1 style="margin: 0; font-size: 24px;">MyFuelApp</h1>
-                <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Email Address Changed</p>
-              </div>
-              <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
-                <h2 style="color: #1f2937; font-size: 20px; margin-top: 0;">Your sign-in email has been updated</h2>
-                <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  The email address associated with your MyFuelApp account has been changed from
-                  <strong>${oldEmail}</strong> to <strong>${new_email}</strong>.
-                  A new temporary password has been generated for security. Please use the temporary
-                  password below to sign in, then choose a new password.
-                </p>
-                <div style="background: #ffffff; border: 2px dashed #2563eb; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-                  <span style="font-size: 22px; font-weight: bold; color: #2563eb; letter-spacing: 2px; font-family: monospace;">${tempPassword}</span>
-                </div>
-                <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
-                  After signing in with this temporary password, you must set a new password
-                  that meets the following requirements:
-                </p>
-                <ul style="color: #4b5563; font-size: 14px; line-height: 1.8;">
-                  <li>At least 8 characters long</li>
-                  <li>Contains at least one uppercase letter</li>
-                  <li>Contains at least one lowercase letter</li>
-                  <li>Contains at least one number</li>
-                  <li>Contains at least one special character (!@#$%^&amp;*)</li>
-                </ul>
-                <p style="color: #6b7280; font-size: 13px; margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
-                  If you did not request this change, please contact your account administrator immediately.
-                </p>
-              </div>
+      const fromAddresses = [
+        'MyFuelApp <noreply@myfuelapp.net>',
+        'MyFuelApp <onboarding@resend.dev>',
+      ];
+
+      const newEmailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">MyFuelApp</h1>
+            <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Email Address Changed</p>
+          </div>
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+            <h2 style="color: #1f2937; font-size: 20px; margin-top: 0;">Your sign-in email has been updated</h2>
+            <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+              The email address associated with your MyFuelApp account has been changed from
+              <strong>${oldEmail}</strong> to <strong>${new_email}</strong>.
+              A new temporary password has been generated for security. Please use the temporary
+              password below to sign in, then choose a new password.
+            </p>
+            <div style="background: #ffffff; border: 2px dashed #2563eb; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+              <span style="font-size: 22px; font-weight: bold; color: #2563eb; letter-spacing: 2px; font-family: monospace;">${tempPassword}</span>
             </div>
-          `,
-          text: `MyFuelApp - Email Address Changed\n\nYour sign-in email has been changed from ${oldEmail} to ${new_email}.\n\nYour temporary password is: ${tempPassword}\n\nUse this to sign in, then you will be asked to choose a new password.\n\nIf you did not request this change, contact your administrator immediately.`,
-        }),
-      });
+            <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+              After signing in with this temporary password, you must set a new password
+              that meets the following requirements:
+            </p>
+            <ul style="color: #4b5563; font-size: 14px; line-height: 1.8;">
+              <li>At least 8 characters long</li>
+              <li>Contains at least one uppercase letter</li>
+              <li>Contains at least one lowercase letter</li>
+              <li>Contains at least one number</li>
+              <li>Contains at least one special character (!@#$%^&amp;*)</li>
+            </ul>
+            <p style="color: #6b7280; font-size: 13px; margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+              If you did not request this change, please contact your account administrator immediately.
+            </p>
+          </div>
+        </div>
+      `;
+      const newEmailText = `MyFuelApp - Email Address Changed\n\nYour sign-in email has been changed from ${oldEmail} to ${new_email}.\n\nYour temporary password is: ${tempPassword}\n\nUse this to sign in, then you will be asked to choose a new password.\n\nIf you did not request this change, contact your administrator immediately.`;
 
-      if (!emailResponse.ok) {
-        console.error('Failed to send email to new address:', await emailResponse.text());
-      }
-
-      // Also send a notification to the OLD email address
-      if (oldEmail && oldEmail.toLowerCase() !== new_email.toLowerCase()) {
-        await fetch('https://api.resend.com/emails', {
+      for (const fromAddr of fromAddresses) {
+        const emailResponse = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${resendApiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            from: 'MyFuelApp <noreply@myfuelapp.net>',
-            to: [oldEmail],
-            subject: 'Security Alert: Your Email Has Been Changed - MyFuelApp',
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="background: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-                  <h1 style="margin: 0; font-size: 24px;">MyFuelApp</h1>
-                  <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Security Alert</p>
-                </div>
-                <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
-                  <h2 style="color: #1f2937; font-size: 20px; margin-top: 0;">Your email address has been changed</h2>
-                  <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
-                    The email address associated with your MyFuelApp account has been changed from
-                    <strong>${oldEmail}</strong> to <strong>${new_email}</strong>.
-                  </p>
-                  <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
-                    A new temporary password has been sent to the new email address. Your old password
-                    is no longer valid.
-                  </p>
-                  <p style="color: #6b7280; font-size: 13px; margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
-                    If you did not request this change, please contact your account administrator immediately.
-                  </p>
-                </div>
-              </div>
-            `,
-            text: `MyFuelApp Security Alert\n\nYour email address has been changed from ${oldEmail} to ${new_email}.\n\nA new temporary password has been sent to the new email address. Your old password is no longer valid.\n\nIf you did not request this change, contact your administrator immediately.`,
+            from: fromAddr,
+            to: [new_email],
+            subject: 'Your Email Has Changed - MyFuelApp',
+            html: newEmailHtml,
+            text: newEmailText,
           }),
         });
+
+        if (emailResponse.ok) break;
+        console.error(`Failed to send to new address from ${fromAddr}:`, await emailResponse.text());
+      }
+
+      // Also send a notification to the OLD email address
+      if (oldEmail && oldEmail.toLowerCase() !== new_email.toLowerCase()) {
+        const oldEmailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: #dc2626; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+              <h1 style="margin: 0; font-size: 24px;">MyFuelApp</h1>
+              <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Security Alert</p>
+            </div>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+              <h2 style="color: #1f2937; font-size: 20px; margin-top: 0;">Your email address has been changed</h2>
+              <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+                The email address associated with your MyFuelApp account has been changed from
+                <strong>${oldEmail}</strong> to <strong>${new_email}</strong>.
+              </p>
+              <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+                A new temporary password has been sent to the new email address. Your old password
+                is no longer valid.
+              </p>
+              <p style="color: #6b7280; font-size: 13px; margin-top: 25px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                If you did not request this change, please contact your account administrator immediately.
+              </p>
+            </div>
+          </div>
+        `;
+        const oldEmailText = `MyFuelApp Security Alert\n\nYour email address has been changed from ${oldEmail} to ${new_email}.\n\nA new temporary password has been sent to the new email address. Your old password is no longer valid.\n\nIf you did not request this change, contact your administrator immediately.`;
+
+        for (const fromAddr of fromAddresses) {
+          const emailResponse = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: fromAddr,
+              to: [oldEmail],
+              subject: 'Security Alert: Your Email Has Been Changed - MyFuelApp',
+              html: oldEmailHtml,
+              text: oldEmailText,
+            }),
+          });
+
+          if (emailResponse.ok) break;
+          console.error(`Failed to send to old address from ${fromAddr}:`, await emailResponse.text());
+        }
       }
     }
 

@@ -38,36 +38,46 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const payload: Record<string, unknown> = {
-      from: 'MyFuelApp <noreply@myfuelapp.net>',
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      ...(html && { html }),
-      ...(text && { text }),
-      ...(replyTo && { reply_to: replyTo }),
-    };
+    const fromAddresses = [
+      'MyFuelApp <noreply@myfuelapp.net>',
+      'MyFuelApp <onboarding@resend.dev>',
+    ];
 
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    let lastError = '';
+    for (const fromAddr of fromAddresses) {
+      const payload: Record<string, unknown> = {
+        from: fromAddr,
+        to: Array.isArray(to) ? to : [to],
+        subject,
+        ...(html && { html }),
+        ...(text && { text }),
+        ...(replyTo && { reply_to: replyTo }),
+      };
 
-    const result = await response.json();
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({ error: result.message || 'Failed to send email', details: result }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (response.ok) {
+        const result = await response.json();
+        return new Response(
+          JSON.stringify({ success: true, id: result.id }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      lastError = await response.text();
+      console.error(`Failed to send from ${fromAddr}:`, lastError);
     }
 
     return new Response(
-      JSON.stringify({ success: true, id: result.id }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Failed to send email', details: lastError }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
     console.error('Email send error:', error);
