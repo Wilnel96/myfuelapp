@@ -893,7 +893,10 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                     <input
                       type="number"
                       value={formData.last_service_km_reading}
-                      onChange={(e) => setFormData({ ...formData, last_service_km_reading: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setFormData({ ...formData, last_service_km_reading: val, next_service_km: formData.service_interval_km ? val + formData.service_interval_km : (formData.next_service_km || 0) });
+                      }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
                       placeholder="50000"
                       min="0"
@@ -907,7 +910,10 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                     <input
                       type="number"
                       value={formData.service_interval_km}
-                      onChange={(e) => setFormData({ ...formData, service_interval_km: parseInt(e.target.value) || 0 })}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setFormData({ ...formData, service_interval_km: val, next_service_km: formData.last_service_km_reading ? formData.last_service_km_reading + val : (formData.next_service_km || 0) });
+                      }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
                       placeholder="10000"
                       min="0"
@@ -920,13 +926,12 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                     </label>
                     <input
                       type="number"
-                      value={formData.next_service_km}
-                      onChange={(e) => setFormData({ ...formData, next_service_km: parseInt(e.target.value) || 0 })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
-                      placeholder="60000"
-                      min="0"
-                      step="100"
+                      value={formData.last_service_km_reading && formData.service_interval_km ? formData.last_service_km_reading + formData.service_interval_km : (formData.next_service_km || 0)}
+                      readOnly
+                      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 text-gray-500"
+                      placeholder="Auto-calculated"
                     />
+                    <p className="text-xs text-gray-400 mt-0.5">Auto-calculated: Last Service KM + Interval</p>
                   </div>
                 </div>
               </div>
