@@ -51,20 +51,14 @@ export default function ForcePasswordChange({ email, onSuccess, onCancel }: Forc
     setLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setError('Your session has expired. Please sign in again.');
-        return;
-      }
-
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/change-password`;
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
+          email,
           currentPassword,
           newPassword,
           confirmPassword,

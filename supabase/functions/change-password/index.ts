@@ -19,11 +19,18 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
     const body = await req.json();
-    const { currentPassword, newPassword, confirmPassword } = body;
+    const { email, currentPassword, newPassword, confirmPassword } = body;
 
     if (!currentPassword || !newPassword || !confirmPassword) {
       return new Response(
         JSON.stringify({ error: "All fields are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (!email) {
+      return new Response(
+        JSON.stringify({ error: "Email is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -44,54 +51,28 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Get the access token from the Authorization header to identify the user
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-
-    // Verify the current password by attempting a sign-in
+    // Authenticate with email + current password instead of relying on the
+    // session token, which may not be fully valid during a forced password change.
     const userClient = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: userData, error: userError } = await userClient.auth.getUser(token);
-
-    if (userError || !userData.user) {
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    const userEmail = userData.user.email;
-    if (!userEmail) {
-      return new Response(
-        JSON.stringify({ error: "Unable to verify account" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // Verify current password by signing in with it
-    const { error: signInError } = await userClient.auth.signInWithPassword({
-      email: userEmail,
+    const { data: signInData, error: signInError } = await userClient.auth.signInWithPassword({
+      email,
       password: currentPassword,
     });
 
-    if (signInError) {
+    if (signInError || !signInData.user) {
       return new Response(
         JSON.stringify({ error: "Current password is incorrect" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    const userId = signInData.user.id;
+
     // Update the password using the service role client
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     const { error: updateError } = await adminClient.auth.admin.updateUserById(
-      userData.user.id,
+      userId,
       { password: newPassword },
     );
 
@@ -104,7 +85,7 @@ Deno.serve(async (req: Request) => {
     const { error: flagError } = await adminClient
       .from("profiles")
       .update({ password_change_required: false })
-      .eq("id", userData.user.id);
+      .eq("id", userId);
 
     if (flagError) {
       console.error("Failed to clear password_change_required flag:", flagError);
@@ -114,7 +95,7 @@ Deno.serve(async (req: Request) => {
     await adminClient
       .from("organization_users")
       .update({ password: newPassword })
-      .eq("user_id", userData.user.id);
+      .eq("user_id", userId);
 
     return new Response(
       JSON.stringify({
