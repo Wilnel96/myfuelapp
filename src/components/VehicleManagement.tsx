@@ -900,7 +900,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                       className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
                       placeholder="50000"
                       min="0"
-                      step="100"
+                      step="1"
                     />
                   </div>
                   <div>
