@@ -14,6 +14,10 @@ interface Vehicle {
   prdp_required?: boolean;
   prdp_categories?: string[];
   initial_odometer_reading?: number;
+  last_service_date?: string | null;
+  service_interval_km?: number | null;
+  last_service_km_reading?: number | null;
+  next_service_km?: number | null;
 }
 
 interface Trailer {
@@ -60,6 +64,8 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   const [selectedTrailer, setSelectedTrailer] = useState<Trailer | null>(null);
   const [trailerWarning, setTrailerWarning] = useState(false);
   const [pendingTrailer, setPendingTrailer] = useState<Trailer | null>(null);
+  const [serviceOverdueWarning, setServiceOverdueWarning] = useState(false);
+  const [serviceOverdueInfo, setServiceOverdueInfo] = useState<{ lastServiceKm: number; nextServiceKm: number; lastServiceDate: string | null } | null>(null);
 
   useEffect(() => {
     loadVehicles();
@@ -177,6 +183,11 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       });
       setUnreturnedVehicleWarning(true);
       setStep('confirm-unreturned-vehicle');
+      return;
+    }
+
+    // Check if vehicle is overdue for service
+    if (await checkServiceOverdue(vehicle)) {
       return;
     }
 
@@ -431,6 +442,39 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     };
   };
 
+  const checkServiceOverdue = async (vehicle: Vehicle): Promise<boolean> => {
+    const nextServiceKm = vehicle.next_service_km;
+    const lastServiceKm = vehicle.last_service_km_reading ?? 0;
+    const lastServiceDate = vehicle.last_service_date ?? null;
+
+    if (!nextServiceKm || nextServiceKm <= 0) return false;
+
+    // Get the current odometer reading: latest return transaction or initial odometer
+    let currentOdometer = vehicle.initial_odometer_reading ?? 0;
+
+    const { data: lastReturn } = await supabase
+      .from('vehicle_transactions')
+      .select('odometer_reading')
+      .eq('vehicle_id', vehicle.id)
+      .eq('transaction_type', 'return')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastReturn?.odometer_reading) {
+      currentOdometer = lastReturn.odometer_reading;
+    }
+
+    if (currentOdometer >= nextServiceKm) {
+      setServiceOverdueInfo({ lastServiceKm, nextServiceKm, lastServiceDate });
+      setServiceOverdueWarning(true);
+      setStep('confirm-service-overdue');
+      return true;
+    }
+
+    return false;
+  };
+
   const checkDriverLicenseQualifies = async (driverId: string, vehicle: Vehicle): Promise<boolean> => {
     // Use already-loaded license code when available; fall back to DB only if not yet set
     let licenseCode = driverLicenseCode;
@@ -633,11 +677,11 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       setOdometerMismatch(true);
       setStep('confirm-mismatch');
     } else {
-      handleSubmit(false, licenseWarning, prdpWarning, unreturnedVehicleWarning, trailerWarning);
+      handleSubmit(false, licenseWarning, prdpWarning, unreturnedVehicleWarning, trailerWarning, serviceOverdueWarning);
     }
   };
 
-  const handleSubmit = async (logOdometerException: boolean, logLicenseException: boolean = false, logPrdpException: boolean = false, logUnreturnedException: boolean = false, logTrailerException: boolean = false) => {
+  const handleSubmit = async (logOdometerException: boolean, logLicenseException: boolean = false, logPrdpException: boolean = false, logUnreturnedException: boolean = false, logTrailerException: boolean = false, logServiceException: boolean = false) => {
     if (!odometerReading || !selectedVehicle) return;
 
     console.log('handleSubmit called with:', {
@@ -847,6 +891,60 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
         }
       }
 
+      if (serviceOverdueWarning && serviceOverdueInfo) {
+        const currentOdo = parseInt(odometerReading);
+        const kmOverdue = currentOdo - serviceOverdueInfo.nextServiceKm;
+        const { error: exceptionError } = await supabase
+          .from('vehicle_exceptions')
+          .insert({
+            vehicle_id: selectedVehicle.id,
+            driver_id: driverId,
+            organization_id: organizationId,
+            exception_type: 'service_overdue',
+            description: `Vehicle drawn despite being overdue for service. Last serviced at ${serviceOverdueInfo.lastServiceKm.toLocaleString()} km, next service due at ${serviceOverdueInfo.nextServiceKm.toLocaleString()} km, current odometer ${currentOdo.toLocaleString()} km. Vehicle is ${kmOverdue.toLocaleString()} km past service interval.`,
+            expected_value: serviceOverdueInfo.nextServiceKm.toString(),
+            actual_value: currentOdo.toString(),
+            transaction_id: transaction.id,
+            resolved: false,
+          });
+
+        if (exceptionError) {
+          console.error('FAILED to log service overdue exception:', exceptionError);
+        } else {
+          console.log('Service overdue exception logged successfully');
+
+          // Send exception email to main user and vehicle user
+          const { data: driver } = await supabase
+            .from('drivers')
+            .select('first_name, surname')
+            .eq('id', driverId)
+            .maybeSingle();
+
+          const driverName = driver ? `${driver.first_name} ${driver.surname}` : 'Unknown driver';
+
+          try {
+            await supabase.functions.invoke('send-service-exception-email', {
+              body: {
+                organization_id: organizationId,
+                vehicle_id: selectedVehicle.id,
+                driver_id: driverId,
+                vehicle_registration: selectedVehicle.registration_number,
+                vehicle_make: selectedVehicle.make,
+                vehicle_model: selectedVehicle.model,
+                driver_name: driverName,
+                last_service_km: serviceOverdueInfo.lastServiceKm,
+                next_service_km: serviceOverdueInfo.nextServiceKm,
+                current_odometer: currentOdo,
+                last_service_date: serviceOverdueInfo.lastServiceDate,
+              },
+            });
+            console.log('Service overdue email sent successfully');
+          } catch (emailErr) {
+            console.error('Failed to send service overdue email:', emailErr);
+          }
+        }
+      }
+
       setSuccess(true);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to draw vehicle';
@@ -882,6 +980,8 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     setTrailerWarning(false);
     setPendingTrailer(null);
     setAvailableTrailers([]);
+    setServiceOverdueWarning(false);
+    setServiceOverdueInfo(null);
     onBack();
   };
 
@@ -1049,6 +1149,10 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                         return;
                       }
 
+                      if (await checkServiceOverdue(selectedVehicle)) {
+                        return;
+                      }
+
                       if (!isQualified) {
                         setLicenseWarning(true);
                         setStep('confirm-license-warning');
@@ -1065,6 +1169,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                       }
 
                       setPrdpWarning(false);
+                      await loadExpectedOdometer(selectedVehicle!.id);
                       goToOdometer();
                     } finally {
                       setLoading(false);
@@ -1463,7 +1568,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
             <div className="space-y-3">
               <button
-                onClick={() => handleSubmit(true, licenseWarning, prdpWarning, unreturnedVehicleWarning, trailerWarning)}
+                onClick={() => handleSubmit(true, licenseWarning, prdpWarning, unreturnedVehicleWarning, trailerWarning, serviceOverdueWarning)}
                 disabled={loading}
                 className="w-full bg-red-600 text-white py-4 rounded-lg font-semibold hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
@@ -1743,6 +1848,108 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                   setIsFirstDraw(false);
                   setUnreturnedVehicleWarning(false);
                   setPreviousDriverInfo(null);
+                }}
+                className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Select Different Vehicle
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === 'confirm-service-overdue' && serviceOverdueInfo && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold text-red-900 mb-4 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              Service Overdue Warning
+            </h2>
+
+            <div className="bg-red-50 rounded-lg p-4 mb-6">
+              <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-3" />
+              <p className="text-sm font-medium text-red-900 text-center mb-4">
+                This vehicle is overdue for service and should not be driven.
+              </p>
+
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-red-700">Last Service KM:</span>
+                  <span className="text-lg font-bold text-red-900">{serviceOverdueInfo.lastServiceKm.toLocaleString()} km</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-red-700">Next Service Due At:</span>
+                  <span className="text-lg font-bold text-red-900">{serviceOverdueInfo.nextServiceKm.toLocaleString()} km</span>
+                </div>
+                {serviceOverdueInfo.lastServiceDate && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-red-700">Last Service Date:</span>
+                    <span className="text-lg font-bold text-red-900">
+                      {new Date(serviceOverdueInfo.lastServiceDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-red-200">
+                <p className="text-sm text-red-900 font-medium">Vehicle Details:</p>
+                <p className="text-base font-bold text-red-900">{selectedVehicle?.registration_number}</p>
+                <p className="text-sm text-red-700">{selectedVehicle?.make} {selectedVehicle?.model}</p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+              <p className="text-sm font-medium text-amber-900 mb-2">Important Information:</p>
+              <ul className="text-xs text-amber-800 space-y-1 list-disc list-inside">
+                <li>Driving a vehicle past its service interval can cause engine damage</li>
+                <li>The vehicle may not be safe to operate</li>
+                <li>Insurance coverage may be affected if the vehicle is not serviced on schedule</li>
+                <li>This exception will be logged and reported to management</li>
+                <li>An email notification will be sent to your organization's main user and vehicle user</li>
+              </ul>
+            </div>
+
+            <p className="text-sm text-gray-700 mb-6">
+              It is strongly recommended that you service this vehicle before driving it.
+              If you choose to proceed, an exception report will be logged and management will be notified.
+            </p>
+
+            <div className="space-y-3">
+              <button
+                onClick={async () => {
+                  // Check driver's license qualification
+                  const isQualified = await checkDriverLicenseQualifies(driverId, selectedVehicle!);
+                  if (!isQualified) {
+                    setLicenseWarning(true);
+                    setStep('confirm-license-warning');
+                    return;
+                  }
+
+                  setLicenseWarning(false);
+
+                  const hasPrdp = checkDriverPrdpQualifies(selectedVehicle!);
+                  if (!hasPrdp) {
+                    setPrdpWarning(true);
+                    setStep('confirm-prdp-warning');
+                    return;
+                  }
+
+                  setPrdpWarning(false);
+                  await loadExpectedOdometer(selectedVehicle!.id);
+                  goToOdometer();
+                }}
+                className="w-full bg-amber-600 text-white py-4 rounded-lg font-semibold hover:bg-amber-700 transition-colors"
+              >
+                I Understand, Continue Anyway
+              </button>
+
+              <button
+                onClick={() => {
+                  setStep('scan');
+                  setSelectedVehicle(null);
+                  setOdometerReading('');
+                  setExpectedOdometer(null);
+                  setIsFirstDraw(false);
+                  setServiceOverdueWarning(false);
+                  setServiceOverdueInfo(null);
                 }}
                 className="w-full bg-white border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
               >
