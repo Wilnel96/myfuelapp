@@ -27,6 +27,7 @@ interface ClientOrganization {
   year_end_month: number | null;
   year_end_day: number | null;
   monthly_fee_per_vehicle: number | null;
+  monthly_fee_per_driver: number | null;
   parent_org_id: string | null;
   is_garage_managed: boolean | null;
   managing_garage_id: string | null;
@@ -64,6 +65,7 @@ interface FormData {
   year_end_month: string;
   year_end_day: string;
   monthly_fee_per_vehicle: string;
+  monthly_fee_per_driver: string;
   bank_name: string;
   bank_account_holder: string;
   bank_account_number: string;
@@ -158,6 +160,7 @@ export default function ClientOrganizations() {
     year_end_month: '2',
     year_end_day: '28',
     monthly_fee_per_vehicle: '0.00',
+    monthly_fee_per_driver: '0.00',
     bank_name: '',
     bank_account_holder: '',
     bank_account_number: '',
@@ -307,6 +310,7 @@ export default function ClientOrganizations() {
         year_end_month: formData.year_end_month ? parseInt(formData.year_end_month) : null,
         year_end_day: formData.year_end_day ? parseInt(formData.year_end_day) : null,
         monthly_fee_per_vehicle: formData.monthly_fee_per_vehicle ? parseFloat(formData.monthly_fee_per_vehicle) : null,
+        monthly_fee_per_driver: formData.monthly_fee_per_driver ? parseFloat(formData.monthly_fee_per_driver) : null,
         bank_name: formData.bank_name || null,
         bank_account_holder: formData.bank_account_holder || null,
         bank_account_number: formData.bank_account_number || null,
@@ -580,6 +584,7 @@ export default function ClientOrganizations() {
         year_end_month: orgToUse.year_end_month?.toString() || '2',
         year_end_day: orgToUse.year_end_day?.toString() || '28',
         monthly_fee_per_vehicle: orgToUse.monthly_fee_per_vehicle?.toString() || '0.00',
+        monthly_fee_per_driver: orgToUse.monthly_fee_per_driver?.toString() || '0.00',
         bank_name: orgToUse.bank_name || '',
         bank_account_holder: orgToUse.bank_account_holder || '',
         bank_account_number: orgToUse.bank_account_number || '',
@@ -706,6 +711,7 @@ export default function ClientOrganizations() {
       year_end_month: '2',
       year_end_day: '28',
       monthly_fee_per_vehicle: '0.00',
+      monthly_fee_per_driver: '0.00',
       managing_user_email: '',
       managing_user_name: '',
       managing_user_surname: '',
@@ -912,18 +918,33 @@ export default function ClientOrganizations() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Monthly Fee Per Vehicle (ZAR)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.monthly_fee_per_vehicle}
-                  onChange={(e) => setFormData({ ...formData, monthly_fee_per_vehicle: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monthly Fee Per Vehicle (ZAR)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.monthly_fee_per_vehicle}
+                    onChange={(e) => setFormData({ ...formData, monthly_fee_per_vehicle: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monthly Fee Per Driver (ZAR)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.monthly_fee_per_driver}
+                    onChange={(e) => setFormData({ ...formData, monthly_fee_per_driver: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
 
               <div>
