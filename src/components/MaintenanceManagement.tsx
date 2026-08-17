@@ -44,6 +44,7 @@ const SERVICE_ITEMS = [
   'Transmission Fluid Change',
   'Differential Fluid Change',
   'General Inspection',
+  'Other',
 ];
 
 const OTHER_ITEMS = [
@@ -90,6 +91,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
     cost: '',
     workshop: '',
     maintenance_items: [] as string[],
+    custom_item_description: '',
   });
 
   useEffect(() => {
@@ -189,15 +191,24 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
       ...prev,
       maintenance_type: type,
       maintenance_items: [],
+      custom_item_description: '',
     }));
   };
+
+  const isOtherSelected = formData.maintenance_items.includes('Other');
 
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVehicle || !formData.maintenance_date) return;
 
+    const itemsForSave = [...formData.maintenance_items];
+    if (itemsForSave.includes('Other') && formData.custom_item_description.trim()) {
+      const idx = itemsForSave.indexOf('Other');
+      itemsForSave[idx] = `Other: ${formData.custom_item_description.trim()}`;
+    }
+
     const description = formData.description.trim() ||
-      (formData.maintenance_items.length > 0 ? formData.maintenance_items.join(', ') : '');
+      (itemsForSave.length > 0 ? itemsForSave.join(', ') : '');
     if (!description) return;
 
     setSaving(true);
@@ -218,8 +229,8 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
         insertData.odometer_reading = parseInt(formData.odometer_reading);
       }
 
-      if (formData.maintenance_items.length > 0) {
-        insertData.maintenance_items = formData.maintenance_items;
+      if (itemsForSave.length > 0) {
+        insertData.maintenance_items = itemsForSave;
       }
 
       if (user) {
@@ -244,6 +255,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
         cost: '',
         workshop: '',
         maintenance_items: [],
+        custom_item_description: '',
       });
       await loadRecords(selectedVehicle.id);
       await loadVehicles();
@@ -481,6 +493,20 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                     <p className="text-xs text-gray-500 mt-1">
                       {formData.maintenance_items.length} item{formData.maintenance_items.length !== 1 ? 's' : ''} selected
                     </p>
+                  )}
+                  {isOtherSelected && (
+                    <div className="mt-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Describe "Other"
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.custom_item_description}
+                        onChange={(e) => setFormData({ ...formData, custom_item_description: e.target.value })}
+                        placeholder="Enter a description for the custom maintenance item"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      />
+                    </div>
                   )}
                 </div>
 
