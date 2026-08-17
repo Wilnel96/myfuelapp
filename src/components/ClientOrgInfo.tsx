@@ -21,6 +21,8 @@ interface ClientOrganization {
   fuel_payment_terms: string | null;
   fuel_payment_interest_rate: number | null;
   phone_number: string | null;
+  monthly_fee_per_vehicle: number | null;
+  monthly_fee_per_driver: number | null;
   main_user_name?: string | null;
   main_user_surname?: string | null;
   main_user_email?: string | null;
@@ -234,6 +236,8 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
           fuel_payment_terms: null,
           fuel_payment_interest_rate: null,
           phone_number: editForm.phone_number,
+          monthly_fee_per_vehicle: editForm.monthly_fee_per_vehicle === undefined ? null : (editForm.monthly_fee_per_vehicle === '' ? null : Number(editForm.monthly_fee_per_vehicle)),
+          monthly_fee_per_driver: editForm.monthly_fee_per_driver === undefined ? null : (editForm.monthly_fee_per_driver === '' ? null : Number(editForm.monthly_fee_per_driver)),
         })
         .eq('id', editingId)
         .select();
@@ -727,6 +731,36 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                 </div>
 
                 <div className="border-t pt-2 mt-2">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Monthly Fees</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Fee Per Vehicle (R/month)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editForm.monthly_fee_per_vehicle ?? ''}
+                        onChange={(e) => setEditForm({ ...editForm, monthly_fee_per_vehicle: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        placeholder="e.g. 50.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Fee Per Driver (R/month)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editForm.monthly_fee_per_driver ?? ''}
+                        onChange={(e) => setEditForm({ ...editForm, monthly_fee_per_driver: e.target.value === '' ? null : parseFloat(e.target.value) })}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        placeholder="e.g. 30.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-2 mt-2">
                   <h4 className="text-sm font-semibold text-gray-900 mb-2">Payment Configuration</h4>
                   <div className="space-y-2">
                     <div>
@@ -960,6 +994,20 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                         <div>
                           <label className="block text-xs font-medium text-gray-500 mb-0.5">Office Phone</label>
                           <p className="text-gray-900">{org.billing_user_phone_office || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-span-2 border-t pt-3 mt-3">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Monthly Fees</h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-0.5">Fee Per Vehicle</label>
+                          <p className="text-gray-900">{org.monthly_fee_per_vehicle != null ? `R ${org.monthly_fee_per_vehicle.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'Not set'}</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-0.5">Fee Per Driver</label>
+                          <p className="text-gray-900">{org.monthly_fee_per_driver != null ? `R ${org.monthly_fee_per_driver.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'Not set'}</p>
                         </div>
                       </div>
                     </div>

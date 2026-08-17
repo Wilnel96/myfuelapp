@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 
 interface FeeStructure {
   monthly_fee_per_vehicle: number | null;
+  monthly_fee_per_driver: number | null;
   daily_spending_limit: number | null;
   monthly_spending_limit: number | null;
   payment_method: string | null;
@@ -41,7 +42,7 @@ export default function FeeStructureView({ onNavigate }: FeeStructureViewProps =
 
       const { data: org, error: orgError } = await supabase
         .from('organizations')
-        .select('monthly_fee_per_vehicle, daily_spending_limit, monthly_spending_limit, payment_method, payment_date, payment_terms, late_payment_interest_rate')
+        .select('monthly_fee_per_vehicle, monthly_fee_per_driver, daily_spending_limit, monthly_spending_limit, payment_method, payment_date, payment_terms, late_payment_interest_rate')
         .eq('id', profile.organization_id)
         .single();
 
@@ -107,6 +108,11 @@ export default function FeeStructureView({ onNavigate }: FeeStructureViewProps =
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 flex justify-between items-center">
             <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Monthly Fee Per Vehicle</label>
             <p className="text-xl font-bold text-gray-900">{formatCurrency(feeStructure?.monthly_fee_per_vehicle)}</p>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 flex justify-between items-center">
+            <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Monthly Fee Per Driver</label>
+            <p className="text-xl font-bold text-gray-900">{formatCurrency(feeStructure?.monthly_fee_per_driver)}</p>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 flex justify-between items-center">
