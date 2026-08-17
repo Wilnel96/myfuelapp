@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wrench, Plus, Trash2, X, Search, ArrowLeft, DollarSign, Calendar, Truck } from 'lucide-react';
+import { Wrench, Plus, Trash2, X, Search, ArrowLeft, DollarSign, Calendar, Truck, CheckSquare, Square } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Vehicle {
@@ -22,12 +22,53 @@ interface MaintenanceRecord {
   odometer_reading: number | null;
   cost: number;
   workshop: string | null;
+  maintenance_items?: string[] | null;
   created_at: string;
 }
 
 interface MaintenanceManagementProps {
   onNavigate?: (view: string | null) => void;
 }
+
+const SERVICE_ITEMS = [
+  'Minor Service',
+  'Major Service',
+  'Oil Change',
+  'Oil Filter Replacement',
+  'Air Filter Replacement',
+  'Fuel Filter Replacement',
+  'Cabin Filter Replacement',
+  'Spark Plug Replacement',
+  'Coolant Flush',
+  'Brake Fluid Change',
+  'Transmission Fluid Change',
+  'Differential Fluid Change',
+  'General Inspection',
+];
+
+const OTHER_ITEMS = [
+  'Tire Replacement',
+  'Tire Rotation',
+  'Wheel Alignment',
+  'Brake Pads',
+  'Brake Discs',
+  'Brake Calipers',
+  'Battery Replacement',
+  'Alternator Repair',
+  'Starter Motor Repair',
+  'Clutch Replacement',
+  'Shock Absorbers',
+  'Exhaust Repair',
+  'Engine Repair',
+  'Gearbox Repair',
+  'Differential Repair',
+  'Electrical Fault',
+  'Bodywork / Panel Beating',
+  'Windscreen Replacement',
+  'Air Conditioning Service',
+  'Tow Bar Fitment',
+  'Other',
+];
 
 export default function MaintenanceManagement({ onNavigate }: MaintenanceManagementProps = {}) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -48,6 +89,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
     odometer_reading: '',
     cost: '',
     workshop: '',
+    maintenance_items: [] as string[],
   });
 
   useEffect(() => {
@@ -131,9 +173,32 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
     setShowAddForm(false);
   };
 
+  const toggleItem = (item: string) => {
+    setFormData(prev => {
+      const items = prev.maintenance_items.includes(item)
+        ? prev.maintenance_items.filter(i => i !== item)
+        : [...prev.maintenance_items, item];
+      return { ...prev, maintenance_items: items };
+    });
+  };
+
+  const availableItems = formData.maintenance_type === 'service' ? SERVICE_ITEMS : OTHER_ITEMS;
+
+  const handleTypeChange = (type: 'service' | 'other') => {
+    setFormData(prev => ({
+      ...prev,
+      maintenance_type: type,
+      maintenance_items: [],
+    }));
+  };
+
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedVehicle || !formData.description.trim() || !formData.maintenance_date) return;
+    if (!selectedVehicle || !formData.maintenance_date) return;
+
+    const description = formData.description.trim() ||
+      (formData.maintenance_items.length > 0 ? formData.maintenance_items.join(', ') : '');
+    if (!description) return;
 
     setSaving(true);
     try {
@@ -143,7 +208,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
         vehicle_id: selectedVehicle.id,
         organization_id: orgId,
         maintenance_type: formData.maintenance_type,
-        description: formData.description.trim(),
+        description,
         maintenance_date: formData.maintenance_date,
         cost: parseFloat(formData.cost) || 0,
         workshop: formData.workshop.trim() || null,
@@ -151,6 +216,10 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
 
       if (formData.odometer_reading) {
         insertData.odometer_reading = parseInt(formData.odometer_reading);
+      }
+
+      if (formData.maintenance_items.length > 0) {
+        insertData.maintenance_items = formData.maintenance_items;
       }
 
       if (user) {
@@ -174,6 +243,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
         odometer_reading: '',
         cost: '',
         workshop: '',
+        maintenance_items: [],
       });
       await loadRecords(selectedVehicle.id);
       await loadVehicles();
@@ -291,6 +361,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Odometer</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Workshop</th>
@@ -301,7 +372,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                 <tbody className="divide-y divide-gray-200">
                   {records.map((record) => (
                     <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatDate(record.maintenance_date)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDate(record.maintenance_date)}</td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           record.maintenance_type === 'service'
@@ -311,12 +382,25 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                           {record.maintenance_type === 'service' ? 'Service' : 'Other'}
                         </span>
                       </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">
+                        {record.maintenance_items && record.maintenance_items.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {record.maintenance_items.map((item, i) => (
+                              <span key={i} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs whitespace-nowrap">
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{record.description}</td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900">
+                      <td className="px-4 py-3 text-sm text-right text-gray-900 whitespace-nowrap">
                         {record.odometer_reading ? record.odometer_reading.toLocaleString() : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{record.workshop || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">{formatCurrency(parseFloat(String(record.cost || 0)))}</td>
+                      <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 whitespace-nowrap">{formatCurrency(parseFloat(String(record.cost || 0)))}</td>
                       <td className="px-4 py-3 text-right">
                         <button
                           onClick={() => handleDeleteRecord(record.id)}
@@ -331,7 +415,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr className="font-semibold">
-                    <td colSpan={5} className="px-4 py-3 text-sm text-gray-900 text-right">Total:</td>
+                    <td colSpan={6} className="px-4 py-3 text-sm text-gray-900 text-right">Total:</td>
                     <td className="px-4 py-3 text-sm text-right text-gray-900">{formatCurrency(totalMaintenanceCost)}</td>
                     <td></td>
                   </tr>
@@ -343,26 +427,63 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
 
         {/* Add maintenance record modal */}
         {showAddForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full my-8 max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
                 <h3 className="text-lg font-semibold text-gray-900">Log Maintenance Record</h3>
                 <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <form onSubmit={handleAddRecord} className="p-6 space-y-4">
+              <form onSubmit={handleAddRecord} className="p-6 space-y-4 overflow-y-auto">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Maintenance Type</label>
                   <select
                     value={formData.maintenance_type}
-                    onChange={(e) => setFormData({ ...formData, maintenance_type: e.target.value as 'service' | 'other' })}
+                    onChange={(e) => handleTypeChange(e.target.value as 'service' | 'other')}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   >
                     <option value="service">Service</option>
                     <option value="other">Other Maintenance</option>
                   </select>
                 </div>
+
+                {/* Selectable maintenance items */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Maintenance Items
+                    <span className="text-gray-400 font-normal ml-1">(select all that apply)</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-3 bg-gray-50">
+                    {availableItems.map((item) => {
+                      const selected = formData.maintenance_items.includes(item);
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => toggleItem(item)}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-left transition-colors ${
+                            selected
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white text-gray-700 hover:bg-blue-50 border border-gray-200'
+                          }`}
+                        >
+                          {selected
+                            ? <CheckSquare className="w-4 h-4 flex-shrink-0" />
+                            : <Square className="w-4 h-4 flex-shrink-0 text-gray-400" />
+                          }
+                          <span>{item}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {formData.maintenance_items.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {formData.maintenance_items.length} item{formData.maintenance_items.length !== 1 ? 's' : ''} selected
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
                   <input
@@ -374,13 +495,17 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                    <span className="text-gray-400 font-normal ml-1">
+                      {formData.maintenance_items.length > 0 ? '(auto-filled from items if left blank)' : '*'}
+                    </span>
+                  </label>
                   <input
                     type="text"
-                    required
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="e.g. Oil change, brake pads, tire rotation"
+                    placeholder="e.g. 90,000 km major service"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   />
                 </div>
@@ -418,7 +543,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   />
                 </div>
-                <div className="flex gap-3 pt-2">
+                <div className="flex gap-3 pt-2 flex-shrink-0">
                   <button
                     type="button"
                     onClick={() => setShowAddForm(false)}
@@ -520,3 +645,6 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
     </div>
   );
 }
+
+
+export default MaintenanceManagement
