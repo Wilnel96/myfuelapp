@@ -1,4 +1,4 @@
-import { Building2, Store, Truck, Users, FileText, BarChart3, Database, Fuel, Package } from 'lucide-react';
+import { Building2, Store, Truck, Users, FileText, BarChart3, Database, Fuel, Package, Wrench } from 'lucide-react';
 
 interface MgmtPermissions {
   is_main_user?: boolean;
@@ -55,6 +55,14 @@ export default function SuperAdminDashboard({ onNavigate, permissions, isRealSup
       description: 'View and manage client trailers',
       icon: Package,
       color: 'teal',
+      gate: true,
+    },
+    {
+      id: 'maintenance',
+      title: 'Maintenance',
+      description: 'Log and track vehicle service and maintenance records',
+      icon: Wrench,
+      color: 'amber',
       gate: true,
     },
     {
