@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName } from '../lib/fuelTypes';
-import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare, Clock } from 'lucide-react';
+import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare, Clock, DollarSign } from 'lucide-react';
 import DailyTripReport from './DailyTripReport';
 import UnreturnedVehiclesReport from './UnreturnedVehiclesReport';
 import VehicleReturnNotesReport from './VehicleReturnNotesReport';
@@ -25,6 +25,7 @@ const regularReportTypes: ReportType[] = [
     { id: 'overview', name: 'Fuel Transactions', description: 'General fuel purchase statistics', icon: BarChart3 },
     { id: 'driver', name: 'Driver Reports', description: 'Performance and usage by driver', icon: FileText },
     { id: 'vehicle', name: 'Vehicle Reports', description: 'Efficiency and usage by vehicle', icon: TrendingUp },
+    { id: 'vehicle-running-cost', name: 'Vehicle Total Running Cost', description: 'Combined fuel and maintenance cost per vehicle', icon: DollarSign },
     { id: 'vehicles-to-service', name: 'Vehicles to be Serviced', description: 'Vehicles within 1000 km of service', icon: Wrench },
     { id: 'service-due', name: 'Next Service Due Date', description: 'Estimated service due dates for vehicles', icon: Wrench },
     { id: 'vehicles-overdue-service', name: 'Vehicles Overdue for Service', description: 'Vehicles that exceeded service interval', icon: AlertCircle },
@@ -170,6 +171,9 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
           break;
         case 'vehicles-to-service':
           await loadVehiclesToServiceData(profile.organization_id);
+          break;
+        case 'vehicle-running-cost':
+          await loadVehicleRunningCostData(profile.organization_id, startDate, endDate);
           break;
         case 'vehicles-overdue-service':
           await loadVehiclesOverdueServiceData(profile.organization_id);
@@ -820,6 +824,101 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
     setReportData({ serviceDue: serviceDueData });
   };
 
+  const loadVehicleRunningCostData = async (orgId: string, start: string, end: string) => {
+    const startDateTime = createLocalDateString(start);
+    const endDateTime = createLocalDateString(end, true);
+
+    // Get all vehicles for the organization
+    const { data: vehicles } = await supabase
+      .from('vehicles')
+      .select('id, registration_number, make, model')
+      .eq('organization_id', orgId)
+      .is('deleted_at', null)
+      .order('registration_number');
+
+    if (!vehicles || vehicles.length === 0) {
+      setReportData({ runningCost: [] });
+      return;
+    }
+
+    // Get fuel transactions in date range
+    const { data: fuelTxns } = await supabase
+      .from('fuel_transactions')
+      .select('vehicle_id, total_amount, odometer_reading, previous_odometer_reading')
+      .eq('organization_id', orgId)
+      .gte('transaction_date', startDateTime)
+      .lte('transaction_date', endDateTime);
+
+    // Get maintenance records in date range
+    const { data: maintRecords } = await supabase
+      .from('vehicle_maintenance_records')
+      .select('vehicle_id, maintenance_type, cost')
+      .eq('organization_id', orgId)
+      .gte('maintenance_date', start)
+      .lte('maintenance_date', end);
+
+    const vehicleMap: Record<string, {
+      vehicle_id: string;
+      license_plate: string;
+      make: string;
+      model: string;
+      fuel_cost: number;
+      service_cost: number;
+      other_maintenance_cost: number;
+      km_travelled: number;
+    }> = {};
+
+    vehicles.forEach((v: any) => {
+      vehicleMap[v.id] = {
+        vehicle_id: v.id,
+        license_plate: v.registration_number,
+        make: v.make || '',
+        model: v.model || '',
+        fuel_cost: 0,
+        service_cost: 0,
+        other_maintenance_cost: 0,
+        km_travelled: 0,
+      };
+    });
+
+    fuelTxns?.forEach((t: any) => {
+      const v = vehicleMap[t.vehicle_id];
+      if (v) {
+        v.fuel_cost += parseFloat(t.total_amount || 0);
+        const prev = t.previous_odometer_reading ? parseInt(t.previous_odometer_reading) : null;
+        const curr = t.odometer_reading ? parseInt(t.odometer_reading) : null;
+        if (prev && curr && curr > prev) {
+          v.km_travelled += curr - prev;
+        }
+      }
+    });
+
+    maintRecords?.forEach((r: any) => {
+      const v = vehicleMap[r.vehicle_id];
+      if (v) {
+        const cost = parseFloat(String(r.cost || 0));
+        if (r.maintenance_type === 'service') {
+          v.service_cost += cost;
+        } else {
+          v.other_maintenance_cost += cost;
+        }
+      }
+    });
+
+    const runningCostData = Object.values(vehicleMap)
+      .map((v: any) => {
+        const totalCost = v.fuel_cost + v.service_cost + v.other_maintenance_cost;
+        return {
+          ...v,
+          total_cost: totalCost,
+          cost_per_km: v.km_travelled > 0 ? totalCost / v.km_travelled : 0,
+        };
+      })
+      .sort((a: any, b: any) => b.total_cost - a.total_cost);
+
+    setReportData({ runningCost: runningCostData });
+  };
+
   const loadVehiclesToServiceData = async (orgId: string) => {
     const { data: vehicles } = await supabase
       .from('vehicles')
@@ -1016,6 +1115,14 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         csv = 'Vehicle,Last Service KM,Current Odometer,Service Interval (km),Next Service KM,KM Until Service,KM Since Last Service\n';
         reportData.vehiclesToService?.forEach((v: any) => {
           csv += `"${v.vehicle}",${v.last_service_km},${v.current_odometer},${v.service_interval_km},${v.next_service_km},${v.km_until_service},${v.km_since_service}\n`;
+        });
+        break;
+
+      case 'vehicle-running-cost':
+        csv = 'Vehicle,Fuel Cost,Service Cost,Other Maintenance Cost,Total Maintenance Cost,Total Running Cost,KM Travelled,Cost per KM\n';
+        reportData.runningCost?.forEach((v: any) => {
+          const totalMaintenance = v.service_cost + v.other_maintenance_cost;
+          csv += `"${v.license_plate} (${v.make} ${v.model})",${v.fuel_cost.toFixed(2)},${v.service_cost.toFixed(2)},${v.other_maintenance_cost.toFixed(2)},${totalMaintenance.toFixed(2)},${v.total_cost.toFixed(2)},${v.km_travelled},${v.cost_per_km > 0 ? v.cost_per_km.toFixed(2) : '-'}\n`;
         });
         break;
 
@@ -1576,6 +1683,67 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                             </tr>
                           ))}
                         </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {selectedReport === 'vehicle-running-cost' && reportData.runningCost && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4 text-gray-900">Vehicle Total Running Cost</h3>
+                {reportData.runningCost.length === 0 ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+                    <p className="text-gray-600">No vehicles found for this period.</p>
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-100 border-b border-gray-200">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Fuel Cost</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Service Cost</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Other Maint.</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Maint.</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Cost</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">KM Travelled</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost/KM</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {reportData.runningCost.map((v: any, idx: number) => {
+                            const totalMaintenance = v.service_cost + v.other_maintenance_cost;
+                            return (
+                              <tr key={idx} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-sm font-medium text-gray-900">{v.license_plate}</td>
+                                <td className="px-4 py-3 text-sm text-right text-gray-900">R {v.fuel_cost.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-sm text-right text-gray-900">R {v.service_cost.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-sm text-right text-gray-900">R {v.other_maintenance_cost.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-sm text-right text-gray-900">R {totalMaintenance.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-sm text-right font-bold text-gray-900">R {v.total_cost.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-sm text-right text-gray-900">{v.km_travelled.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-sm text-right font-medium text-blue-700">
+                                  {v.cost_per_km > 0 ? `R ${v.cost_per_km.toFixed(2)}` : '-'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot className="bg-gray-50 font-semibold">
+                          <tr>
+                            <td className="px-4 py-3 text-sm text-gray-900">TOTALS</td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + v.fuel_cost, 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + v.service_cost, 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + v.other_maintenance_cost, 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + v.service_cost + v.other_maintenance_cost, 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + v.total_cost, 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900">{reportData.runningCost.reduce((s: number, v: any) => s + v.km_travelled, 0).toLocaleString()}</td>
+                            <td className="px-4 py-3"></td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   </div>
