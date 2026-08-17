@@ -645,6 +645,3 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
     </div>
   );
 }
-
-
-export default MaintenanceManagement
