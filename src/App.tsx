@@ -1338,7 +1338,7 @@ function App() {
         ) : currentView === 'reports' ? (
           isRealSuperAdmin ? <ConsolidatedReports key="reports" onNavigate={setCurrentView} /> : <ReportsDashboard key="reports" onNavigate={setCurrentView} />
         ) : currentView === 'backoffice' ? (
-          (isRealSuperAdmin || (isManagementUser && mgmtPermissions?.can_access_back_office)) ? (
+          (isRealSuperAdmin || (isManagementUser && mgmtPermissions?.can_access_back_office) || (!isManagementUser && !isRealSuperAdmin)) ? (
             <BackOffice key="backoffice" userRole={userRole} isManagementOrg={isManagementUser} isRealSuperAdmin={isRealSuperAdmin} permissions={mgmtPermissions} paymentOption={paymentOption} onNavigateToMain={() => setCurrentView(null)} onNavigate={setCurrentView} />
           ) : (
             <div className="flex items-center justify-center min-h-[60vh]">
