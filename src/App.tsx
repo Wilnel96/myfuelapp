@@ -294,13 +294,25 @@ function App() {
             .maybeSingle(),
           supabase
             .from('organization_users')
-            .select('role, organization_id')
+            .select('role, organization_id, is_active')
             .eq('user_id', session.user.id)
             .maybeSingle()
         ]).then(async ([{ data: profile, error: profileError }, { data: orgUser }]) => {
             clearTimeout(profileTimeout);
 
             if (!mounted) return;
+
+            // Block login for deactivated (removed) org users — but allow super_admin
+            if (orgUser && orgUser.is_active === false && profile?.role !== 'super_admin') {
+              console.warn('Auth state - User is deactivated, blocking login');
+              await supabase.auth.signOut();
+              setPortalError('Your account has been deactivated. Please contact your organization administrator.');
+              setSession(null);
+              setUserMode(null);
+              setShowModeSelection(true);
+              setLoading(false);
+              return;
+            }
 
             // Check if user must change password before proceeding
             if (profile?.password_change_required) {
@@ -555,11 +567,23 @@ function App() {
             .maybeSingle(),
           supabase
             .from('organization_users')
-            .select('role, organization_id')
+            .select('role, organization_id, is_active')
             .eq('user_id', currentSession.user.id)
             .maybeSingle()
         ]).then(async ([{ data: profile }, { data: orgUser }]) => {
             if (!mounted) return;
+
+            // Block login for deactivated (removed) org users — but allow super_admin
+            if (orgUser && orgUser.is_active === false && profile?.role !== 'super_admin') {
+              console.warn('On mount - User is deactivated, blocking login');
+              await supabase.auth.signOut();
+              setPortalError('Your account has been deactivated. Please contact your organization administrator.');
+              setSession(null);
+              setUserMode(null);
+              setShowModeSelection(true);
+              setLoading(false);
+              return;
+            }
 
             // Check if user must change password before proceeding
             if (profile?.password_change_required) {

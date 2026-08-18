@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Users, Plus, CreditCard as Edit2, Trash2, Save, X, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Users, Plus, CreditCard as Edit2, Trash2, Save, X, AlertCircle, CheckCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 
 interface Organization {
   id: string;
@@ -392,9 +392,14 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         'User': 6
       };
 
-      // Sort by title hierarchy, then by secondary main user status, then by main user status, then by name
+      // Sort by active status first (active users on top, deactivated on bottom)
+      // Then by title hierarchy, then by secondary main user status, then by main user status, then by name
       const sortedData = (data || []).sort((a, b) => {
-        // First, sort by main user status (main users first)
+        // First, sort by active status (active users first)
+        if (a.is_active !== false && b.is_active === false) return -1;
+        if (a.is_active === false && b.is_active !== false) return 1;
+
+        // Then by main user status (main users first)
         if (a.is_main_user && !b.is_main_user) return -1;
         if (!a.is_main_user && b.is_main_user) return 1;
 
@@ -800,22 +805,43 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    if (!confirm('Are you sure you want to remove this user? They will no longer be able to log in or access the system. You can reactivate them later if they return.')) return;
 
     try {
       setError('');
-      const { error: deleteError } = await supabase
+      const { error: updateError } = await supabase
         .from('organization_users')
-        .delete()
+        .update({ is_active: false, is_main_user: false, is_secondary_main_user: false })
         .eq('id', userId);
 
-      if (deleteError) throw deleteError;
+      if (updateError) throw updateError;
 
-      setSuccess('User deleted successfully');
+      setSuccess('User deactivated successfully. They can no longer log in.');
       loadUsers();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      console.error('Error deleting user:', err);
+      console.error('Error deactivating user:', err);
+      setError(err.message);
+    }
+  };
+
+  const handleReactivateUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to reactivate this user? They will be able to log in again.')) return;
+
+    try {
+      setError('');
+      const { error: updateError } = await supabase
+        .from('organization_users')
+        .update({ is_active: true })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+
+      setSuccess('User reactivated successfully. They can now log in again.');
+      loadUsers();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err: any) {
+      console.error('Error reactivating user:', err);
       setError(err.message);
     }
   };
@@ -2174,8 +2200,19 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
 
                 {viewingUserId === user.id && (
                   <div className="border-t border-gray-200 p-6">
-                    {!user.is_main_user && (
-                      <div className="flex items-center justify-end gap-2 mb-4">
+                    <div className="flex items-center justify-end gap-2 mb-4">
+                      {user.is_active === false ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReactivateUser(user.id);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span className="text-sm">Reactivate</span>
+                        </button>
+                      ) : !user.is_main_user ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -2184,10 +2221,10 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                           className="flex items-center gap-1 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
-                          <span className="text-sm">Delete</span>
+                          <span className="text-sm">Deactivate</span>
                         </button>
-                      </div>
-                    )}
+                      ) : null}
+                    </div>
 
                     <div className="space-y-4">
                   <div className="grid md:grid-cols-2 gap-4">
