@@ -1736,18 +1736,51 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
 
             {editingUser.is_secondary_main_user && (
               <div className="bg-orange-50 border border-orange-200 rounded p-2">
-                <h5 className="text-xs font-semibold text-orange-900 mb-1">Remove Secondary Main User Status</h5>
+                <h5 className="text-xs font-semibold text-orange-900 mb-1">Secondary Main User Actions</h5>
                 <p className="text-xs text-orange-700 mb-2">
-                  Remove Secondary Main User status from this user. You can then set custom permissions for them.
+                  Remove their secondary main user status to demote them to a regular role, or deactivate them entirely if they are leaving the organization.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setDemotingUserId(editingUser.id);
+                      setShowDemoteDialog(true);
+                    }}
+                    className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors text-xs"
+                  >
+                    Remove Secondary Main User Status
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to deactivate this user? They will no longer be able to log in or access the system. You can reactivate them later if they return.')) {
+                        handleDeleteUser(editingUser.id);
+                        setEditingUser(null);
+                      }
+                    }}
+                    className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs"
+                  >
+                    Deactivate User
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!editingUser.is_main_user && !editingUser.is_secondary_main_user && (
+              <div className="bg-red-50 border border-red-200 rounded p-2">
+                <h5 className="text-xs font-semibold text-red-900 mb-1">Deactivate User</h5>
+                <p className="text-xs text-red-700 mb-2">
+                  Deactivate this user if they have left the organization. They will no longer be able to log in. You can reactivate them later if they return.
                 </p>
                 <button
                   onClick={() => {
-                    setDemotingUserId(editingUser.id);
-                    setShowDemoteDialog(true);
+                    if (confirm('Are you sure you want to deactivate this user? They will no longer be able to log in or access the system. You can reactivate them later if they return.')) {
+                      handleDeleteUser(editingUser.id);
+                      setEditingUser(null);
+                    }
                   }}
-                  className="px-3 py-1 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors text-xs"
+                  className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-xs"
                 >
-                  Remove Secondary Main User Status
+                  Deactivate User
                 </button>
               </div>
             )}
