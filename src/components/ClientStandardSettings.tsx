@@ -488,7 +488,7 @@ export default function ClientStandardSettings({ onBack, readOnly = false }: Cli
                 <Car className="w-4 h-4 text-teal-600" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-800">Monthly Fee per Vehicle (R)</p>
+                <p className="text-sm font-semibold text-gray-800">Monthly Fee per Vehicle (R, excl. VAT)</p>
                 <p className="text-xs text-gray-500">Current standard: <span className="font-medium text-gray-700">R{parseFloat(globalV || '0').toFixed(2)}/vehicle/month</span></p>
               </div>
             </div>
@@ -528,7 +528,7 @@ export default function ClientStandardSettings({ onBack, readOnly = false }: Cli
                 <Users className="w-4 h-4 text-blue-600" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-gray-800">Monthly Fee per Driver (R)</p>
+                <p className="text-sm font-semibold text-gray-800">Monthly Fee per Driver (R, excl. VAT)</p>
                 <p className="text-xs text-gray-500">Current standard: <span className="font-medium text-gray-700">R{parseFloat(globalD || '0').toFixed(2)}/driver/month</span></p>
               </div>
             </div>

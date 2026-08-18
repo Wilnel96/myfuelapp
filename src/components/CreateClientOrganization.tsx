@@ -2297,7 +2297,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                Monthly Fee Per Vehicle (R)
+                Monthly Fee Per Vehicle (R, excl. VAT)
               </label>
               <input
                 type="number"
@@ -2310,7 +2310,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                Monthly Fee Per Driver (R)
+                Monthly Fee Per Driver (R, excl. VAT)
               </label>
               <input
                 type="number"

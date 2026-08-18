@@ -498,7 +498,7 @@ export default function OrganizationInfo() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Fee Per Vehicle (ZAR)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Fee Per Vehicle (ZAR, excl. VAT)</label>
                       <input
                         type="number"
                         value={organization.monthly_fee_per_vehicle}

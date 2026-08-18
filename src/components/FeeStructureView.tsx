@@ -106,12 +106,12 @@ export default function FeeStructureView({ onNavigate }: FeeStructureViewProps =
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="p-4 space-y-3">
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 flex justify-between items-center">
-            <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Monthly Fee Per Vehicle</label>
+            <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Monthly Fee Per Vehicle (excl. VAT)</label>
             <p className="text-xl font-bold text-gray-900">{formatCurrency(feeStructure?.monthly_fee_per_vehicle)}</p>
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 flex justify-between items-center">
-            <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Monthly Fee Per Driver</label>
+            <label className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Monthly Fee Per Driver (excl. VAT)</label>
             <p className="text-xl font-bold text-gray-900">{formatCurrency(feeStructure?.monthly_fee_per_driver)}</p>
           </div>
 
@@ -166,7 +166,7 @@ export default function FeeStructureView({ onNavigate }: FeeStructureViewProps =
           <div className="text-xs text-blue-800">
             <p className="font-semibold mb-1">Information</p>
             <ul className="space-y-0.5 list-disc list-inside">
-              <li>The monthly fee per vehicle is charged for each active vehicle in your fleet</li>
+              <li>The monthly fee per vehicle (excl. VAT) is charged for each active vehicle in your fleet</li>
               <li>Daily spending limits apply to all fuel purchases made by your organization in a single day</li>
               <li>Monthly spending limits apply to total fuel purchases across the entire month</li>
               <li>Payment terms define when invoices are due after issuance</li>

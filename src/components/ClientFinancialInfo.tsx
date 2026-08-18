@@ -315,7 +315,7 @@ export default function ClientFinancialInfo({ onNavigate, clientSelfMode = false
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                      Monthly Fee Per Vehicle (R)
+                      Monthly Fee Per Vehicle (R, excl. VAT)
                       {clientSelfMode && (
                         <span className="ml-1 text-[10px] font-normal text-gray-400">(set by Management)</span>
                       )}
@@ -333,7 +333,7 @@ export default function ClientFinancialInfo({ onNavigate, clientSelfMode = false
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                      Monthly Fee Per Driver (R)
+                      Monthly Fee Per Driver (R, excl. VAT)
                       {clientSelfMode && (
                         <span className="ml-1 text-[10px] font-normal text-gray-400">(set by Management)</span>
                       )}

@@ -734,7 +734,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                   <h4 className="text-sm font-semibold text-gray-900 mb-2">Monthly Fees</h4>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Fee Per Vehicle (R/month)</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Fee Per Vehicle (R/month, excl. VAT)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -746,7 +746,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Fee Per Driver (R/month)</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Fee Per Driver (R/month, excl. VAT)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -1002,11 +1002,11 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                       <h4 className="text-sm font-semibold text-gray-900 mb-2">Monthly Fees</h4>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-0.5">Fee Per Vehicle</label>
+                          <label className="block text-xs font-medium text-gray-500 mb-0.5">Fee Per Vehicle (excl. VAT)</label>
                           <p className="text-gray-900">{org.monthly_fee_per_vehicle != null ? `R ${org.monthly_fee_per_vehicle.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'Not set'}</p>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-0.5">Fee Per Driver</label>
+                          <label className="block text-xs font-medium text-gray-500 mb-0.5">Fee Per Driver (excl. VAT)</label>
                           <p className="text-gray-900">{org.monthly_fee_per_driver != null ? `R ${org.monthly_fee_per_driver.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'Not set'}</p>
                         </div>
                       </div>

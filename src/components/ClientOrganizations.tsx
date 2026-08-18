@@ -921,7 +921,7 @@ export default function ClientOrganizations() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Monthly Fee Per Vehicle (ZAR)
+                    Monthly Fee Per Vehicle (ZAR, excl. VAT)
                   </label>
                   <input
                     type="number"
@@ -934,7 +934,7 @@ export default function ClientOrganizations() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Monthly Fee Per Driver (ZAR)
+                    Monthly Fee Per Driver (ZAR, excl. VAT)
                   </label>
                   <input
                     type="number"
