@@ -123,33 +123,35 @@ export default function OrganizationInfo() {
 
       const isIndividual = organization.account_type === 'individual';
 
+      const upper = (v: string) => v ? v.toUpperCase() : v;
+
       const updatePayload: Record<string, unknown> = {
-        company_registration_number: organization.company_registration_number,
+        company_registration_number: upper(organization.company_registration_number),
         website: organization.website,
         month_end_day: organization.month_end_day,
         year_end_month: organization.year_end_month,
         year_end_day: organization.year_end_day,
-        bank_name: organization.bank_name,
-        bank_account_holder: organization.bank_account_holder,
-        bank_account_number: organization.bank_account_number,
-        bank_branch_code: organization.bank_branch_code,
+        bank_name: upper(organization.bank_name),
+        bank_account_holder: upper(organization.bank_account_holder),
+        bank_account_number: upper(organization.bank_account_number),
+        bank_branch_code: upper(organization.bank_branch_code),
         bank_account_type: organization.bank_account_type,
-        bank_name_2: organization.bank_name_2,
-        bank_account_holder_2: organization.bank_account_holder_2,
-        bank_account_number_2: organization.bank_account_number_2,
-        bank_branch_code_2: organization.bank_branch_code_2,
+        bank_name_2: upper(organization.bank_name_2),
+        bank_account_holder_2: upper(organization.bank_account_holder_2),
+        bank_account_number_2: upper(organization.bank_account_number_2),
+        bank_branch_code_2: upper(organization.bank_branch_code_2),
         bank_account_type_2: organization.bank_account_type_2,
       };
 
-      updatePayload.address_line_1 = organization.address_line_1;
-      updatePayload.address_line_2 = organization.address_line_2;
-      updatePayload.city = organization.city;
+      updatePayload.address_line_1 = upper(organization.address_line_1);
+      updatePayload.address_line_2 = upper(organization.address_line_2);
+      updatePayload.city = upper(organization.city);
       updatePayload.province = organization.province;
-      updatePayload.postal_code = organization.postal_code;
+      updatePayload.postal_code = upper(organization.postal_code);
 
       if (!isIndividual) {
-        updatePayload.vat_number = organization.vat_number;
-        updatePayload.country = organization.country;
+        updatePayload.vat_number = upper(organization.vat_number);
+        updatePayload.country = upper(organization.country);
       }
 
       const { error: updateError } = await supabase
@@ -165,8 +167,8 @@ export default function OrganizationInfo() {
 
         if (profile?.organization_id) {
           await supabase.from('organization_users').update({
-            phone_mobile: orgUser.phone_mobile,
-            phone_office: orgUser.phone_office,
+            phone_mobile: upper(orgUser.phone_mobile),
+            phone_office: upper(orgUser.phone_office),
           }).eq('user_id', currentUserId).eq('organization_id', profile.organization_id);
         }
       }

@@ -86,18 +86,20 @@ export default function OrganizationManagement({ onBack }: OrganizationManagemen
       setError('');
       setSuccess('');
 
+      const upper = (v: string | undefined) => v ? v.toUpperCase() : v;
+
       const { error: updateError } = await supabase
         .from('organizations')
         .update({
-          phone_number: editForm.phone_number,
-          address_line_1: editForm.address_line_1,
-          address_line_2: editForm.address_line_2,
-          city: editForm.city,
+          phone_number: upper(editForm.phone_number),
+          address_line_1: upper(editForm.address_line_1),
+          address_line_2: upper(editForm.address_line_2),
+          city: upper(editForm.city),
           province: editForm.province,
-          postal_code: editForm.postal_code,
-          country: editForm.country,
-          company_registration_number: editForm.company_registration_number,
-          vat_number: editForm.vat_number,
+          postal_code: upper(editForm.postal_code),
+          country: upper(editForm.country),
+          company_registration_number: upper(editForm.company_registration_number),
+          vat_number: upper(editForm.vat_number),
         })
         .eq('id', organization.id);
 
