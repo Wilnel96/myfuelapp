@@ -16,7 +16,7 @@ interface Vehicle {
 interface MaintenanceRecord {
   id: string;
   vehicle_id: string;
-  maintenance_type: 'service' | 'other';
+  maintenance_type: 'service' | 'other' | 'license_renewal' | 'insurance';
   description: string;
   maintenance_date: string;
   odometer_reading: number | null;
@@ -71,6 +71,28 @@ const OTHER_ITEMS = [
   'Other',
 ];
 
+const LICENSE_RENEWAL_ITEMS = [
+  'Annual License Renewal',
+  'Roadworthy Certificate',
+  'Vehicle Registration',
+  'License Disc Renewal',
+  'Change of Ownership',
+  'Deregistration',
+  'Re-registration',
+  'Other',
+];
+
+const INSURANCE_ITEMS = [
+  'Comprehensive Insurance',
+  'Third Party Insurance',
+  'Third Party Fire & Theft',
+  'Fleet Insurance Premium',
+  'Insurance Excess Payment',
+  'Insurance Claim Deductible',
+  'Gap Cover',
+  'Other',
+];
+
 export default function MaintenanceManagement({ onNavigate }: MaintenanceManagementProps = {}) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
@@ -84,7 +106,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
   const [orgId, setOrgId] = useState<string>('');
 
   const [formData, setFormData] = useState({
-    maintenance_type: 'service' as 'service' | 'other',
+    maintenance_type: 'service' as 'service' | 'other' | 'license_renewal' | 'insurance',
     description: '',
     maintenance_date: new Date().toISOString().split('T')[0],
     odometer_reading: '',
@@ -184,9 +206,16 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
     });
   };
 
-  const availableItems = formData.maintenance_type === 'service' ? SERVICE_ITEMS : OTHER_ITEMS;
+  const availableItems =
+    formData.maintenance_type === 'service'
+      ? SERVICE_ITEMS
+      : formData.maintenance_type === 'license_renewal'
+      ? LICENSE_RENEWAL_ITEMS
+      : formData.maintenance_type === 'insurance'
+      ? INSURANCE_ITEMS
+      : OTHER_ITEMS;
 
-  const handleTypeChange = (type: 'service' | 'other') => {
+  const handleTypeChange = (type: 'service' | 'other' | 'license_renewal' | 'insurance') => {
     setFormData(prev => ({
       ...prev,
       maintenance_type: type,
@@ -389,9 +418,19 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           record.maintenance_type === 'service'
                             ? 'bg-blue-100 text-blue-800'
+                            : record.maintenance_type === 'license_renewal'
+                            ? 'bg-green-100 text-green-800'
+                            : record.maintenance_type === 'insurance'
+                            ? 'bg-amber-100 text-amber-800'
                             : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {record.maintenance_type === 'service' ? 'Service' : 'Other'}
+                          {record.maintenance_type === 'service'
+                            ? 'Service'
+                            : record.maintenance_type === 'license_renewal'
+                            ? 'License Renewal'
+                            : record.maintenance_type === 'insurance'
+                            ? 'Insurance'
+                            : 'Other'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">
@@ -457,6 +496,8 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                   >
                     <option value="service">Service</option>
                     <option value="other">Other Maintenance</option>
+                    <option value="license_renewal">License Renewal</option>
+                    <option value="insurance">Insurance</option>
                   </select>
                 </div>
 
