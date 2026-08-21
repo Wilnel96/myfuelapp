@@ -1033,10 +1033,20 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
     setReportData({ vehiclesOverdueService: vehiclesOverdueServiceData });
   };
 
+  const getReportName = (id: string): string => {
+    const type = availableReportTypes.find(t => t.id === id);
+    return type ? type.name : id;
+  };
+
+  const formatDateDisplay = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
   const exportToCSV = () => {
     if (!reportData) return;
 
-    let csv = '';
+    const reportName = getReportName(selectedReport);
+    const headerLines = `${reportName}\nPeriod: ${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\n`;
+
+    let csv = headerLines;
     let filename = `${selectedReport}-report-${startDate}-to-${endDate}.csv`;
 
     switch (selectedReport) {
@@ -1097,7 +1107,6 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         break;
 
       case 'exceptions':
-        csv = 'Unresolved Vehicle Exceptions Report\n\n';
         csv += 'Date & Time,Vehicle,Driver,Exception Type,Garage (Actual Refuel),Description,Expected Value,Actual Value,Status\n';
         reportData.exceptions?.forEach((e: any) => {
           csv += `"${new Date(e.date).toLocaleString('en-GB')}","${e.vehicle}","${e.driver}","${e.exception_type}","${e.actual_garage || ''}","${e.description}","${e.expected_value || ''}","${e.actual_value || ''}","${e.resolved ? 'Resolved' : 'Pending'}"\n`;
@@ -1256,6 +1265,10 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
           </div>
         ) : reportData ? (
           <div className="space-y-4">
+            <div className="border-b border-gray-200 pb-3 mb-2">
+              <h2 className="text-xl font-bold text-gray-900">{getReportName(selectedReport)}</h2>
+              <p className="text-sm text-gray-500 mt-1">Period: {formatDateDisplay(startDate)} to {formatDateDisplay(endDate)}</p>
+            </div>
             {selectedReport === 'overview' && (
               <>
                 <div className={`grid grid-cols-1 gap-4 ${orgSettings?.is_management_org ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
