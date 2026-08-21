@@ -109,6 +109,8 @@ Deno.serve(async (req: Request) => {
       report.total_net += parseFloat(sale.net_amount);
     });
 
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+
     const emailsSent = [];
 
     for (const garageId in garageReports) {
@@ -119,13 +121,51 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      const emailBody = generateEmailBody(report, today);
+      const emailHtml = generateEmailBody(report, today);
+
+      let emailSent = false;
+      let emailError = "";
+
+      if (resendApiKey) {
+        const fromAddresses = [
+          "MyFuelApp <noreply@myfuelapp.net>",
+          "MyFuelApp <onboarding@resend.dev>",
+        ];
+
+        for (const fromAddr of fromAddresses) {
+          const emailResponse = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${resendApiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: fromAddr,
+              to: [report.garage_email],
+              subject: `Daily Sales Report - ${report.garage_name} - ${today}`,
+              html: emailHtml,
+            }),
+          });
+
+          if (emailResponse.ok) {
+            emailSent = true;
+            break;
+          }
+
+          emailError = `${fromAddr}: ${await emailResponse.text()}`;
+          console.error(`Failed to send from ${fromAddr}:`, emailError);
+        }
+      } else {
+        emailError = "RESEND_API_KEY not configured";
+      }
 
       emailsSent.push({
         garage: report.garage_name,
         email: report.garage_email,
         total_sales: report.sales.length,
         total_amount: report.total_rand,
+        email_sent: emailSent,
+        error: !emailSent ? emailError : undefined,
       });
     }
 

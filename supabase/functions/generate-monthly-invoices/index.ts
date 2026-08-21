@@ -200,6 +200,86 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Send email notification for each generated invoice
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+
+    for (const inv of invoicesGenerated) {
+      const orgId = (organizations as any[]).find((o) => o.name === inv.organization)?.id;
+      if (!orgId) continue;
+
+      const { data: orgUsers } = await supabase
+        .from("organization_users")
+        .select("email")
+        .eq("organization_id", orgId)
+        .eq("is_main_user", true)
+        .eq("active", true);
+
+      const recipientEmail = orgUsers?.[0]?.email;
+      if (!recipientEmail) {
+        console.log(`No main user email for ${inv.organization}, skipping email`);
+        continue;
+      }
+
+      if (!resendApiKey) {
+        console.log("RESEND_API_KEY not configured, skipping invoice email");
+        break;
+      }
+
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">MyFuelApp</h1>
+            <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">Monthly Invoice Generated</p>
+          </div>
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb;">
+            <h2 style="color: #1f2937; font-size: 20px; margin-top: 0;">Invoice ${inv.invoice_number}</h2>
+            <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
+              A new monthly invoice has been generated for <strong>${inv.organization}</strong>.
+            </p>
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+              <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Invoice Number:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${inv.invoice_number}</td></tr>
+              <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Vehicles:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${inv.vehicle_count}</td></tr>
+              <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Subtotal:</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">R ${inv.subtotal.toFixed(2)}</td></tr>
+              <tr><td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">VAT (15%):</td><td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">R ${inv.vat_amount.toFixed(2)}</td></tr>
+              <tr><td style="padding: 8px; font-weight: bold; font-size: 18px;">Total:</td><td style="padding: 8px; font-weight: bold; font-size: 18px; color: #2563eb;">R ${inv.total_amount.toFixed(2)}</td></tr>
+            </table>
+            <p style="color: #6b7280; font-size: 13px; margin-top: 20px;">
+              Please log in to your MyFuelApp portal to view the full invoice details and make payment.
+            </p>
+          </div>
+        </div>
+      `;
+
+      const fromAddresses = [
+        "MyFuelApp <noreply@myfuelapp.net>",
+        "MyFuelApp <onboarding@resend.dev>",
+      ];
+
+      for (const fromAddr of fromAddresses) {
+        const emailResponse = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: fromAddr,
+            to: [recipientEmail],
+            subject: `Invoice ${inv.invoice_number} - ${inv.organization}`,
+            html: emailHtml,
+          }),
+        });
+
+        if (emailResponse.ok) {
+          console.log(`Invoice email sent to ${recipientEmail} for ${inv.organization}`);
+          break;
+        }
+
+        const errBody = await emailResponse.text();
+        console.error(`Failed to send invoice email from ${fromAddr}:`, errBody);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
