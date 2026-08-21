@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, Download, FileText, TrendingUp, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { Calendar, Download, FileText, TrendingUp, AlertCircle, ChevronDown, ChevronRight, Mail, Truck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
+import EmailReportModal from './EmailReportModal';
 
 interface TripRecord {
   vehicle_id: string;
@@ -29,6 +30,13 @@ interface DayGroup {
   inProgress: number;
 }
 
+interface VehicleOption {
+  id: string;
+  registration_number: string;
+  make: string;
+  model: string;
+}
+
 interface DailyTripReportProps {
   organizationId?: string;
 }
@@ -43,6 +51,12 @@ function formatDateKey(d: Date): string {
 function formatDisplayDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatDisplayDateRange(start: string, end: string): string {
+  const s = new Date(start + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const e = new Date(end + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return `From: ${s}  To: ${e}`;
 }
 
 function enumerateDays(start: string, end: string): string[] {
@@ -75,6 +89,9 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
   const [totalKm, setTotalKm] = useState(0);
   const [organizationId, setOrganizationId] = useState<string | null>(propOrgId || null);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('all');
+  const [vehicles, setVehicles] = useState<VehicleOption[]>([]);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   useEffect(() => {
     loadOrganizationId();
@@ -83,6 +100,7 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
   useEffect(() => {
     if (organizationId) {
       loadTripData();
+      loadVehicles();
     }
   }, [startDate, endDate, organizationId]);
 
@@ -106,6 +124,16 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
     }
   };
 
+  const loadVehicles = async () => {
+    if (!organizationId) return;
+    const { data } = await supabase
+      .from('vehicles')
+      .select('id, registration_number, make, model')
+      .eq('organization_id', organizationId)
+      .order('registration_number', { ascending: true });
+    setVehicles(data || []);
+  };
+
   const loadTripData = async () => {
     if (!organizationId) return;
 
@@ -115,7 +143,7 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
       const startDateTime = new Date(startDate + 'T00:00:00');
       const endDateTime = new Date(endDate + 'T23:59:59.999');
 
-      const { data: draws, error: drawError } = await supabase
+      let query = supabase
         .from('vehicle_transactions')
         .select(`
           id,
@@ -144,6 +172,12 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
         .gte('created_at', startDateTime.toISOString())
         .lte('created_at', endDateTime.toISOString())
         .order('created_at', { ascending: true });
+
+      if (selectedVehicleId !== 'all') {
+        query = query.eq('vehicle_id', selectedVehicleId);
+      }
+
+      const { data: draws, error: drawError } = await query;
 
       if (drawError) throw drawError;
 
@@ -187,6 +221,13 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
           trailer_gvm: draw.trailers?.gvm_weight || null,
         });
       }
+
+      // Sort trips by vehicle registration, then by draw time
+      tripRecords.sort((a, b) => {
+        const regCompare = a.vehicle_registration.localeCompare(b.vehicle_registration);
+        if (regCompare !== 0) return regCompare;
+        return new Date(a.draw_time).getTime() - new Date(b.draw_time).getTime();
+      });
 
       setTrips(tripRecords);
       setTotalKm(totalKmTravelled);
@@ -239,18 +280,60 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
     });
   };
 
+  const selectedVehicleLabel = useMemo(() => {
+    if (selectedVehicleId === 'all') return 'All Vehicles';
+    const v = vehicles.find((v) => v.id === selectedVehicleId);
+    return v ? `${v.registration_number} (${v.make} ${v.model})` : 'All Vehicles';
+  }, [selectedVehicleId, vehicles]);
+
+  const buildEmailHtml = (): string => {
+    let html = `<p style="font-size:14px;color:#6b7280;margin:0 0 12px;">Vehicle: ${selectedVehicleLabel}</p>`;
+
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += '<thead><tr style="background:#f3f4f6;">';
+    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Date</th>';
+    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Vehicle</th>';
+    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Driver</th>';
+    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Draw Time</th>';
+    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Return Time</th>';
+    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:right;">KM</th>';
+    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Status</th>';
+    html += '</tr></thead><tbody>';
+
+    for (const group of dayGroups) {
+      if (group.trips.length === 0) {
+        html += `<tr><td colspan="7" style="padding:6px 8px;border:1px solid #e5e7eb;color:#9ca3af;">${formatDisplayDate(group.date)} — No trips</td></tr>`;
+      } else {
+        for (const trip of group.trips) {
+          html += '<tr>';
+          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${formatDisplayDate(group.date)}</td>`;
+          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${trip.vehicle_registration}<br/><span style="color:#6b7280;font-size:11px;">${trip.vehicle_make} ${trip.vehicle_model}</span></td>`;
+          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${trip.driver_name}</td>`;
+          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${new Date(trip.draw_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</td>`;
+          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${trip.return_time ? new Date(trip.return_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>`;
+          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;">${trip.km_travelled !== null ? trip.km_travelled.toLocaleString() + ' km' : '-'}</td>`;
+          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${trip.status === 'completed' ? 'Completed' : 'In Progress'}</td>`;
+          html += '</tr>';
+        }
+      }
+    }
+
+    html += '</tbody></table>';
+    html += `<p style="margin-top:16px;font-size:13px;"><strong>Total Trips:</strong> ${trips.length} &nbsp; <strong>Total KM:</strong> ${totalKm.toLocaleString()} km</p>`;
+    return html;
+  };
+
   const exportToExcel = () => {
     const worksheetData: any[] = [];
 
-    // Header rows
     worksheetData.push({
-      'Vehicle': 'Daily Trip Report',
+      'Vehicle': 'MyFuelApp.net - Daily Trip Report',
       'Make': '',
       'Model': '',
       'Driver': '',
       'Trailer': '',
       'Trailer GVM (kg)': '',
-      'Draw Date': `Period: ${new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB')} to ${new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB')}`,
+      'Draw Date': formatDisplayDateRange(startDate, endDate),
       'Draw Time': '',
       'Draw Odometer (km)': '',
       'Return Time': '',
@@ -258,12 +341,11 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
       'KM Travelled': '',
       'Trip Description': '',
       'Return Notes': '',
-      'Status': '',
+      'Status': selectedVehicleLabel,
     });
     worksheetData.push({});
 
     for (const group of dayGroups) {
-      // Day header row
       worksheetData.push({
         'Vehicle': formatDisplayDate(group.date),
         'Make': `${group.trips.length} trip(s)`,
@@ -284,21 +366,9 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
 
       if (group.trips.length === 0) {
         worksheetData.push({
-          'Vehicle': 'No trips',
-          'Make': '',
-          'Model': '',
-          'Driver': '',
-          'Trailer': '',
-          'Trailer GVM (kg)': '',
-          'Draw Date': '',
-          'Draw Time': '',
-          'Draw Odometer (km)': '',
-          'Return Time': '',
-          'Return Odometer (km)': '',
-          'KM Travelled': '',
-          'Trip Description': '',
-          'Return Notes': '',
-          'Status': '',
+          'Vehicle': 'No trips', 'Make': '', 'Model': '', 'Driver': '', 'Trailer': '', 'Trailer GVM (kg)': '',
+          'Draw Date': '', 'Draw Time': '', 'Draw Odometer (km)': '', 'Return Time': '', 'Return Odometer (km)': '',
+          'KM Travelled': '', 'Trip Description': '', 'Return Notes': '', 'Status': '',
         });
       } else {
         for (const trip of group.trips) {
@@ -333,36 +403,24 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
   };
 
   const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return new Date(dateString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
   const completedCount = trips.filter((t) => t.status === 'completed').length;
   const inProgressCount = trips.filter((t) => t.status === 'in_progress').length;
 
+  const dateRangeLabel = formatDisplayDateRange(startDate, endDate);
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <FileText className="w-6 h-6 text-blue-600" />
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Daily Trip Report</h2>
-              <p className="text-sm text-gray-500 mt-0.5">
-                Period: {new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB')} to {new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB')}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={exportToExcel}
-            disabled={loading || dayGroups.length === 0}
-            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            <Download className="w-5 h-5" />
-            Export to Excel
-          </button>
+        {/* Report heading */}
+        <div className="border-b border-gray-200 pb-4 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">MyFuelApp.net - Daily Trip Report</h1>
+          <p className="text-sm text-gray-600 mt-1">{dateRangeLabel}</p>
+          {selectedVehicleId !== 'all' && (
+            <p className="text-sm text-gray-600">Vehicle: {selectedVehicleLabel}</p>
+          )}
         </div>
 
         <div className="mb-6 flex flex-wrap items-end gap-4">
@@ -392,6 +450,45 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
                 className="w-full md:w-48 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Vehicle</label>
+            <div className="relative">
+              <Truck className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <select
+                value={selectedVehicleId}
+                onChange={(e) => {
+                  setSelectedVehicleId(e.target.value);
+                  setTimeout(() => loadTripData(), 0);
+                }}
+                className="w-full md:w-56 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              >
+                <option value="all">All Vehicles</option>
+                {vehicles.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.registration_number} ({v.make} {v.model})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={() => setEmailModalOpen(true)}
+              disabled={loading || dayGroups.length === 0}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              <Mail className="w-5 h-5" />
+              Email
+            </button>
+            <button
+              onClick={exportToExcel}
+              disabled={loading || dayGroups.length === 0}
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              <Download className="w-5 h-5" />
+              Export to Excel
+            </button>
           </div>
         </div>
 
@@ -616,6 +713,14 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
           </>
         )}
       </div>
+
+      <EmailReportModal
+        open={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        reportName="Daily Trip Report"
+        dateRange={`${dateRangeLabel}${selectedVehicleId !== 'all' ? ` · ${selectedVehicleLabel}` : ''}`}
+        htmlContent={buildEmailHtml()}
+      />
     </div>
   );
 }
