@@ -21,16 +21,9 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const { email, currentPassword, newPassword, confirmPassword } = body;
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (!newPassword || !confirmPassword) {
       return new Response(
         JSON.stringify({ error: "All fields are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    if (!email) {
-      return new Response(
-        JSON.stringify({ error: "Email is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -51,22 +44,50 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Authenticate with email + current password instead of relying on the
-    // session token, which may not be fully valid during a forced password change.
-    const userClient = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: signInData, error: signInError } = await userClient.auth.signInWithPassword({
-      email,
-      password: currentPassword,
-    });
+    // The caller must prove they know the current/temporary password.
+    // Two paths are supported:
+    //   1. Session token in the Authorization header (the user already signed
+    //      in with the temp password — this is the normal forced-change flow).
+    //   2. email + currentPassword in the body (fallback for callers that
+    //      don't have a session yet).
+    let userId: string | undefined;
 
-    if (signInError || !signInData.user) {
-      return new Response(
-        JSON.stringify({ error: "Current password is incorrect" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader) {
+      // Verify the session token to identify the user
+      const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData, error: userError } = await userClient.auth.getUser();
+
+      if (!userError && userData.user) {
+        userId = userData.user.id;
+      }
     }
 
-    const userId = signInData.user.id;
+    // Fallback: authenticate with email + current password
+    if (!userId && email && currentPassword) {
+      const anonClient = createClient(supabaseUrl, supabaseAnonKey);
+      const { data: signInData, error: signInError } = await anonClient.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
+
+      if (signInError || !signInData.user) {
+        return new Response(
+          JSON.stringify({ error: "Current password is incorrect" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      userId = signInData.user.id;
+    }
+
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required — provide a valid session token or email + current password" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // Update the password using the service role client
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);

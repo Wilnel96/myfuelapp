@@ -51,11 +51,15 @@ export default function ForcePasswordChange({ email, onSuccess, onCancel }: Forc
     setLoading(true);
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/change-password`;
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
           email,
