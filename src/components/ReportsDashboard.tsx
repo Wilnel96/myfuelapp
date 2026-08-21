@@ -1179,6 +1179,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
           )}
         </div>
 
+        {selectedReport !== 'daily-trip-report' && selectedReport !== 'unreturned-vehicles' && selectedReport !== 'return-notes' && (
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
           <h3 className="text-sm font-semibold text-gray-900 mb-3">Date Range & Actions</h3>
           <div className="flex flex-wrap items-center gap-4">
@@ -1219,6 +1220,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
             </button>
           </div>
         </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow p-6">
