@@ -147,6 +147,12 @@ export default function UnreturnedVehiclesReport() {
 
   return (
     <div className="space-y-5">
+      {/* Report heading */}
+      <div className="border-b border-gray-200 pb-3">
+        <h2 className="text-xl font-bold text-gray-900">MyFuelApp.net — Unreturned Vehicles Report</h2>
+        <p className="text-sm text-gray-500 mt-1">As of: {new Date(reportDate + 'T12:00:00').toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+      </div>
+
       {/* Controls */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="flex flex-wrap items-center gap-4">

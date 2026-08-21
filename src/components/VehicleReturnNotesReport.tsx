@@ -174,6 +174,12 @@ export default function VehicleReturnNotesReport() {
 
   return (
     <div className="space-y-5">
+      {/* Report heading */}
+      <div className="border-b border-gray-200 pb-3">
+        <h2 className="text-xl font-bold text-gray-900">MyFuelApp.net — Vehicle Return Notes Report</h2>
+        <p className="text-sm text-gray-500 mt-1">From: {formatDate(startDate + 'T12:00:00')} &nbsp; To: {formatDate(endDate + 'T12:00:00')}</p>
+      </div>
+
       {/* Controls */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <div className="flex flex-wrap items-center gap-4">

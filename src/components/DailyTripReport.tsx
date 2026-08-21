@@ -397,7 +397,7 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
       <div className="bg-white rounded-lg shadow p-6">
         {/* Report heading */}
         <div className="border-b border-gray-200 pb-4 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">MyFuelApp.net - Daily Trip Report</h1>
+          <h1 className="text-2xl font-bold text-gray-900">MyFuelApp.net — Daily Trip Report</h1>
           <p className="text-sm text-gray-600 mt-1">{dateRangeLabel}</p>
           {selectedVehicleId !== 'all' && (
             <p className="text-sm text-gray-600">Vehicle: {selectedVehicleLabel}</p>

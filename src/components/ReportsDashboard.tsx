@@ -1285,8 +1285,8 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         ) : reportData ? (
           <div className="space-y-4">
             <div className="border-b border-gray-200 pb-3 mb-2">
-              <h2 className="text-xl font-bold text-gray-900">{getReportName(selectedReport)}</h2>
-              <p className="text-sm text-gray-500 mt-1">Period: {formatDateDisplay(startDate)} to {formatDateDisplay(endDate)}</p>
+              <h2 className="text-xl font-bold text-gray-900">MyFuelApp.net — {getReportName(selectedReport)}</h2>
+              <p className="text-sm text-gray-500 mt-1">From: {formatDateDisplay(startDate)} &nbsp; To: {formatDateDisplay(endDate)}</p>
             </div>
             {selectedReport === 'overview' && (
               <>
