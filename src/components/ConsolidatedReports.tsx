@@ -158,14 +158,14 @@ export default function ConsolidatedReports({ onNavigate }: ConsolidatedReportsP
     let filename = '';
 
     if (type === 'organizations') {
-      csv = 'Organization,Transaction Count,Total Amount,Commission,Net Amount\n';
+      csv = `MyFuelApp.net - Organizations Report\nPeriod: ${startDate} to ${endDate}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\nOrganization,Transaction Count,Total Amount,Commission,Net Amount\n`;
       orgSummaries.forEach(org => {
         const netAmount = org.total_amount - org.total_commission;
         csv += `"${org.org_name}",${org.transaction_count},${org.total_amount.toFixed(2)},${org.total_commission.toFixed(2)},${netAmount.toFixed(2)}\n`;
       });
       filename = `organizations-report-${startDate}-to-${endDate}.csv`;
     } else {
-      csv = 'Garage,Organizations Served,Transaction Count,Gross Amount,Commission,Net Payment\n';
+      csv = `MyFuelApp.net - Garage Payment Summary\nPeriod: ${startDate} to ${endDate}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\nGarage,Organizations Served,Transaction Count,Gross Amount,Commission,Net Payment\n`;
       garageSummaries.forEach(garage => {
         csv += `"${garage.garage_name}",${garage.organization_count},${garage.total_transactions},${garage.gross_amount.toFixed(2)},${garage.commission_amount.toFixed(2)},${garage.net_amount.toFixed(2)}\n`;
       });

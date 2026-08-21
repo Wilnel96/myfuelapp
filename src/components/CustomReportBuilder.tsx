@@ -1029,7 +1029,8 @@ export default function CustomReportBuilder({ onNavigate }: CustomReportBuilderP
       }).join(',')
     );
 
-    const csv = [headers, ...rows].join('\n');
+    const heading = `MyFuelApp.net - ${reportName || 'Custom Report'}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\n`;
+    const csv = [heading + headers, ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');

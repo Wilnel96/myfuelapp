@@ -1053,13 +1053,13 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
     switch (selectedReport) {
       case 'overview':
         if (orgSettings?.is_management_org) {
-          csv = 'Date,Vehicle,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Commission,Odometer\n';
+          csv += 'Date,Vehicle,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Commission,Odometer\n';
           reportData.transactions?.forEach((t: any) => {
             csv += `"${new Date(t.date).toLocaleDateString()}","${t.vehicle}","${t.driver}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${(t.commission || 0).toFixed(2)},${t.odometer || ''}\n`;
           });
           csv += `\nTOTALS,,,,${(reportData.totalLiters || 0).toFixed(2)},,${(reportData.totalSpent || 0).toFixed(2)},${(reportData.totalCommission || 0).toFixed(2)}\n`;
         } else {
-          csv = 'Date,Vehicle,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Odometer\n';
+          csv += 'Date,Vehicle,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Odometer\n';
           reportData.transactions?.forEach((t: any) => {
             csv += `"${new Date(t.date).toLocaleDateString()}","${t.vehicle}","${t.driver}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${t.odometer || ''}\n`;
           });
@@ -1068,7 +1068,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         break;
 
       case 'driver':
-        csv = 'Driver,Transactions,Vehicles Driven,Total Liters,Total Spent,Avg Transaction\n';
+        csv += 'Driver,Transactions,Vehicles Driven,Total Liters,Total Spent,Avg Transaction\n';
         reportData.drivers?.forEach((d: any) => {
           csv += `${d.first_name} ${d.surname},${d.total_transactions},${d.vehicles_driven},${d.total_liters},${d.total_spent},${d.average_transaction_amount}\n`;
         });
@@ -1076,7 +1076,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
 
       case 'vehicle':
         if (orgSettings?.is_management_org) {
-          csv = 'Vehicle,Date,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Commission,Odometer,L/100km\n';
+          csv += 'Vehicle,Date,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Commission,Odometer,L/100km\n';
           reportData.vehicleData?.forEach((v: any) => {
             csv += `\n${v.license_plate} (${v.make} ${v.model})\n`;
             v.transactions?.forEach((t: any) => {
@@ -1087,7 +1087,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
             csv += `,,,KM Travelled: ${v.km_travelled} | L/100km: ${(v.consumption_per_100km || 0).toFixed(2)} | KM/L: ${kmPerLiter1}\n`;
           });
         } else {
-          csv = 'Vehicle,Date,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Odometer,L/100km\n';
+          csv += 'Vehicle,Date,Driver,Garage,Fuel Type,Liters,Price/L,Amount,Odometer,L/100km\n';
           reportData.vehicleData?.forEach((v: any) => {
             csv += `\n${v.license_plate} (${v.make} ${v.model})\n`;
             v.transactions?.forEach((t: any) => {
@@ -1101,7 +1101,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         break;
 
       case 'fuel-theft':
-        csv = 'Vehicle,Expected L/100km,Actual L/100km,Variance %,Severity,Last Transaction Date\n';
+        csv += 'Vehicle,Expected L/100km,Actual L/100km,Variance %,Severity,Last Transaction Date\n';
         reportData.alerts?.forEach((a: any) => {
           csv += `${a.vehicle},${a.expected},${a.actual},${a.variance},${a.severity},${a.last_transaction_date ? new Date(a.last_transaction_date).toLocaleString('en-GB') : ''}\n`;
         });
@@ -1115,21 +1115,21 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         break;
 
       case 'service-due':
-        csv = 'Vehicle,Last Service Date,Last Service Odometer,Current Odometer,Service Interval (km),Target Odometer,Remaining (km),Avg km/day,Days Until Service,Estimated Due Date,Status\n';
+        csv += 'Vehicle,Last Service Date,Last Service Odometer,Current Odometer,Service Interval (km),Target Odometer,Remaining (km),Avg km/day,Days Until Service,Estimated Due Date,Status\n';
         reportData.serviceDue?.forEach((s: any) => {
           csv += `"${s.vehicle}","${new Date(s.last_service_date).toLocaleDateString()}",${s.last_service_odometer},${s.current_odometer},${s.service_interval_km},${s.target_odometer},${s.remaining_km},${s.avg_km_per_day.toFixed(1)},${s.days_until_service},"${new Date(s.estimated_due_date).toLocaleDateString()}",${s.is_overdue ? 'OVERDUE' : 'Upcoming'}\n`;
         });
         break;
 
       case 'vehicles-to-service':
-        csv = 'Vehicle,Last Service KM,Current Odometer,Service Interval (km),Next Service KM,KM Until Service,KM Since Last Service\n';
+        csv += 'Vehicle,Last Service KM,Current Odometer,Service Interval (km),Next Service KM,KM Until Service,KM Since Last Service\n';
         reportData.vehiclesToService?.forEach((v: any) => {
           csv += `"${v.vehicle}",${v.last_service_km},${v.current_odometer},${v.service_interval_km},${v.next_service_km},${v.km_until_service},${v.km_since_service}\n`;
         });
         break;
 
       case 'vehicle-running-cost':
-        csv = 'Vehicle,Fuel Cost,Service Cost,Other Maintenance Cost,Total Maintenance Cost,Total Running Cost,KM Travelled,Cost per KM\n';
+        csv += 'Vehicle,Fuel Cost,Service Cost,Other Maintenance Cost,Total Maintenance Cost,Total Running Cost,KM Travelled,Cost per KM\n';
         reportData.runningCost?.forEach((v: any) => {
           const totalMaintenance = v.service_cost + v.other_maintenance_cost;
           csv += `"${v.license_plate} (${v.make} ${v.model})",${v.fuel_cost.toFixed(2)},${v.service_cost.toFixed(2)},${v.other_maintenance_cost.toFixed(2)},${totalMaintenance.toFixed(2)},${v.total_cost.toFixed(2)},${v.km_travelled},${v.cost_per_km > 0 ? v.cost_per_km.toFixed(2) : '-'}\n`;
@@ -1137,7 +1137,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         break;
 
       case 'vehicles-overdue-service':
-        csv = 'Vehicle,Last Service KM,Current Odometer,Service Interval (km),Next Service KM,KM Overdue,KM Since Last Service\n';
+        csv += 'Vehicle,Last Service KM,Current Odometer,Service Interval (km),Next Service KM,KM Overdue,KM Since Last Service\n';
         reportData.vehiclesOverdueService?.forEach((v: any) => {
           csv += `"${v.vehicle}",${v.last_service_km},${v.current_odometer},${v.service_interval_km},${v.next_service_km},${v.km_overdue},${v.km_since_service}\n`;
         });
@@ -1145,7 +1145,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
 
       case 'monthly':
       case 'annual':
-        csv = 'Date,Vehicle,Driver,Location,Fuel Type,Liters,Amount\n';
+        csv += 'Date,Vehicle,Driver,Location,Fuel Type,Liters,Amount\n';
         reportData.transactions?.forEach((t: any) => {
           csv += `"${new Date(t.date).toLocaleDateString()}","${t.vehicle}","${t.driver}","${t.location}",${t.fuel_type},${(parseFloat(t.liters) || 0).toFixed(2)},${(parseFloat(t.total_amount) || 0).toFixed(2)}\n`;
         });

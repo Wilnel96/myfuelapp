@@ -150,7 +150,7 @@ export default function VehicleReturnNotesReport() {
 
   const exportCSV = () => {
     if (!filteredRows.length) return;
-    let csv = 'Vehicle,Make/Model,Driver,Drawn At,Returned At,KM Travelled,Trip Description,Return Notes\n';
+    let csv = `MyFuelApp.net - Vehicle Return Notes Report\nFrom: ${new Date(startDate + 'T12:00:00').toLocaleDateString('en-ZA')} To: ${new Date(endDate + 'T12:00:00').toLocaleDateString('en-ZA')}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\nVehicle,Make/Model,Driver,Drawn At,Returned At,KM Travelled,Trip Description,Return Notes\n`;
     filteredRows.forEach((r) => {
       const drawnAt = new Date(r.drawn_at).toLocaleString('en-ZA');
       const returnedAt = new Date(r.returned_at).toLocaleString('en-ZA');

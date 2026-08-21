@@ -130,7 +130,7 @@ export default function UnreturnedVehiclesReport() {
 
   const exportCSV = () => {
     if (!rows.length) return;
-    let csv = 'Vehicle,Make/Model,Driver,Trailer,Drawn At,Hours Out,Odometer,Trip Description\n';
+    let csv = `MyFuelApp.net - Unreturned Vehicles Report\nAs of: ${new Date(reportDate + 'T12:00:00').toLocaleDateString('en-ZA')}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\nVehicle,Make/Model,Driver,Trailer,Drawn At,Hours Out,Odometer,Trip Description\n`;
     rows.forEach((r) => {
       const drawnAt = new Date(r.drawn_at).toLocaleString();
       const trailerStr = r.trailer_registration ? `${r.trailer_registration} (${r.trailer_gvm}kg)` : '';
