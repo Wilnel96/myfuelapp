@@ -6,12 +6,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 };
 
+interface EmailAttachment {
+  filename: string;
+  content: string;
+}
+
 interface EmailRequest {
   to: string | string[];
   subject: string;
   html?: string;
   text?: string;
   replyTo?: string;
+  attachments?: EmailAttachment[];
 }
 
 Deno.serve(async (req: Request) => {
@@ -29,9 +35,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { to, subject, html, text, replyTo }: EmailRequest = await req.json();
+    const { to, subject, html, text, replyTo, attachments }: EmailRequest = await req.json();
 
-    if (!to || !subject || (!html && !text)) {
+    if (!to || !subject || (!html && !text && !attachments)) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: to, subject, and html or text' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -52,6 +58,7 @@ Deno.serve(async (req: Request) => {
         ...(html && { html }),
         ...(text && { text }),
         ...(replyTo && { reply_to: replyTo }),
+        ...(attachments && attachments.length > 0 && { attachments }),
       };
 
       const response = await fetch('https://api.resend.com/emails', {

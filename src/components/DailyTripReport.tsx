@@ -286,41 +286,22 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
     return v ? `${v.registration_number} (${v.make} ${v.model})` : 'All Vehicles';
   }, [selectedVehicleId, vehicles]);
 
-  const buildEmailHtml = (): string => {
-    let html = `<p style="font-size:14px;color:#6b7280;margin:0 0 12px;">Vehicle: ${selectedVehicleLabel}</p>`;
-
-    html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
-    html += '<thead><tr style="background:#f3f4f6;">';
-    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Date</th>';
-    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Vehicle</th>';
-    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Driver</th>';
-    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Draw Time</th>';
-    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Return Time</th>';
-    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:right;">KM</th>';
-    html += '<th style="padding:8px;border:1px solid #e5e7eb;text-align:left;">Status</th>';
-    html += '</tr></thead><tbody>';
+  const buildEmailCsv = (): string => {
+    let csv = `MyFuelApp.net - Daily Trip Report\n${formatDisplayDateRange(startDate, endDate)}\nVehicle: ${selectedVehicleLabel}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\n`;
+    csv += 'Date,Vehicle,Make,Model,Driver,Draw Time,Draw Odometer,Return Time,Return Odometer,KM Travelled,Trailer,Trailer GVM,Trip Description,Return Notes,Status\n';
 
     for (const group of dayGroups) {
       if (group.trips.length === 0) {
-        html += `<tr><td colspan="7" style="padding:6px 8px;border:1px solid #e5e7eb;color:#9ca3af;">${formatDisplayDate(group.date)} — No trips</td></tr>`;
+        csv += `"${formatDisplayDate(group.date)}","No trips","","","","","","","","","","","","",""\n`;
       } else {
         for (const trip of group.trips) {
-          html += '<tr>';
-          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${formatDisplayDate(group.date)}</td>`;
-          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${trip.vehicle_registration}<br/><span style="color:#6b7280;font-size:11px;">${trip.vehicle_make} ${trip.vehicle_model}</span></td>`;
-          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${trip.driver_name}</td>`;
-          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${new Date(trip.draw_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</td>`;
-          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${trip.return_time ? new Date(trip.return_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>`;
-          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;text-align:right;">${trip.km_travelled !== null ? trip.km_travelled.toLocaleString() + ' km' : '-'}</td>`;
-          html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${trip.status === 'completed' ? 'Completed' : 'In Progress'}</td>`;
-          html += '</tr>';
+          csv += `"${formatDisplayDate(group.date)}","${trip.vehicle_registration}","${trip.vehicle_make}","${trip.vehicle_model}","${trip.driver_name}","${new Date(trip.draw_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}",${trip.draw_odometer},"${trip.return_time ? new Date(trip.return_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'Not returned'}",${trip.return_odometer || ''},${trip.km_travelled !== null ? trip.km_travelled : ''},"${trip.trailer_registration || ''}","${trip.trailer_gvm || ''}","${(trip.trip_description || '').replace(/"/g, '""')}","${(trip.return_notes || '').replace(/"/g, '""')}",${trip.status === 'completed' ? 'Completed' : 'In Progress'}\n`;
         }
       }
     }
 
-    html += '</tbody></table>';
-    html += `<p style="margin-top:16px;font-size:13px;"><strong>Total Trips:</strong> ${trips.length} &nbsp; <strong>Total KM:</strong> ${totalKm.toLocaleString()} km</p>`;
-    return html;
+    csv += `\nTotal Trips,${trips.length}\nTotal KM,${totalKm.toLocaleString()}\n`;
+    return csv;
   };
 
   const exportToExcel = () => {
@@ -719,7 +700,7 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
         onClose={() => setEmailModalOpen(false)}
         reportName="Daily Trip Report"
         dateRange={`${dateRangeLabel}${selectedVehicleId !== 'all' ? ` · ${selectedVehicleLabel}` : ''}`}
-        htmlContent={buildEmailHtml()}
+        csvContent={buildEmailCsv()}
       />
     </div>
   );

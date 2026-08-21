@@ -1042,123 +1042,13 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
 
   const formatDateDisplay = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const buildReportHtml = (): string => {
-    if (!reportData) return '<p>No data available</p>';
-    const esc = (s: any) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    let html = '';
-
-    const tableHeader = (cols: string[]) => {
-      html += '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#f3f4f6;">';
-      for (const c of cols) html += `<th style="padding:6px 8px;border:1px solid #e5e7eb;text-align:left;">${esc(c)}</th>`;
-      html += '</tr></thead><tbody>';
-    };
-    const tableRow = (cells: any[]) => {
-      html += '<tr>';
-      for (const c of cells) html += `<td style="padding:6px 8px;border:1px solid #e5e7eb;">${esc(c)}</td>`;
-      html += '</tr>';
-    };
-    const tableEnd = () => { html += '</tbody></table>'; };
-
-    switch (selectedReport) {
-      case 'overview':
-        html += `<p><strong>Total Transactions:</strong> ${reportData.totalTransactions || 0} &nbsp; <strong>Total Liters:</strong> ${(reportData.totalLiters || 0).toFixed(2)} &nbsp; <strong>Total Spent:</strong> R ${(reportData.totalSpent || 0).toFixed(2)}</p>`;
-        if (orgSettings?.is_management_org) {
-          tableHeader(['Date', 'Vehicle', 'Driver', 'Garage', 'Fuel', 'Liters', 'Price/L', 'Amount', 'Commission', 'Odometer']);
-        } else {
-          tableHeader(['Date', 'Vehicle', 'Driver', 'Garage', 'Fuel', 'Liters', 'Price/L', 'Amount', 'Odometer']);
-        }
-        reportData.transactions?.forEach((t: any) => {
-          if (orgSettings?.is_management_org) tableRow([new Date(t.date).toLocaleDateString(), t.vehicle, t.driver, t.garage, t.fuel_type, (t.liters||0).toFixed(2), 'R '+(t.price_per_liter||0).toFixed(2), 'R '+(t.amount||0).toFixed(2), 'R '+(t.commission||0).toFixed(2), t.odometer || '-']);
-          else tableRow([new Date(t.date).toLocaleDateString(), t.vehicle, t.driver, t.garage, t.fuel_type, (t.liters||0).toFixed(2), 'R '+(t.price_per_liter||0).toFixed(2), 'R '+(t.amount||0).toFixed(2), t.odometer || '-']);
-        });
-        tableEnd();
-        break;
-      case 'driver':
-        tableHeader(['Driver', 'Transactions', 'Vehicles', 'Total Liters', 'Total Spent', 'Avg Transaction']);
-        reportData.drivers?.forEach((d: any) => {
-          tableRow([`${d.first_name} ${d.surname}`, d.total_transactions, d.vehicles_driven, (d.total_liters||0).toFixed(2), 'R '+(d.total_spent||0).toFixed(2), 'R '+(d.average_transaction_amount||0).toFixed(2)]);
-        });
-        tableEnd();
-        break;
-      case 'vehicle':
-        reportData.vehicleData?.forEach((v: any) => {
-          html += `<h3 style="margin:16px 0 8px;font-size:14px;">${esc(v.license_plate)} (${esc(v.make)} ${esc(v.model)})</h3>`;
-          html += `<p style="font-size:12px;color:#6b7280;">Transactions: ${v.transaction_count} | KM: ${v.km_travelled} | L/100km: ${(v.consumption_per_100km||0).toFixed(2)}</p>`;
-          if (orgSettings?.is_management_org) tableHeader(['Date', 'Driver', 'Garage', 'Fuel', 'Liters', 'Price/L', 'Amount', 'Commission', 'Odometer', 'L/100km']);
-          else tableHeader(['Date', 'Driver', 'Garage', 'Fuel', 'Liters', 'Price/L', 'Amount', 'Odometer', 'L/100km']);
-          v.transactions?.forEach((t: any) => {
-            if (orgSettings?.is_management_org) tableRow([new Date(t.date).toLocaleDateString(), t.driver, t.garage, t.fuel_type, (t.liters||0).toFixed(2), 'R '+(t.price_per_liter||0).toFixed(2), 'R '+(t.amount||0).toFixed(2), 'R '+(t.commission||0).toFixed(2), t.odometer||'-', t.l_per_100km != null ? t.l_per_100km.toFixed(2) : '-']);
-            else tableRow([new Date(t.date).toLocaleDateString(), t.driver, t.garage, t.fuel_type, (t.liters||0).toFixed(2), 'R '+(t.price_per_liter||0).toFixed(2), 'R '+(t.amount||0).toFixed(2), t.odometer||'-', t.l_per_100km != null ? t.l_per_100km.toFixed(2) : '-']);
-          });
-          tableEnd();
-        });
-        break;
-      case 'fuel-theft':
-        if (reportData.alerts?.length === 0) { html += '<p>No anomalies detected</p>'; break; }
-        tableHeader(['Vehicle', 'Expected L/100km', 'Actual L/100km', 'Variance %', 'Severity', 'Last Transaction']);
-        reportData.alerts?.forEach((a: any) => {
-          tableRow([a.vehicle, a.expected, a.actual, a.variance + '%', a.severity, a.last_transaction_date ? new Date(a.last_transaction_date).toLocaleString('en-GB') : '-']);
-        });
-        tableEnd();
-        break;
-      case 'exceptions':
-        if (reportData.exceptions?.length === 0) { html += '<p>No unresolved exceptions</p>'; break; }
-        tableHeader(['Date & Time', 'Vehicle', 'Driver', 'Exception Type', 'Garage', 'Description', 'Status']);
-        reportData.exceptions?.forEach((e: any) => {
-          tableRow([new Date(e.date).toLocaleString('en-GB'), e.vehicle, e.driver, e.exception_type, e.actual_garage || '-', e.description, e.resolved ? 'Resolved' : 'Pending']);
-        });
-        tableEnd();
-        break;
-      case 'service-due':
-        tableHeader(['Vehicle', 'Last Service', 'Current Odometer', 'Service Interval (km)', 'Remaining (km)', 'Est. Due Date', 'Status']);
-        reportData.serviceDue?.forEach((s: any) => {
-          tableRow([s.vehicle, new Date(s.last_service_date).toLocaleDateString(), s.current_odometer, s.service_interval_km, s.remaining_km, new Date(s.estimated_due_date).toLocaleDateString(), s.is_overdue ? 'OVERDUE' : 'Upcoming']);
-        });
-        tableEnd();
-        break;
-      case 'vehicles-to-service':
-        tableHeader(['Vehicle', 'Last Service KM', 'Current Odometer', 'Service Interval (km)', 'Next Service KM', 'KM Until Service', 'KM Since Last Service']);
-        reportData.vehiclesToService?.forEach((v: any) => {
-          tableRow([v.vehicle, v.last_service_km, v.current_odometer, v.service_interval_km, v.next_service_km, v.km_until_service, v.km_since_service]);
-        });
-        tableEnd();
-        break;
-      case 'vehicle-running-cost':
-        tableHeader(['Vehicle', 'Fuel Cost', 'Service Cost', 'Other Maintenance', 'Total Maintenance', 'Total Running Cost', 'KM Travelled', 'Cost per KM']);
-        reportData.runningCost?.forEach((v: any) => {
-          tableRow([`${v.license_plate} (${v.make} ${v.model})`, 'R ' + v.fuel_cost.toFixed(2), 'R ' + v.service_cost.toFixed(2), 'R ' + v.other_maintenance_cost.toFixed(2), 'R ' + (v.service_cost + v.other_maintenance_cost).toFixed(2), 'R ' + v.total_cost.toFixed(2), v.km_travelled, v.cost_per_km > 0 ? 'R ' + v.cost_per_km.toFixed(2) : '-']);
-        });
-        tableEnd();
-        break;
-      case 'vehicles-overdue-service':
-        tableHeader(['Vehicle', 'Last Service KM', 'Current Odometer', 'Service Interval (km)', 'Next Service KM', 'KM Overdue', 'KM Since Last Service']);
-        reportData.vehiclesOverdueService?.forEach((v: any) => {
-          tableRow([v.vehicle, v.last_service_km, v.current_odometer, v.service_interval_km, v.next_service_km, v.km_overdue, v.km_since_service]);
-        });
-        tableEnd();
-        break;
-      case 'monthly':
-      case 'annual':
-        tableHeader(['Date', 'Vehicle', 'Driver', 'Location', 'Fuel Type', 'Liters', 'Amount']);
-        reportData.transactions?.forEach((t: any) => {
-          tableRow([new Date(t.date).toLocaleDateString(), t.vehicle, t.driver, t.location, t.fuel_type, (parseFloat(t.liters)||0).toFixed(2), 'R ' + (parseFloat(t.total_amount)||0).toFixed(2)]);
-        });
-        tableEnd();
-        break;
-      default:
-        html += '<p>Report data available</p>';
-    }
-    return html;
-  };
-
-  const exportToCSV = () => {
-    if (!reportData) return;
+  const buildReportCsv = (): string => {
+    if (!reportData) return '';
 
     const reportName = getReportName(selectedReport);
     const headerLines = `${reportName}\nPeriod: ${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\n`;
 
     let csv = headerLines;
-    let filename = `${selectedReport}-report-${startDate}-to-${endDate}.csv`;
 
     switch (selectedReport) {
       case 'overview':
@@ -1262,6 +1152,14 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         break;
     }
 
+    return csv;
+  };
+
+  const exportToCSV = () => {
+    const csv = buildReportCsv();
+    if (!csv) return;
+
+    const filename = `${selectedReport}-report-${startDate}-to-${endDate}.csv`;
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2092,7 +1990,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         onClose={() => setEmailModalOpen(false)}
         reportName={getReportName(selectedReport)}
         dateRange={`From: ${formatDateDisplay(startDate)}  To: ${formatDateDisplay(endDate)}`}
-        htmlContent={buildReportHtml()}
+        csvContent={buildReportCsv()}
       />
     </div>
   );
