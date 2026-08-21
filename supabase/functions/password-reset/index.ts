@@ -43,18 +43,28 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Find the user by email
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Find the user by email using listUsers with pagination
+    // listUsers returns up to 1000 per page; for larger user bases
+    // we'd need to paginate, but this project has ~24 users.
     const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers();
 
     if (listError) {
+      console.error("listUsers error:", listError);
       throw new Error("Failed to look up user");
     }
 
-    const targetUser = users.find((u) => u.email === email);
+    // Case-insensitive email match to avoid issues where the user
+    // types a different case than what's stored in auth.users
+    const targetUser = users.find(
+      (u) => (u.email || "").toLowerCase() === normalizedEmail,
+    );
 
     // Always return a generic success message even if user not found,
     // to prevent email enumeration attacks
     if (!targetUser) {
+      console.log(`Password reset requested for unknown email: ${normalizedEmail}`);
       return new Response(
         JSON.stringify({
           success: true,
@@ -77,6 +87,17 @@ Deno.serve(async (req: Request) => {
       throw new Error("Failed to process password reset");
     }
 
+    // Ensure email is confirmed so the user can actually sign in
+    if (!targetUser.email_confirmed_at) {
+      const { error: confirmError } = await adminClient.auth.admin.updateUserById(
+        targetUser.id,
+        { email_confirm: true },
+      );
+      if (confirmError) {
+        console.error("Failed to confirm email:", confirmError);
+      }
+    }
+
     // Set the password_change_required flag on the profile
     const { error: flagError } = await adminClient
       .from("profiles")
@@ -85,7 +106,6 @@ Deno.serve(async (req: Request) => {
 
     if (flagError) {
       console.error("Failed to set password_change_required flag:", flagError);
-      // Don't throw — the password was already changed, the flag is a bonus
     }
 
     // Also update the password in organization_users table for consistency
@@ -116,6 +136,11 @@ Deno.serve(async (req: Request) => {
             <div style="background: #ffffff; border: 2px dashed #2563eb; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
               <span style="font-size: 22px; font-weight: bold; color: #2563eb; letter-spacing: 2px; font-family: monospace;">${tempPassword}</span>
             </div>
+            <p style="color: #ef4444; font-size: 14px; line-height: 1.6; font-weight: bold;">
+              Important: This is the most recent temporary password. If you requested
+              multiple resets, only this last one will work. Please use this password
+              and disregard any earlier reset emails.
+            </p>
             <p style="color: #4b5563; font-size: 15px; line-height: 1.6;">
               After logging in with this temporary password, you must set a new password
               that meets the following requirements:
@@ -133,7 +158,7 @@ Deno.serve(async (req: Request) => {
           </div>
         </div>
       `;
-      const emailText = `MyFuelApp Password Reset\n\nYour temporary password is: ${tempPassword}\n\nUse this to log in, then you will be asked to choose a new password.\n\nIf you did not request this reset, contact your administrator immediately.`;
+      const emailText = `MyFuelApp Password Reset\n\nYour temporary password is: ${tempPassword}\n\nIMPORTANT: This is the most recent temporary password. If you requested multiple resets, only this last one will work.\n\nUse this to log in, then you will be asked to choose a new password.\n\nIf you did not request this reset, contact your administrator immediately.`;
 
       // Try sending from the verified domain first
       const fromAddresses = [
@@ -150,7 +175,7 @@ Deno.serve(async (req: Request) => {
           },
           body: JSON.stringify({
             from: fromAddr,
-            to: [email],
+            to: [targetUser.email],
             subject: "Your Temporary Password - MyFuelApp",
             html: emailHtml,
             text: emailText,
@@ -165,7 +190,6 @@ Deno.serve(async (req: Request) => {
         const errBody = await emailResponse.text();
         emailError = `${fromAddr}: ${errBody}`;
         console.error(`Failed to send from ${fromAddr}:`, errBody);
-        // Try the next from address
       }
     } else {
       emailError = "RESEND_API_KEY not configured";

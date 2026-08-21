@@ -84,26 +84,18 @@ export default function AdminPasswordReset() {
     setLoading(true);
 
     try {
-      // First, sign in with the temp password to get a session
-      const { supabase } = await import('../lib/supabase');
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: tempPassword,
-      });
-
-      if (signInError || !signInData.session) {
-        throw new Error('Temporary password is incorrect. Please check your email and try again.');
-      }
-
-      // Now call the change-password edge function with the session token
+      // Call the change-password edge function directly with email + temp password.
+      // The function will authenticate with the temp password and set the new one
+      // in a single operation — no need for a separate sign-in step that can
+      // fail if the user accidentally used a temp password from an earlier reset.
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/change-password`;
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${signInData.session.access_token}`,
         },
         body: JSON.stringify({
+          email,
           currentPassword: tempPassword,
           newPassword,
           confirmPassword,
@@ -115,9 +107,6 @@ export default function AdminPasswordReset() {
       if (!response.ok) {
         throw new Error(data.error || 'Failed to change password');
       }
-
-      // Sign out the temporary session
-      await supabase.auth.signOut();
 
       setMessage({
         type: 'success',
@@ -136,7 +125,11 @@ export default function AdminPasswordReset() {
 
     } catch (error: any) {
       console.error('Change password error:', error);
-      setMessage({ type: 'error', text: error.message || 'An error occurred' });
+      const errMsg = error.message || 'An error occurred';
+      const enhancedMsg = errMsg.includes('incorrect')
+        ? 'The temporary password is incorrect. This usually happens if you requested multiple password resets — each email contains a different password. Please use the password from the MOST RECENT email only.'
+        : errMsg;
+      setMessage({ type: 'error', text: enhancedMsg });
     } finally {
       setLoading(false);
     }
