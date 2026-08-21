@@ -41,7 +41,7 @@ const exceptionReportTypes: ReportType[] = [
 
 export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = false }: ReportsDashboardProps) {
   const availableReportTypes = exceptionReportsOnly ? exceptionReportTypes : regularReportTypes;
-  const [selectedReport, setSelectedReport] = useState<string>(availableReportTypes[0].id);
+  const [selectedReport, setSelectedReport] = useState<string>('');
   const [startDate, setStartDate] = useState(() => {
     const date = new Date();
     date.setDate(date.getDate() - 30);
@@ -1267,7 +1267,12 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
           })}
         </div>
 
-        {selectedReport === 'daily-trip-report' ? (
+        {!selectedReport ? (
+          <div className="text-center py-12 text-gray-400">
+            <BarChart3 className="w-10 h-10 mx-auto mb-3 opacity-40" />
+            <p>Select a report type above to begin.</p>
+          </div>
+        ) : selectedReport === 'daily-trip-report' ? (
           <DailyTripReport />
         ) : selectedReport === 'unreturned-vehicles' ? (
           <UnreturnedVehiclesReport />
