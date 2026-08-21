@@ -266,19 +266,14 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
       .select(`
         *,
         drivers (first_name, surname),
-        vehicles (registration_number)
+        vehicles (registration_number, make, model),
+        garages (name)
       `)
       .eq('organization_id', orgId)
       .gte('transaction_date', startDateTime)
-      .lte('transaction_date', endDateTime);
-
-    console.log('Driver Transactions Found:', transactions?.length);
-    if (transactions && transactions.length > 0) {
-      console.log('Transaction Dates:', transactions.map(t => ({
-        date: t.transaction_date,
-        driver: t.drivers ? `${t.drivers.first_name} ${t.drivers.surname}` : 'Unknown'
-      })));
-    }
+      .lte('transaction_date', endDateTime)
+      .order('driver_id')
+      .order('transaction_date', { ascending: false });
 
     const driverStats: any = {};
 
@@ -288,19 +283,39 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
 
       if (!driverStats[driverId]) {
         driverStats[driverId] = {
+          driver_id: driverId,
           first_name: t.drivers.first_name,
           surname: t.drivers.surname,
           total_transactions: 0,
           vehicles_driven: new Set(),
           total_liters: 0,
           total_spent: 0,
+          total_commission: 0,
+          transactions: [],
         };
       }
 
+      const liters = parseFloat(t.liters || 0);
+      const amount = parseFloat(t.total_amount || 0);
+      const commission = parseFloat(t.commission_amount || 0);
+
       driverStats[driverId].total_transactions += 1;
       driverStats[driverId].vehicles_driven.add(t.vehicle_id);
-      driverStats[driverId].total_liters += parseFloat(t.liters || 0);
-      driverStats[driverId].total_spent += parseFloat(t.total_amount || 0);
+      driverStats[driverId].total_liters += liters;
+      driverStats[driverId].total_spent += amount;
+      driverStats[driverId].total_commission += commission;
+
+      driverStats[driverId].transactions.push({
+        date: t.transaction_date,
+        vehicle: t.vehicles ? `${t.vehicles.registration_number} (${t.vehicles.make} ${t.vehicles.model})` : 'Unknown',
+        garage: t.garages?.name || 'Unknown',
+        fuel_type: getFuelTypeDisplayName(t.fuel_type),
+        liters: liters,
+        price_per_liter: parseFloat(t.price_per_liter || 0),
+        amount: amount,
+        commission: commission,
+        odometer: t.odometer_reading,
+      });
     });
 
     const drivers = Object.values(driverStats).map((d: any) => ({
@@ -1046,7 +1061,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
     if (!reportData) return '';
 
     const reportName = getReportName(selectedReport);
-    const headerLines = `${reportName}\nPeriod: ${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\n`;
+    const headerLines = `MyFuelApp.net - ${reportName}\nPeriod: ${formatDateDisplay(startDate)} to ${formatDateDisplay(endDate)}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\n`;
 
     let csv = headerLines;
 
@@ -1068,9 +1083,25 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         break;
 
       case 'driver':
-        csv += 'Driver,Transactions,Vehicles Driven,Total Liters,Total Spent,Avg Transaction\n';
+        if (orgSettings?.is_management_org) {
+          csv += 'Driver,Date,Vehicle,Garage,Fuel Type,Liters,Price/L,Amount,Commission,Odometer\n';
+        } else {
+          csv += 'Driver,Date,Vehicle,Garage,Fuel Type,Liters,Price/L,Amount,Odometer\n';
+        }
         reportData.drivers?.forEach((d: any) => {
-          csv += `${d.first_name} ${d.surname},${d.total_transactions},${d.vehicles_driven},${d.total_liters},${d.total_spent},${d.average_transaction_amount}\n`;
+          csv += `\n${d.first_name} ${d.surname}\n`;
+          d.transactions?.forEach((t: any) => {
+            if (orgSettings?.is_management_org) {
+              csv += `,"${new Date(t.date).toLocaleDateString()}","${t.vehicle}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${(t.commission || 0).toFixed(2)},${t.odometer || ''}\n`;
+            } else {
+              csv += `,"${new Date(t.date).toLocaleDateString()}","${t.vehicle}","${t.garage}",${t.fuel_type},${(t.liters || 0).toFixed(2)},${(t.price_per_liter || 0).toFixed(2)},${(t.amount || 0).toFixed(2)},${t.odometer || ''}\n`;
+            }
+          });
+          csv += `,TOTALS,,,${(d.total_liters || 0).toFixed(2)},,${(d.total_spent || 0).toFixed(2)}`;
+          if (orgSettings?.is_management_org) {
+            csv += `,${(d.total_commission || 0).toFixed(2)}`;
+          }
+          csv += `\n`;
         });
         break;
 
@@ -1373,35 +1404,71 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
             )}
 
             {selectedReport === 'driver' && reportData.drivers && (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-100 border-b border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Driver</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Transactions</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Vehicles Driven</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Liters</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Spent</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Avg Transaction</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {reportData.drivers.map((driver: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                            {driver.first_name} {driver.surname}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right text-gray-900">{driver.total_transactions}</td>
-                          <td className="px-4 py-3 text-sm text-right text-gray-900">{driver.vehicles_driven}</td>
-                          <td className="px-4 py-3 text-sm text-right text-gray-900">{(driver.total_liters || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-sm text-right text-gray-900">R {(driver.total_spent || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-sm text-right text-gray-900">R {(driver.average_transaction_amount || 0).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+              <div className="space-y-6">
+                {reportData.drivers.map((driver: any) => (
+                  <div key={driver.driver_id} className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {driver.first_name} {driver.surname}
+                      </h3>
+                      <div className="flex flex-wrap gap-4 mt-2 text-sm text-gray-600">
+                        <span>Transactions: <span className="font-medium text-gray-900">{driver.total_transactions}</span></span>
+                        <span>Vehicles Driven: <span className="font-medium text-gray-900">{driver.vehicles_driven}</span></span>
+                        <span>Total Liters: <span className="font-medium text-gray-900">{(driver.total_liters || 0).toFixed(2)}</span></span>
+                        <span>Total Spent: <span className="font-medium text-gray-900">R {(driver.total_spent || 0).toFixed(2)}</span></span>
+                        <span>Avg Transaction: <span className="font-medium text-gray-900">R {(driver.average_transaction_amount || 0).toFixed(2)}</span></span>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-100 border-b border-gray-200">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vehicle</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Garage</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fuel Type</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Liters</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Price/L</th>
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+                            {orgSettings?.is_management_org && (
+                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Commission</th>
+                            )}
+                            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Odometer</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {driver.transactions.map((t: any, idx: number) => (
+                            <tr key={idx} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-900">
+                                {new Date(t.date).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900">{t.vehicle}</td>
+                              <td className="px-4 py-3 text-sm text-gray-900">{t.garage}</td>
+                              <td className="px-4 py-3 text-sm text-gray-900">{t.fuel_type}</td>
+                              <td className="px-4 py-3 text-sm text-right text-gray-900">{(t.liters || 0).toFixed(2)}</td>
+                              <td className="px-4 py-3 text-sm text-right text-gray-900">R {(t.price_per_liter || 0).toFixed(2)}</td>
+                              <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">R {(t.amount || 0).toFixed(2)}</td>
+                              {orgSettings?.is_management_org && (
+                                <td className="px-4 py-3 text-sm text-right text-orange-600">R {(t.commission || 0).toFixed(2)}</td>
+                              )}
+                              <td className="px-4 py-3 text-sm text-right text-gray-900">{t.odometer || '-'}</td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-50 font-semibold">
+                            <td colSpan={4} className="px-4 py-3 text-sm text-gray-900">TOTALS</td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900">{(driver.total_liters || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3"></td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900">R {(driver.total_spent || 0).toFixed(2)}</td>
+                            {orgSettings?.is_management_org && (
+                              <td className="px-4 py-3 text-sm text-right text-orange-600">R {(driver.total_commission || 0).toFixed(2)}</td>
+                            )}
+                            <td className="px-4 py-3"></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
