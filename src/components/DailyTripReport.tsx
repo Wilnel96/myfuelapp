@@ -300,7 +300,7 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
       }
     }
 
-    csv += `\nTotal Trips,${trips.length}\nTotal KM,${totalKm.toLocaleString()}\n`;
+    csv += `\nTotal Trips,${trips.length}\nTotal KM,${totalKm}\n`;
     return csv;
   };
 
