@@ -357,7 +357,7 @@ export default function DailyTripReport({ organizationId: propOrgId }: DailyTrip
           </div>
           <button
             onClick={exportToExcel}
-            disabled={trips.length === 0 && dayGroups.every((g) => g.trips.length === 0)}
+            disabled={loading || dayGroups.length === 0}
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             <Download className="w-5 h-5" />
