@@ -29,6 +29,7 @@ interface Organization {
   bank_account_number_2: string;
   bank_branch_code_2: string;
   bank_account_type_2: string;
+  use_driver_cost_to_company: boolean;
 }
 
 interface OrgUser {
@@ -141,6 +142,7 @@ export default function OrganizationInfo() {
         bank_account_number_2: upper(organization.bank_account_number_2),
         bank_branch_code_2: upper(organization.bank_branch_code_2),
         bank_account_type_2: organization.bank_account_type_2,
+        use_driver_cost_to_company: organization.use_driver_cost_to_company,
       };
 
       updatePayload.address_line_1 = upper(organization.address_line_1);
@@ -349,6 +351,22 @@ export default function OrganizationInfo() {
                     </div>
                   </div>
                 </div>
+
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Account Options</h3>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={organization.use_driver_cost_to_company || false}
+                    onChange={(e) => setOrganization({ ...organization, use_driver_cost_to_company: e.target.checked })}
+                    className="mt-1 w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-900">Enable Driver Cost-to-Company Tracking</span>
+                    <p className="text-xs text-gray-500 mt-1">Track each driver's weekly cost to company and calculate hourly rates. When enabled, authorized users can enter salary details per driver and the Total Running Cost report will include driver labour costs.</p>
+                  </div>
+                </label>
+              </div>
               </div>
 
               <div className="border-t border-gray-200 pt-6">
@@ -449,6 +467,22 @@ export default function OrganizationInfo() {
                     </select>
                   </div>
                 </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Account Options</h3>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={organization.use_driver_cost_to_company || false}
+                    onChange={(e) => setOrganization({ ...organization, use_driver_cost_to_company: e.target.checked })}
+                    className="mt-1 w-5 h-5 text-blue-600 rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-900">Enable Driver Cost-to-Company Tracking</span>
+                    <p className="text-xs text-gray-500 mt-1">Track each driver's weekly cost to company and calculate hourly rates. When enabled, authorized users can enter salary details per driver and the Total Running Cost report will include driver labour costs.</p>
+                  </div>
+                </label>
               </div>
             </>
           ) : (
