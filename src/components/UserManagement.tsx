@@ -27,6 +27,8 @@ interface OrganizationUser {
   can_view_reports: boolean;
   can_edit_organization_info: boolean;
   can_view_fuel_transactions: boolean;
+  can_view_driver_employment: boolean;
+  can_edit_driver_employment: boolean;
   can_create_reports: boolean;
   can_view_custom_reports: boolean;
   can_manage_users: boolean;
@@ -86,6 +88,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
     can_view_reports: false,
     can_edit_organization_info: false,
     can_view_fuel_transactions: false,
+    can_view_driver_employment: false,
+    can_edit_driver_employment: false,
     can_create_reports: false,
     can_view_custom_reports: false,
     can_manage_users: false,
@@ -108,6 +112,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
     can_view_reports: false,
     can_edit_organization_info: false,
     can_view_fuel_transactions: false,
+    can_view_driver_employment: false,
+    can_edit_driver_employment: false,
     can_create_reports: false,
     can_view_custom_reports: false,
     can_manage_users: false,
@@ -138,6 +144,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         can_view_reports: true,
         can_edit_organization_info: true,
         can_view_fuel_transactions: true,
+        can_view_driver_employment: true,
+        can_edit_driver_employment: true,
         can_create_reports: true,
         can_view_custom_reports: true,
         can_manage_users: false,
@@ -157,6 +165,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         can_view_reports: true,
         can_edit_organization_info: false,
         can_view_fuel_transactions: true,
+        can_view_driver_employment: false,
+        can_edit_driver_employment: false,
         can_create_reports: true,
         can_view_custom_reports: true,
         can_manage_users: false,
@@ -176,6 +186,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         can_view_reports: true,
         can_edit_organization_info: false,
         can_view_fuel_transactions: true,
+        can_view_driver_employment: false,
+        can_edit_driver_employment: false,
         can_create_reports: false,
         can_view_custom_reports: true,
         can_manage_users: false,
@@ -195,6 +207,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         can_view_reports: false,
         can_edit_organization_info: false,
         can_view_fuel_transactions: false,
+        can_view_driver_employment: false,
+        can_edit_driver_employment: false,
         can_create_reports: false,
         can_view_custom_reports: false,
         can_manage_users: false,
@@ -468,6 +482,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
             can_view_reports: newUser.can_view_reports,
             can_edit_organization_info: newUser.can_edit_organization_info,
             can_view_fuel_transactions: newUser.can_view_fuel_transactions,
+            can_view_driver_employment: newUser.can_view_driver_employment,
+            can_edit_driver_employment: newUser.can_edit_driver_employment,
             can_create_reports: newUser.can_create_reports,
             can_view_custom_reports: newUser.can_view_custom_reports,
             can_manage_users: newUser.can_manage_users,
@@ -504,6 +520,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
           can_view_reports: newUser.can_view_reports,
           can_edit_organization_info: newUser.can_edit_organization_info,
           can_view_fuel_transactions: newUser.can_view_fuel_transactions,
+          can_view_driver_employment: newUser.can_view_driver_employment,
+          can_edit_driver_employment: newUser.can_edit_driver_employment,
           can_create_reports: newUser.can_create_reports,
           can_view_custom_reports: newUser.can_view_custom_reports,
           can_manage_users: newUser.can_manage_users,
@@ -546,6 +564,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         can_view_reports: false,
         can_edit_organization_info: false,
         can_view_fuel_transactions: false,
+        can_view_driver_employment: false,
+        can_edit_driver_employment: false,
         can_create_reports: false,
         can_view_custom_reports: false,
         can_manage_users: false,
@@ -629,6 +649,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
             can_view_reports: editingUser.can_view_reports,
             can_edit_organization_info: editingUser.can_edit_organization_info,
             can_view_fuel_transactions: editingUser.can_view_fuel_transactions,
+            can_view_driver_employment: editingUser.can_view_driver_employment,
+            can_edit_driver_employment: editingUser.can_edit_driver_employment,
             can_create_reports: editingUser.can_create_reports,
             can_view_custom_reports: editingUser.can_view_custom_reports,
             can_manage_users: editingUser.can_manage_users,
@@ -740,6 +762,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
           can_view_reports: editingUser.can_view_reports,
           can_edit_organization_info: editingUser.can_edit_organization_info,
           can_view_fuel_transactions: editingUser.can_view_fuel_transactions,
+          can_view_driver_employment: editingUser.can_view_driver_employment,
+          can_edit_driver_employment: editingUser.can_edit_driver_employment,
           can_create_reports: editingUser.can_create_reports,
           can_view_custom_reports: editingUser.can_view_custom_reports,
           can_manage_users: editingUser.can_manage_users,
@@ -896,6 +920,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         can_view_reports: false,
         can_edit_organization_info: false,
         can_view_fuel_transactions: false,
+        can_view_driver_employment: false,
+        can_edit_driver_employment: false,
         can_create_reports: false,
         can_view_custom_reports: false,
         can_manage_users: false,
@@ -1234,6 +1260,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                         can_view_reports: true,
                         can_edit_organization_info: true,
                         can_view_fuel_transactions: true,
+                        can_view_driver_employment: true,
+                        can_edit_driver_employment: true,
                         can_create_reports: true,
                         can_view_custom_reports: true,
                         can_manage_users: true,
@@ -1411,6 +1439,30 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                           className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                         />
                         <span className="text-xs text-gray-700">Can Delete Drivers</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newUser.can_view_driver_employment}
+                          onChange={(e) => {
+                            setNewUser({ ...newUser, can_view_driver_employment: e.target.checked });
+                            setSelectedTemplate('custom');
+                          }}
+                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        />
+                        <span className="text-xs text-gray-700">View Driver Employment Cost</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newUser.can_edit_driver_employment}
+                          onChange={(e) => {
+                            setNewUser({ ...newUser, can_edit_driver_employment: e.target.checked });
+                            setSelectedTemplate('custom');
+                          }}
+                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        />
+                        <span className="text-xs text-gray-700">Edit Driver Employment Cost</span>
                       </label>
                     </div>
                   </div>
@@ -1689,6 +1741,8 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                       can_view_reports: true,
                       can_edit_organization_info: true,
                       can_view_fuel_transactions: true,
+                      can_view_driver_employment: true,
+                      can_edit_driver_employment: true,
                       can_create_reports: true,
                       can_view_custom_reports: true,
                       can_manage_users: true,
@@ -1860,6 +1914,24 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                       />
                       <span className="text-xs text-gray-700">Can Delete Drivers</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingUser.can_view_driver_employment}
+                        onChange={(e) => setEditingUser({ ...editingUser, can_view_driver_employment: e.target.checked })}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      />
+                      <span className="text-xs text-gray-700">View Driver Employment Cost</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingUser.can_edit_driver_employment}
+                        onChange={(e) => setEditingUser({ ...editingUser, can_edit_driver_employment: e.target.checked })}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      />
+                      <span className="text-xs text-gray-700">Edit Driver Employment Cost</span>
                     </label>
                   </div>
                 </div>

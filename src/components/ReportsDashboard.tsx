@@ -882,6 +882,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
       fuel_cost: number;
       service_cost: number;
       other_maintenance_cost: number;
+      driver_cost: number;
       km_travelled: number;
     }> = {};
 
@@ -894,6 +895,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         fuel_cost: 0,
         service_cost: 0,
         other_maintenance_cost: 0,
+        driver_cost: 0,
         km_travelled: 0,
       };
     });
@@ -922,13 +924,103 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
       }
     });
 
+    // Calculate driver cost if org has opted in and user has permission
+    const usesDriverCost = orgSettings?.use_driver_cost_to_company === true;
+    let canViewDriverCost = false;
+    if (usesDriverCost) {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', currentUser.id)
+          .maybeSingle();
+        if (profileData?.role === 'super_admin') {
+          canViewDriverCost = true;
+        } else {
+          const { data: orgUser } = await supabase
+            .from('organization_users')
+            .select('is_main_user, is_secondary_main_user, can_view_driver_employment')
+            .eq('user_id', currentUser.id)
+            .eq('is_active', true)
+            .maybeSingle();
+          canViewDriverCost = orgUser?.is_main_user || orgUser?.is_secondary_main_user || orgUser?.can_view_driver_employment || false;
+        }
+      }
+    }
+
+    if (usesDriverCost && canViewDriverCost) {
+      // Fetch all draw/return transactions in date range
+      const { data: drawTxns } = await supabase
+        .from('vehicle_transactions')
+        .select('id, vehicle_id, driver_id, created_at, manual_return_time')
+        .eq('organization_id', orgId)
+        .eq('transaction_type', 'draw')
+        .gte('created_at', startDateTime)
+        .lte('created_at', endDateTime);
+
+      if (drawTxns && drawTxns.length > 0) {
+        // Fetch employment costs for all drivers in this org
+        const driverIds = [...new Set(drawTxns.map(d => d.driver_id).filter(Boolean))];
+        const { data: employmentCosts } = await supabase
+          .from('driver_employment_costs')
+          .select('driver_id, weekly_cost_to_company, standard_weekly_hours')
+          .in('driver_id', driverIds);
+
+        const rateMap: Record<string, number> = {};
+        employmentCosts?.forEach((ec: any) => {
+          const hours = parseFloat(ec.standard_weekly_hours);
+          if (hours > 0) {
+            rateMap[ec.driver_id] = parseFloat(ec.weekly_cost_to_company) / hours;
+          }
+        });
+
+        // For each draw, find the matching return
+        for (const draw of drawTxns) {
+          if (!draw.driver_id || !rateMap[draw.driver_id]) continue;
+
+          const { data: returnTxn } = await supabase
+            .from('vehicle_transactions')
+            .select('created_at')
+            .eq('related_transaction_id', draw.id)
+            .eq('transaction_type', 'return')
+            .maybeSingle();
+
+          const v = vehicleMap[draw.vehicle_id];
+          if (!v) continue;
+
+          if (returnTxn) {
+            const drawTime = new Date(draw.created_at);
+            const returnTime = new Date(returnTxn.created_at);
+            const hours = (returnTime.getTime() - drawTime.getTime()) / (1000 * 60 * 60);
+            if (hours > 0) {
+              v.driver_cost += hours * rateMap[draw.driver_id];
+            }
+          } else if (draw.manual_return_time) {
+            const drawTime = new Date(draw.created_at);
+            const manualTime = new Date(draw.manual_return_time);
+            const hours = (manualTime.getTime() - drawTime.getTime()) / (1000 * 60 * 60);
+            if (hours > 0) {
+              v.driver_cost += hours * rateMap[draw.driver_id];
+            }
+          }
+          // In-progress trips (no return, no manual time) are excluded
+        }
+      }
+    }
+
+    const showDriverCost = usesDriverCost && canViewDriverCost;
+
     const runningCostData = Object.values(vehicleMap)
       .map((v: any) => {
-        const totalCost = v.fuel_cost + v.service_cost + v.other_maintenance_cost;
+        const totalCost = showDriverCost
+          ? v.fuel_cost + v.service_cost + v.other_maintenance_cost + v.driver_cost
+          : v.fuel_cost + v.service_cost + v.other_maintenance_cost;
         return {
           ...v,
           total_cost: totalCost,
           cost_per_km: v.km_travelled > 0 ? totalCost / v.km_travelled : 0,
+          show_driver_cost: showDriverCost,
         };
       })
       .sort((a: any, b: any) => b.total_cost - a.total_cost);
@@ -1160,10 +1252,19 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
         break;
 
       case 'vehicle-running-cost':
-        csv += 'Vehicle,Fuel Cost,Service Cost,Other Maintenance Cost,Total Maintenance Cost,Total Running Cost,KM Travelled,Cost per KM\n';
+        const showDriverCol = reportData.runningCost?.[0]?.show_driver_cost === true;
+        if (showDriverCol) {
+          csv += 'Vehicle,Fuel Cost,Service Cost,Other Maintenance Cost,Total Maintenance Cost,Driver Cost,Total Running Cost,KM Travelled,Cost per KM\n';
+        } else {
+          csv += 'Vehicle,Fuel Cost,Service Cost,Other Maintenance Cost,Total Maintenance Cost,Total Running Cost,KM Travelled,Cost per KM\n';
+        }
         reportData.runningCost?.forEach((v: any) => {
           const totalMaintenance = v.service_cost + v.other_maintenance_cost;
-          csv += `"${v.license_plate} (${v.make} ${v.model})",${v.fuel_cost.toFixed(2)},${v.service_cost.toFixed(2)},${v.other_maintenance_cost.toFixed(2)},${totalMaintenance.toFixed(2)},${v.total_cost.toFixed(2)},${v.km_travelled},${v.cost_per_km > 0 ? v.cost_per_km.toFixed(2) : '-'}\n`;
+          if (showDriverCol) {
+            csv += `"${v.license_plate} (${v.make} ${v.model})",${v.fuel_cost.toFixed(2)},${v.service_cost.toFixed(2)},${v.other_maintenance_cost.toFixed(2)},${totalMaintenance.toFixed(2)},${(v.driver_cost || 0).toFixed(2)},${v.total_cost.toFixed(2)},${v.km_travelled},${v.cost_per_km > 0 ? v.cost_per_km.toFixed(2) : '-'}\n`;
+          } else {
+            csv += `"${v.license_plate} (${v.make} ${v.model})",${v.fuel_cost.toFixed(2)},${v.service_cost.toFixed(2)},${v.other_maintenance_cost.toFixed(2)},${totalMaintenance.toFixed(2)},${v.total_cost.toFixed(2)},${v.km_travelled},${v.cost_per_km > 0 ? v.cost_per_km.toFixed(2) : '-'}\n`;
+          }
         });
         break;
 
@@ -1812,6 +1913,9 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Service Cost</th>
                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Other Maint.</th>
                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Maint.</th>
+                            {reportData.runningCost[0]?.show_driver_cost && (
+                              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Driver Cost</th>
+                            )}
                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Cost</th>
                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">KM Travelled</th>
                             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost/KM</th>
@@ -1827,6 +1931,9 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                                 <td className="px-4 py-3 text-sm text-right text-gray-900">R {v.service_cost.toFixed(2)}</td>
                                 <td className="px-4 py-3 text-sm text-right text-gray-900">R {v.other_maintenance_cost.toFixed(2)}</td>
                                 <td className="px-4 py-3 text-sm text-right text-gray-900">R {totalMaintenance.toFixed(2)}</td>
+                                {v.show_driver_cost && (
+                                  <td className="px-4 py-3 text-sm text-right text-gray-900">R {(v.driver_cost || 0).toFixed(2)}</td>
+                                )}
                                 <td className="px-4 py-3 text-sm text-right font-bold text-gray-900">R {v.total_cost.toFixed(2)}</td>
                                 <td className="px-4 py-3 text-sm text-right text-gray-900">{v.km_travelled.toLocaleString()}</td>
                                 <td className="px-4 py-3 text-sm text-right font-medium text-blue-700">
@@ -1843,6 +1950,9 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                             <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + v.service_cost, 0).toFixed(2)}</td>
                             <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + v.other_maintenance_cost, 0).toFixed(2)}</td>
                             <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + v.service_cost + v.other_maintenance_cost, 0).toFixed(2)}</td>
+                            {reportData.runningCost[0]?.show_driver_cost && (
+                              <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + (v.driver_cost || 0), 0).toFixed(2)}</td>
+                            )}
                             <td className="px-4 py-3 text-sm text-right text-gray-900">R {reportData.runningCost.reduce((s: number, v: any) => s + v.total_cost, 0).toFixed(2)}</td>
                             <td className="px-4 py-3 text-sm text-right text-gray-900">{reportData.runningCost.reduce((s: number, v: any) => s + v.km_travelled, 0).toLocaleString()}</td>
                             <td className="px-4 py-3"></td>

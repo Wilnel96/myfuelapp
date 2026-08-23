@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Plus, CreditCard as Edit2, Trash2, Search, AlertCircle, CheckCircle, X, Scan, RotateCcw, ArrowLeft, TrendingUp, Calendar, Lock, Unlock } from 'lucide-react';
+import { Users, Plus, CreditCard as Edit2, Trash2, Search, AlertCircle, CheckCircle, X, Scan, RotateCcw, ArrowLeft, TrendingUp, Calendar, Lock, Unlock, Wallet } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import LicenseScanner, { ParsedLicenseData } from './LicenseScanner';
 
@@ -121,6 +121,12 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
   const [spendingData, setSpendingData] = useState<SpendingData | null>(null);
   const [loadingPaymentData, setLoadingPaymentData] = useState(false);
   const [savingPaymentSettings, setSavingPaymentSettings] = useState(false);
+  const [employmentData, setEmploymentData] = useState<{ weekly_cost: number; weekly_hours: number } | null>(null);
+  const [employmentForm, setEmploymentForm] = useState({ weekly_cost: '', weekly_hours: '45' });
+  const [canViewEmployment, setCanViewEmployment] = useState(false);
+  const [canEditEmployment, setCanEditEmployment] = useState(false);
+  const [orgUsesCostToCompany, setOrgUsesCostToCompany] = useState(false);
+  const [savingEmployment, setSavingEmployment] = useState(false);
 
   const [formData, setFormData] = useState<DriverFormData>({
     first_name: '',
@@ -206,7 +212,7 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
         if (!isSuper) {
           const { data: orgUser } = await supabase
             .from('organization_users')
-            .select('is_main_user, is_secondary_main_user, can_add_drivers, can_edit_drivers, can_delete_drivers')
+            .select('is_main_user, is_secondary_main_user, can_add_drivers, can_edit_drivers, can_delete_drivers, can_view_driver_employment, can_edit_driver_employment')
             .eq('user_id', user.id)
             .eq('is_active', true)
             .maybeSingle();
@@ -215,10 +221,14 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
           setCanAddDriver(full || orgUser?.can_add_drivers || false);
           setCanEditDriver(full || orgUser?.can_edit_drivers || false);
           setCanDeleteDriver(full || orgUser?.can_delete_drivers || false);
+          setCanViewEmployment(full || orgUser?.can_view_driver_employment || false);
+          setCanEditEmployment(full || orgUser?.can_edit_driver_employment || false);
         } else {
           setCanAddDriver(true);
           setCanEditDriver(true);
           setCanDeleteDriver(true);
+          setCanViewEmployment(true);
+          setCanEditEmployment(true);
         }
 
         // Check if user is in management organization
@@ -372,6 +382,113 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
     }
   };
 
+  const loadEmploymentData = async (driverId: string, orgId: string) => {
+    try {
+      const { data: orgInfo } = await supabase
+        .from('organizations')
+        .select('use_driver_cost_to_company')
+        .eq('id', orgId)
+        .maybeSingle();
+
+      setOrgUsesCostToCompany(orgInfo?.use_driver_cost_to_company === true);
+
+      if (!orgInfo?.use_driver_cost_to_company || !canViewEmployment) {
+        setEmploymentData(null);
+        setEmploymentForm({ weekly_cost: '', weekly_hours: '45' });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('driver_employment_costs')
+        .select('weekly_cost_to_company, standard_weekly_hours')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+
+      if (error) {
+        setEmploymentData(null);
+        setEmploymentForm({ weekly_cost: '', weekly_hours: '45' });
+        return;
+      }
+
+      if (data) {
+        setEmploymentData({
+          weekly_cost: Number(data.weekly_cost_to_company),
+          weekly_hours: Number(data.standard_weekly_hours),
+        });
+        setEmploymentForm({
+          weekly_cost: String(data.weekly_cost_to_company),
+          weekly_hours: String(data.standard_weekly_hours),
+        });
+      } else {
+        setEmploymentData(null);
+        setEmploymentForm({ weekly_cost: '', weekly_hours: '45' });
+      }
+    } catch (err) {
+      setEmploymentData(null);
+      setEmploymentForm({ weekly_cost: '', weekly_hours: '45' });
+    }
+  };
+
+  const handleSaveEmployment = async () => {
+    if (!editingDriver) return;
+
+    try {
+      setSavingEmployment(true);
+      setError('');
+
+      const cost = parseFloat(employmentForm.weekly_cost);
+      const hours = parseFloat(employmentForm.weekly_hours);
+
+      if (isNaN(cost) || cost < 0) {
+        setError('Weekly cost to company must be a valid positive number');
+        setSavingEmployment(false);
+        return;
+      }
+      if (isNaN(hours) || hours <= 0) {
+        setError('Standard weekly hours must be greater than zero');
+        setSavingEmployment(false);
+        return;
+      }
+
+      const { data: existing } = await supabase
+        .from('driver_employment_costs')
+        .select('id')
+        .eq('driver_id', editingDriver.id)
+        .maybeSingle();
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('driver_employment_costs')
+          .update({
+            weekly_cost_to_company: cost,
+            standard_weekly_hours: hours,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('driver_id', editingDriver.id);
+
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('driver_employment_costs')
+          .insert({
+            driver_id: editingDriver.id,
+            organization_id: editingDriver.organization_id,
+            weekly_cost_to_company: cost,
+            standard_weekly_hours: hours,
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      setSuccess('Employment cost saved successfully');
+      setEmploymentData({ weekly_cost: cost, weekly_hours: hours });
+    } catch (err: any) {
+      setError(err.message || 'Failed to save employment cost');
+    } finally {
+      setSavingEmployment(false);
+    }
+  };
+
   const openModal = (driver?: Driver, orgId?: string) => {
     if (driver) {
       setEditingDriver(driver);
@@ -406,10 +523,14 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
 
       // Load payment data for existing driver
       loadPaymentData(driver.id);
+      // Load employment cost data if applicable
+      loadEmploymentData(driver.id, driver.organization_id);
     } else {
       setEditingDriver(null);
       setPaymentSettings(null);
       setSpendingData(null);
+      setEmploymentData(null);
+      setEmploymentForm({ weekly_cost: '', weekly_hours: '45' });
       setFormData({
         first_name: '',
         surname: '',
@@ -539,6 +660,8 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
     setError('');
     setSuccess('');
     setIdDobMismatch('');
+    setEmploymentData(null);
+    setEmploymentForm({ weekly_cost: '', weekly_hours: '45' });
   };
 
   const handleLicenseScan = (data: ParsedLicenseData) => {
@@ -1420,6 +1543,80 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
                     <option value="suspended">Suspended</option>
                   </select>
                 </div>
+
+                {editingDriver && orgUsesCostToCompany && canViewEmployment && (
+                  <>
+                    <div className="border-t border-gray-300 my-6"></div>
+
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-200">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Wallet className="w-5 h-5 text-blue-600" />
+                        <h3 className="font-semibold text-gray-900 text-sm uppercase tracking-wide">
+                          Cost to Company
+                        </h3>
+                      </div>
+
+                      <p className="text-xs text-gray-600 mb-4">
+                        Employment cost data is confidential. Only authorized users can view or edit this section.
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Weekly Cost to Company (R)
+                          </label>
+                          <input
+                            type="number"
+                            value={employmentForm.weekly_cost}
+                            onChange={(e) => setEmploymentForm({ ...employmentForm, weekly_cost: e.target.value })}
+                            disabled={!canEditEmployment}
+                            min="0"
+                            step="100"
+                            placeholder="e.g. 8000"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Standard Weekly Hours
+                          </label>
+                          <input
+                            type="number"
+                            value={employmentForm.weekly_hours}
+                            onChange={(e) => setEmploymentForm({ ...employmentForm, weekly_hours: e.target.value })}
+                            disabled={!canEditEmployment}
+                            min="1"
+                            step="1"
+                            placeholder="e.g. 45"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                          />
+                        </div>
+                      </div>
+
+                      {employmentForm.weekly_cost && employmentForm.weekly_hours &&
+                       parseFloat(employmentForm.weekly_hours) > 0 && (
+                        <div className="bg-white rounded-lg p-3 border border-blue-200 mb-4">
+                          <p className="text-sm text-gray-600">Calculated Hourly Rate</p>
+                          <p className="text-2xl font-bold text-blue-700">
+                            R{(parseFloat(employmentForm.weekly_cost) / parseFloat(employmentForm.weekly_hours)).toFixed(2)}
+                            <span className="text-sm font-normal text-gray-500"> / hour</span>
+                          </p>
+                        </div>
+                      )}
+
+                      {canEditEmployment && (
+                        <button
+                          type="button"
+                          onClick={handleSaveEmployment}
+                          disabled={savingEmployment}
+                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 text-sm font-medium"
+                        >
+                          {savingEmployment ? 'Saving...' : 'Save Employment Cost'}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 {editingDriver && paymentSettings && (
                   <>

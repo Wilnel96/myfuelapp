@@ -25,6 +25,8 @@ interface UserToCreate {
   can_view_reports?: boolean;
   can_edit_organization_info?: boolean;
   can_view_fuel_transactions?: boolean;
+  can_view_driver_employment?: boolean;
+  can_edit_driver_employment?: boolean;
   can_create_reports?: boolean;
   can_view_custom_reports?: boolean;
   can_manage_users?: boolean;
@@ -119,6 +121,8 @@ Deno.serve(async (req: Request) => {
           can_view_reports: true,
           can_edit_organization_info: true,
           can_view_fuel_transactions: true,
+          can_view_driver_employment: true,
+          can_edit_driver_employment: true,
           can_create_reports: true,
           can_view_custom_reports: true,
           can_manage_users: true,
@@ -143,6 +147,8 @@ Deno.serve(async (req: Request) => {
           can_view_reports: userData.can_view_reports ?? false,
           can_edit_organization_info: userData.can_edit_organization_info ?? false,
           can_view_fuel_transactions: userData.can_view_fuel_transactions ?? false,
+          can_view_driver_employment: userData.can_view_driver_employment ?? false,
+          can_edit_driver_employment: userData.can_edit_driver_employment ?? false,
           can_create_reports: userData.can_create_reports ?? false,
           can_view_custom_reports: userData.can_view_custom_reports ?? false,
           can_manage_users: userData.can_manage_users ?? false,

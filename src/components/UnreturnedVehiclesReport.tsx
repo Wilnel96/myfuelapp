@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Calendar, Download, AlertTriangle, Clock, User, Truck } from 'lucide-react';
+import { Calendar, Download, AlertTriangle, Clock, User, Truck, CheckCircle } from 'lucide-react';
 
 interface UnreturnedRow {
   draw_id: string;
@@ -18,6 +18,10 @@ interface UnreturnedRow {
   trailer_gvm: number | null;
 }
 
+interface ManualReturnState {
+  drawId: string;
+  time: string;
+} 
 export default function UnreturnedVehiclesReport() {
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
   const [rows, setRows] = useState<UnreturnedRow[]>([]);
@@ -25,6 +29,8 @@ export default function UnreturnedVehiclesReport() {
   const [generated, setGenerated] = useState(false);
   const [error, setError] = useState('');
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [manualReturn, setManualReturn] = useState<ManualReturnState | null>(null);
+  const [savingManual, setSavingManual] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -128,6 +134,29 @@ export default function UnreturnedVehiclesReport() {
     }
   };
 
+  const handleSaveManualReturn = async () => {
+    if (!manualReturn || !manualReturn.time) return;
+    setSavingManual(true);
+    setError('');
+    try {
+      const localTime = new Date(manualReturn.time);
+      const { error: updateErr } = await supabase
+        .from('vehicle_transactions')
+        .update({ manual_return_time: localTime.toISOString() })
+        .eq('id', manualReturn.drawId);
+      if (updateErr) throw updateErr;
+      setManualReturn(null);
+      setSuccessMsg('Manual return time saved. Regenerate the report to see the updated status.');
+      setTimeout(() => setSuccessMsg(''), 5000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save manual return time');
+    } finally {
+      setSavingManual(false);
+    }
+  };
+
+  const [successMsg, setSuccessMsg] = useState('');
+
   const exportCSV = () => {
     if (!rows.length) return;
     let csv = `MyFuelApp.net - Unreturned Vehicles Report\nAs of: ${new Date(reportDate + 'T12:00:00').toLocaleDateString('en-ZA')}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\nVehicle,Make/Model,Driver,Trailer,Drawn At,Hours Out,Odometer,Trip Description\n`;
@@ -191,6 +220,14 @@ export default function UnreturnedVehiclesReport() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800 text-sm">{error}</div>
       )}
 
+      {/* Success */}
+      {successMsg && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2 text-green-800 text-sm">
+          <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+          {successMsg}
+        </div>
+      )}
+
       {/* Results */}
       {generated && !loading && (
         <>
@@ -228,6 +265,7 @@ export default function UnreturnedVehiclesReport() {
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Hours Out</th>
                       <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Odometer</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Trip Description</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide">Manual Return</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -274,6 +312,40 @@ export default function UnreturnedVehiclesReport() {
                           {row.trip_description
                             ? <span className="text-gray-700">{row.trip_description}</span>
                             : <span className="text-gray-400 italic">Not specified</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {manualReturn?.drawId === row.draw_id ? (
+                            <div className="flex flex-col gap-1.5 items-center">
+                              <input
+                                type="datetime-local"
+                                value={manualReturn.time}
+                                onChange={(e) => setManualReturn({ ...manualReturn, time: e.target.value })}
+                                className="border border-gray-300 rounded px-2 py-1 text-xs w-44"
+                              />
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={handleSaveManualReturn}
+                                  disabled={savingManual || !manualReturn.time}
+                                  className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:bg-gray-300"
+                                >
+                                  {savingManual ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  onClick={() => setManualReturn(null)}
+                                  className="px-2.5 py-1 bg-gray-200 text-gray-700 rounded text-xs hover:bg-gray-300"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setManualReturn({ drawId: row.draw_id, time: '' })}
+                              className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded text-xs hover:bg-blue-100 border border-blue-200"
+                            >
+                              Enter Time
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

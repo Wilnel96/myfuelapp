@@ -24,6 +24,8 @@ interface CreateUserRequest {
   can_view_reports: boolean;
   can_edit_organization_info: boolean;
   can_view_fuel_transactions: boolean;
+  can_view_driver_employment: boolean;
+  can_edit_driver_employment: boolean;
   can_create_reports: boolean;
   can_view_custom_reports: boolean;
   can_manage_users: boolean;
@@ -187,6 +189,8 @@ Deno.serve(async (req: Request) => {
           can_view_reports: userData.can_view_reports,
           can_edit_organization_info: userData.can_edit_organization_info,
           can_view_fuel_transactions: userData.can_view_fuel_transactions,
+          can_view_driver_employment: userData.can_view_driver_employment,
+          can_edit_driver_employment: userData.can_edit_driver_employment,
           can_create_reports: userData.can_create_reports,
           can_view_custom_reports: userData.can_view_custom_reports,
           can_manage_users: userData.can_manage_users,
@@ -225,6 +229,8 @@ Deno.serve(async (req: Request) => {
           can_view_reports: userData.can_view_reports,
           can_edit_organization_info: userData.can_edit_organization_info,
           can_view_fuel_transactions: userData.can_view_fuel_transactions,
+          can_view_driver_employment: userData.can_view_driver_employment,
+          can_edit_driver_employment: userData.can_edit_driver_employment,
           can_create_reports: userData.can_create_reports,
           can_view_custom_reports: userData.can_view_custom_reports,
           can_manage_users: userData.can_manage_users,

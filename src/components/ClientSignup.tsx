@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Fuel, AlertCircle, ArrowLeft, Building2, User, Mail, Lock, Phone, MapPin, CreditCard } from 'lucide-react';
+import { Fuel, AlertCircle, ArrowLeft, Building2, User, Mail, Lock, Phone, MapPin, CreditCard, Wallet } from 'lucide-react';
 
 interface ClientSignupProps {
   portalType: 'card' | 'account' | 'both';
@@ -14,7 +14,7 @@ const SA_PROVINCES = [
 ];
 
 export default function ClientSignup({ portalType, onBack, onSignupSuccess }: ClientSignupProps) {
-  const [step, setStep] = useState<'type' | 'org' | 'user'>('type');
+  const [step, setStep] = useState<'type' | 'org' | 'user' | 'options'>('type');
   const [accountType, setAccountType] = useState<'individual' | 'organization' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -49,9 +49,11 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
 
   const up = (v: string) => v.toUpperCase();
 
+  const [useDriverCostToCompany, setUseDriverCostToCompany] = useState(false);
+
   const handleTypeSelection = (type: 'individual' | 'organization') => {
     setAccountType(type);
-    setStep(type === 'individual' ? 'user' : 'org');
+    setStep(type === 'individual' ? 'options' : 'org');
   };
 
   const handleOrgSubmit = (e: React.FormEvent) => {
@@ -61,6 +63,11 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
       setError('Organisation name and email are required');
       return;
     }
+    setStep('options');
+  };
+
+  const handleOptionsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     setStep('user');
   };
 
@@ -146,6 +153,7 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
           is_management_org: false,
           organization_type: 'client',
           monthly_fee_per_vehicle: defaultMonthlyFee,
+          use_driver_cost_to_company: useDriverCostToCompany,
         })
         .eq('id', profile.organization_id);
 
@@ -377,15 +385,66 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
             </form>
           )}
 
+          {/* ── Driver cost-to-company opt-in ── */}
+          {step === 'options' && (
+            <form onSubmit={handleOptionsSubmit} className="space-y-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-gray-900">Account Options</h3>
+                <button type="button"
+                  onClick={() => accountType === 'organization' ? setStep('org') : setStep('type')}
+                  className="text-sm text-gray-600 hover:text-gray-700">
+                  &larr; Back
+                </button>
+              </div>
+
+              <div className={`border-2 rounded-xl p-5 ${useDriverCostToCompany ? `border-${accentCls}-400 bg-${accentCls}-50` : 'border-gray-200'}`}>
+                <div className="flex items-start gap-3">
+                  <Wallet className={`w-6 h-6 flex-shrink-0 mt-0.5 ${useDriverCostToCompany ? `text-${accentCls}-600` : 'text-gray-400'}`} />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1">Driver Cost to Company</h4>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Track the employment cost of each driver (salary, pension, etc.) and include it in your
+                      total running cost reports. The system calculates driver time per trip based on when a
+                      vehicle is drawn and returned, then multiplies by the driver's hourly rate.
+                      Only authorized users in your organization will have access to this confidential salary data.
+                    </p>
+                    <div className="flex gap-3">
+                      <button type="button"
+                        onClick={() => setUseDriverCostToCompany(true)}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${useDriverCostToCompany ? `bg-${accentCls}-600 text-white` : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                        Yes, enable driver cost tracking
+                      </button>
+                      <button type="button"
+                        onClick={() => setUseDriverCostToCompany(false)}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${!useDriverCostToCompany ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                        No, skip this feature
+                      </button>
+                    </div>
+                    {useDriverCostToCompany && (
+                      <p className={`text-xs mt-3 text-${accentCls}-700`}>
+                        You can change this setting later. Employment cost data for each driver will be entered
+                        separately and is only visible to users you authorize.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" className={btnCls}>
+                Continue to Account Details
+              </button>
+            </form>
+          )}
+
           {/* ── User / account details ── */}
           {step === 'user' && (
             <form onSubmit={handleUserSubmit} className="space-y-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-gray-900">Your Account Details</h3>
                 <button type="button"
-                  onClick={() => accountType === 'organization' ? setStep('org') : setStep('type')}
+                  onClick={() => setStep('options')}
                   className="text-sm text-gray-600 hover:text-gray-700">
-                  ← Back
+                  &larr; Back
                 </button>
               </div>
 
