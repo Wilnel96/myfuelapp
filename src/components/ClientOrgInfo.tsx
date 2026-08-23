@@ -23,6 +23,7 @@ interface ClientOrganization {
   phone_number: string | null;
   monthly_fee_per_vehicle: number | null;
   monthly_fee_per_driver: number | null;
+  use_driver_cost_to_company: boolean | null;
   main_user_name?: string | null;
   main_user_surname?: string | null;
   main_user_email?: string | null;
@@ -238,6 +239,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
           phone_number: editForm.phone_number,
           monthly_fee_per_vehicle: editForm.monthly_fee_per_vehicle === undefined ? null : (editForm.monthly_fee_per_vehicle === '' ? null : Number(editForm.monthly_fee_per_vehicle)),
           monthly_fee_per_driver: editForm.monthly_fee_per_driver === undefined ? null : (editForm.monthly_fee_per_driver === '' ? null : Number(editForm.monthly_fee_per_driver)),
+          use_driver_cost_to_company: editForm.use_driver_cost_to_company || false,
         })
         .eq('id', editingId)
         .select();
@@ -761,6 +763,22 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                 </div>
 
                 <div className="border-t pt-2 mt-2">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Account Options</h4>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editForm.use_driver_cost_to_company || false}
+                      onChange={(e) => setEditForm({ ...editForm, use_driver_cost_to_company: e.target.checked })}
+                      className="mt-0.5 w-4 h-4 text-blue-600 rounded border-gray-300"
+                    />
+                    <div>
+                      <span className="text-xs font-medium text-gray-900">Enable Driver Cost-to-Company Tracking</span>
+                      <p className="text-xs text-gray-500">Track each driver's weekly cost to company and calculate hourly rates for the Total Running Cost report.</p>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="border-t pt-2 mt-2">
                   <h4 className="text-sm font-semibold text-gray-900 mb-2">Payment Configuration</h4>
                   <div className="space-y-2">
                     <div>
@@ -1008,6 +1026,18 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                         <div>
                           <label className="block text-xs font-medium text-gray-500 mb-0.5">Fee Per Driver (excl. VAT)</label>
                           <p className="text-gray-900">{org.monthly_fee_per_driver != null ? `R ${org.monthly_fee_per_driver.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` : 'Not set'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-span-2 border-t pt-3 mt-3">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Account Options</h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-0.5">Driver Cost-to-Company Tracking</label>
+                          <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${org.use_driver_cost_to_company ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {org.use_driver_cost_to_company ? 'Enabled' : 'Disabled'}
+                          </span>
                         </div>
                       </div>
                     </div>
