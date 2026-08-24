@@ -34,7 +34,7 @@ interface DrawVehicleProps {
 }
 
 export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVehicleProps) {
-  const [step, setStep] = useState<'scan' | 'scan-vehicle-disk' | 'select-trailer' | 'confirm-trailer-license-warning' | 'enter-odometer' | 'confirm-mismatch' | 'confirm-license-warning' | 'confirm-prdp-warning' | 'confirm-unreturned-vehicle'>('scan');
+  const [step, setStep] = useState<'scan' | 'select-trailer' | 'confirm-trailer-license-warning' | 'enter-odometer' | 'confirm-mismatch' | 'confirm-license-warning' | 'confirm-prdp-warning' | 'confirm-unreturned-vehicle'>('scan');
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [vehicleSearch, setVehicleSearch] = useState('');
@@ -59,7 +59,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   const [previousDriverInfo, setPreviousDriverInfo] = useState<{ name: string; daysUnreturned: number; lastDrawDate: string } | null>(null);
   const [requireLicenseScan, setRequireLicenseScan] = useState(false);
   const [vehicleIdentifiedByScan, setVehicleIdentifiedByScan] = useState(false);
-  const [showVerificationScanner, setShowVerificationScanner] = useState(false);
+
   const [availableTrailers, setAvailableTrailers] = useState<Trailer[]>([]);
   const [selectedTrailer, setSelectedTrailer] = useState<Trailer | null>(null);
   const [trailerWarning, setTrailerWarning] = useState(false);
@@ -216,9 +216,19 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
   // All paths to enter-odometer go through here so scan enforcement is centralised
   const goToOdometer = async () => {
-    if (requireLicenseScan && !vehicleIdentifiedByScan) {
-      setStep('scan-vehicle-disk');
-      return;
+    if (requireLicenseScan && !vehicleIdentifiedByScan && selectedVehicle) {
+      // Log an exception but allow the draw to proceed
+      await supabase.from('vehicle_exceptions').insert({
+        vehicle_id: selectedVehicle.id,
+        driver_id: driverId,
+        organization_id: organizationId,
+        exception_type: 'license_disk_not_scanned',
+        description: `Vehicle ${selectedVehicle.registration_number} drawn via manual selection without license disk scan verification.`,
+        expected_value: 'License disk scan',
+        actual_value: 'Manual entry — disk not scanned',
+        resolved: false,
+      }).catch(() => {/* non-critical */});
+      setVehicleIdentifiedByScan(true);
     }
 
     // Check if the organization has any active trailers
@@ -278,42 +288,6 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       setTrailerWarning(false);
       setStep('enter-odometer');
     }
-  };
-
-  const handleVerificationScan = async (barcodeData: string) => {
-    setShowVerificationScanner(false);
-    setError('');
-    const result = await findVehicleByLicenseDisk(barcodeData);
-    if (!result) {
-      setError('The scanned barcode did not match any vehicle in the system. Please try scanning again or contact your supervisor.');
-      return;
-    }
-    if ('errorMessage' in result) {
-      setError(result.errorMessage);
-      return;
-    }
-    const { vehicle: scannedVehicle } = result;
-    if (scannedVehicle.id !== selectedVehicle!.id) {
-      // Log the mismatch as an exception
-      await supabase.from('vehicle_exceptions').insert({
-        vehicle_id: selectedVehicle!.id,
-        driver_id: driverId,
-        organization_id: organizationId,
-        exception_type: 'wrong_vehicle_scan',
-        description: `Driver scanned the license disk of ${scannedVehicle.registration_number} but attempted to draw ${selectedVehicle!.registration_number}. The draw was blocked.`,
-        expected_value: selectedVehicle!.registration_number,
-        actual_value: scannedVehicle.registration_number,
-        resolved: false,
-      }).catch(() => {/* non-critical */});
-      setError(
-        `Wrong vehicle! The scanned disk belongs to ${scannedVehicle.registration_number}, but you selected ${selectedVehicle!.registration_number}. ` +
-        `Please scan the license disk that is physically on the vehicle you intend to draw.`
-      );
-      return;
-    }
-    // Confirmed — mark as scan-verified and proceed
-    setVehicleIdentifiedByScan(true);
-    goToOdometer();
   };
 
   const loadExpectedOdometer = async (vehicleId: string) => {
@@ -995,16 +969,6 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     );
   }
 
-  if (showVerificationScanner) {
-    return (
-      <BarcodeScanner
-        label={`Verify: Scan ${selectedVehicle?.registration_number} License Disk`}
-        onScan={handleVerificationScan}
-        onCancel={() => setShowVerificationScanner(false)}
-      />
-    );
-  }
-
   if (success) {
     return (
       <div className="min-h-screen bg-green-50 flex items-center justify-center p-4">
@@ -1178,7 +1142,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                   disabled={loading}
                   className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? 'Checking...' : requireLicenseScan && !vehicleIdentifiedByScan ? 'Continue to License Disk Scan' : 'Continue to Odometer Reading'}
+                  {loading ? 'Checking...' : 'Continue to Odometer Reading'}
                 </button>
               )}
 
@@ -1216,74 +1180,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
           </div>
         )}
 
-        {step === 'scan-vehicle-disk' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Verify Vehicle Identity</h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Your profile requires a license disk scan before drawing a vehicle. Scan the barcode on the license disk to confirm you are at the correct vehicle.
-            </p>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-blue-900">Vehicle to verify</p>
-                <p className="text-xl font-bold text-blue-900">{selectedVehicle?.registration_number}</p>
-                <p className="text-sm text-blue-700">{selectedVehicle?.make} {selectedVehicle?.model}</p>
-              </div>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-5 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <p className="text-red-800 text-sm">{error}</p>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <button
-                onClick={() => { setError(''); setShowVerificationScanner(true); }}
-                className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-3"
-              >
-                <Camera className="w-6 h-6" />
-                Scan License Disk to Confirm
-              </button>
-
-              <button
-                onClick={async () => {
-                  setError('');
-                  // Log an exception for bypassing the scan requirement
-                  await supabase.from('vehicle_exceptions').insert({
-                    vehicle_id: selectedVehicle!.id,
-                    driver_id: driverId,
-                    organization_id: organizationId,
-                    exception_type: 'scan_bypassed',
-                    description: `Driver bypassed the license disk scan requirement for vehicle ${selectedVehicle!.registration_number}. Vehicle was manually selected without scan verification.`,
-                    expected_value: 'License disk scan',
-                    actual_value: 'Scan bypassed by driver',
-                    resolved: false,
-                  }).catch(() => {/* non-critical */});
-                  setVehicleIdentifiedByScan(true);
-                  goToOdometer();
-                }}
-                className="w-full bg-amber-100 text-amber-800 border border-amber-300 py-3 rounded-lg font-medium hover:bg-amber-200 transition-colors text-sm"
-              >
-                Scanner Not Working — Proceed Without Scan
-              </button>
-
-              <button
-                onClick={() => {
-                  setStep('scan');
-                  setSelectedVehicle(null);
-                  setVehicleIdentifiedByScan(false);
-                  setError('');
-                }}
-                className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-              >
-                Select a Different Vehicle
-              </button>
-            </div>
-          </div>
-        )}
 
         {step === 'enter-odometer' && (
           <div className="bg-white rounded-lg shadow p-6">
