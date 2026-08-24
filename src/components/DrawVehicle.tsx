@@ -1055,26 +1055,29 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                   value={selectedVehicle?.id || ''}
                   onChange={async (e) => {
                     const vehicle = vehicles.find(v => v.id === e.target.value);
-                    if (vehicle) {
-                      setError('');
-                      setSelectedVehicle(vehicle);
-                      // Run all three checks in parallel
-                      const [anyDrawnVehicle, hasActiveDrawing] = await Promise.all([
-                        checkAnyActiveDrawing(driverId),
-                        checkActiveDrawing(vehicle.id, driverId),
-                        loadExpectedOdometer(vehicle.id),
-                      ]);
-                      if (anyDrawnVehicle) {
-                        setError(`You already have a vehicle drawn (${anyDrawnVehicle}). Please return it before drawing another vehicle.`);
-                        setSelectedVehicle(null);
-                        return;
-                      }
-                      if (hasActiveDrawing) {
-                        setError('This vehicle is already drawn by you. Please return it before drawing again.');
-                        setSelectedVehicle(null);
-                        return;
-                      }
+                    if (!vehicle) {
+                      setSelectedVehicle(null);
+                      return;
                     }
+
+                    setError('');
+                    const [anyDrawnVehicle, hasActiveDrawing] = await Promise.all([
+                      checkAnyActiveDrawing(driverId),
+                      checkActiveDrawing(vehicle.id, driverId),
+                      loadExpectedOdometer(vehicle.id),
+                    ]);
+                    if (anyDrawnVehicle) {
+                      setError(`You already have a vehicle drawn (${anyDrawnVehicle}). Please return it before drawing another vehicle.`);
+                      setSelectedVehicle(null);
+                      return;
+                    }
+                    if (hasActiveDrawing) {
+                      setError('This vehicle is already drawn by you. Please return it before drawing again.');
+                      setSelectedVehicle(null);
+                      return;
+                    }
+
+                    setSelectedVehicle(vehicle);
                   }}
                   className="w-full border-2 border-gray-300 rounded-lg px-4 py-4 text-base bg-white appearance-none cursor-pointer focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                   style={{ fontSize: '16px', minHeight: '50px' }}
@@ -1092,7 +1095,6 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                 <button
                   type="button"
                   onClick={() => {
-                    alert('Button clicked! selectedVehicle: ' + selectedVehicle?.registration_number);
                     setError('');
                     setStep('enter-odometer');
                   }}
