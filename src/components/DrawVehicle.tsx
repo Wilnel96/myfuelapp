@@ -1063,23 +1063,34 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                     }
 
                     setError('');
-                    const [anyDrawnVehicle, hasActiveDrawing] = await Promise.all([
-                      checkAnyActiveDrawing(driverId),
-                      checkActiveDrawing(vehicle.id, driverId),
-                      loadExpectedOdometer(vehicle.id),
-                    ]);
-                    if (anyDrawnVehicle) {
-                      setError(`You already have a vehicle drawn (${anyDrawnVehicle}). Please return it before drawing another vehicle.`);
-                      setSelectedVehicle(null);
-                      return;
-                    }
-                    if (hasActiveDrawing) {
-                      setError('This vehicle is already drawn by you. Please return it before drawing again.');
-                      setSelectedVehicle(null);
-                      return;
-                    }
+                    setLoading(true);
+                    try {
+                      const [anyDrawnVehicle, hasActiveDrawing] = await Promise.all([
+                        checkAnyActiveDrawing(driverId),
+                        checkActiveDrawing(vehicle.id, driverId),
+                        loadExpectedOdometer(vehicle.id),
+                      ]);
+                      if (anyDrawnVehicle) {
+                        setError(`You already have a vehicle drawn (${anyDrawnVehicle}). Please return it before drawing another vehicle.`);
+                        setSelectedVehicle(null);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        return;
+                      }
+                      if (hasActiveDrawing) {
+                        setError('This vehicle is already drawn by you. Please return it before drawing again.');
+                        setSelectedVehicle(null);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        return;
+                      }
 
-                    setSelectedVehicle(vehicle);
+                      setSelectedVehicle(vehicle);
+                    } catch (err: any) {
+                      setError(err.message || 'Failed to select vehicle. Please try again.');
+                      setSelectedVehicle(null);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    } finally {
+                      setLoading(false);
+                    }
                   }}
                   className="w-full border-2 border-gray-300 rounded-lg px-4 py-4 text-base bg-white appearance-none cursor-pointer focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                   style={{ fontSize: '16px', minHeight: '50px' }}
