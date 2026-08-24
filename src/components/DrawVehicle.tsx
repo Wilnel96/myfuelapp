@@ -215,7 +215,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   };
 
   // All paths to enter-odometer go through here so scan enforcement is centralised
-  const goToOdometer = async () => {
+  const goToOdometer = () => {
     if (!vehicleIdentifiedByScan && selectedVehicle) {
       // Log an exception whenever a vehicle is drawn without a license disk scan
       // Fire-and-forget: non-critical, must not block navigation
@@ -232,29 +232,26 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       setVehicleIdentifiedByScan(true);
     }
 
-    // Check if the organization has any active trailers
-    try {
-      const { data: trailers } = await supabase
-        .from('trailers')
-        .select('id, registration_number, description, gvm_weight')
-        .eq('organization_id', organizationId)
-        .eq('status', 'active')
-        .is('deleted_at', null)
-        .order('registration_number');
+    // Advance immediately — load trailers in the background, don't block navigation
+    setSelectedTrailer(null);
+    setAvailableTrailers([]);
+    setStep('enter-odometer');
 
-      if (trailers && trailers.length > 0) {
-        setAvailableTrailers(trailers);
-        setStep('select-trailer');
-      } else {
-        setAvailableTrailers([]);
-        setSelectedTrailer(null);
-        setStep('enter-odometer');
-      }
-    } catch {
-      // If trailer lookup fails, proceed without trailer (non-blocking)
-      setSelectedTrailer(null);
-      setStep('enter-odometer');
-    }
+    // Check if the organization has any active trailers (non-blocking)
+    supabase
+      .from('trailers')
+      .select('id, registration_number, description, gvm_weight')
+      .eq('organization_id', organizationId)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+      .order('registration_number')
+      .then(({ data: trailers }) => {
+        if (trailers && trailers.length > 0) {
+          setAvailableTrailers(trailers);
+          setStep('select-trailer');
+        }
+      })
+      .catch(() => {/* trailer lookup failed — stay on enter-odometer */});
   };
 
   const checkTrailerLicenseQualifies = async (trailer: Trailer): Promise<boolean> => {
