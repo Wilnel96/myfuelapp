@@ -917,8 +917,10 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
         }
       }
 
+      console.log('[handleSubmit] All operations completed, setting success=true');
       setSuccess(true);
     } catch (err: any) {
+      console.error('[handleSubmit] CAUGHT ERROR:', err);
       const errorMessage = err.message || 'Failed to draw vehicle';
 
       if (errorMessage.includes('already drawn out') || errorMessage.includes('not been returned')) {
