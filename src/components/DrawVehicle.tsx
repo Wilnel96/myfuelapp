@@ -1091,73 +1091,14 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
               {selectedVehicle && (
                 <button
                   onClick={() => {
-                    setLoading(true);
                     setError('');
-
-                    // Run safety checks in the background — don't block navigation
-                    (async () => {
-                      try {
-                        const timeout = new Promise((resolve) => setTimeout(() => resolve('timeout'), 8000));
-                        const checks = Promise.all([
-                          checkUnreturnedByOtherDriver(selectedVehicle.id),
-                          checkDriverLicenseQualifies(driverId, selectedVehicle),
-                          checkServiceOverdue(selectedVehicle),
-                        ]);
-
-                        const result = await Promise.race([checks, timeout]);
-
-                        if (result === 'timeout') {
-                          // Checks took too long — proceed anyway
-                          goToOdometer();
-                          return;
-                        }
-
-                        const [unreturnedCheck, isQualified, serviceOverdue] = result as [any, boolean, boolean];
-
-                        if (unreturnedCheck?.hasUnreturnedDraw) {
-                          setPreviousDriverInfo({
-                            name: unreturnedCheck.driverName,
-                            daysUnreturned: unreturnedCheck.daysUnreturned,
-                            lastDrawDate: unreturnedCheck.lastDrawDate
-                          });
-                          setUnreturnedVehicleWarning(true);
-                          setStep('confirm-unreturned-vehicle');
-                          return;
-                        }
-
-                        if (serviceOverdue) {
-                          return;
-                        }
-
-                        if (!isQualified) {
-                          setLicenseWarning(true);
-                          setStep('confirm-license-warning');
-                          return;
-                        }
-
-                        setLicenseWarning(false);
-
-                        const hasPrdp = checkDriverPrdpQualifies(selectedVehicle);
-                        if (!hasPrdp) {
-                          setPrdpWarning(true);
-                          setStep('confirm-prdp-warning');
-                          return;
-                        }
-
-                        setPrdpWarning(false);
-                        goToOdometer();
-                      } catch {
-                        // If any check errors, proceed to odometer anyway
-                        goToOdometer();
-                      } finally {
-                        setLoading(false);
-                      }
-                    })();
+                    // Advance immediately — safety checks run afterward
+                    goToOdometer();
                   }}
                   disabled={loading}
                   className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? 'Checking...' : 'Continue to Odometer Reading'}
+                  Continue to Odometer Reading
                 </button>
               )}
 
