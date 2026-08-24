@@ -216,8 +216,8 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
   // All paths to enter-odometer go through here so scan enforcement is centralised
   const goToOdometer = async () => {
-    if (requireLicenseScan && !vehicleIdentifiedByScan && selectedVehicle) {
-      // Log an exception but allow the draw to proceed
+    if (!vehicleIdentifiedByScan && selectedVehicle) {
+      // Log an exception whenever a vehicle is drawn without a license disk scan
       await supabase.from('vehicle_exceptions').insert({
         vehicle_id: selectedVehicle.id,
         driver_id: driverId,
