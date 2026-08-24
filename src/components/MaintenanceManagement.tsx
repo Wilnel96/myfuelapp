@@ -11,6 +11,8 @@ interface Vehicle {
   service_interval_km?: number;
   last_service_km_reading?: number;
   next_service_km?: number;
+  next_service_date?: string;
+  service_interval_months?: number;
 }
 
 interface MaintenanceRecord {
@@ -138,7 +140,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
 
       let query = supabase
         .from('vehicles')
-        .select('id, registration_number, make, model, last_service_date, service_interval_km, last_service_km_reading, next_service_km')
+        .select('id, registration_number, make, model, last_service_date, service_interval_km, last_service_km_reading, next_service_km, next_service_date, service_interval_months')
         .is('deleted_at', null)
         .order('registration_number');
 
@@ -421,6 +423,12 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
             <p className="text-xs text-gray-500 font-medium uppercase">Next Service KM</p>
             <p className="text-lg font-semibold text-gray-900 mt-1">
               {selectedVehicle.next_service_km ? selectedVehicle.next_service_km.toLocaleString() : '-'}
+            </p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <p className="text-xs text-gray-500 font-medium uppercase">Next Service Due</p>
+            <p className="text-lg font-semibold text-gray-900 mt-1">
+              {selectedVehicle.next_service_date ? formatDate(selectedVehicle.next_service_date) : '-'}
             </p>
           </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -756,7 +764,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                 </div>
                 <div className="flex items-center gap-2 text-gray-600">
                   <Wrench className="w-3.5 h-3.5" />
-                  <span>Next Service KM: {vehicle.next_service_km ? vehicle.next_service_km.toLocaleString() : '-'}</span>
+                  <span>Next Service: {vehicle.next_service_km ? vehicle.next_service_km.toLocaleString() + ' km' : '-'}{vehicle.next_service_date ? ' / ' + formatDate(vehicle.next_service_date) : ''}</span>
                 </div>
               </div>
             </button>

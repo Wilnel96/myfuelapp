@@ -23,6 +23,8 @@ interface Vehicle {
   service_interval_km?: number;
   last_service_km_reading?: number;
   next_service_km?: number;
+  next_service_date?: string;
+  service_interval_months?: number;
   organization_id: string;
   deleted_at?: string | null;
   organizations?: {
@@ -84,6 +86,8 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
     service_interval_km: 0,
     last_service_km_reading: 0,
     next_service_km: 0,
+    next_service_date: '',
+    service_interval_months: 6,
     organization_id: '',
   });
 
@@ -385,6 +389,8 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
       service_interval_km: vehicle.service_interval_km || 0,
       last_service_km_reading: vehicle.last_service_km_reading || 0,
       next_service_km: vehicle.next_service_km || 0,
+      next_service_date: vehicle.next_service_date || '',
+      service_interval_months: vehicle.service_interval_months || 6,
       organization_id: vehicle.organization_id,
     });
     setShowForm(true);
@@ -457,6 +463,9 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
       last_service_date: '',
       service_interval_km: 0,
       last_service_km_reading: 0,
+      next_service_km: 0,
+      next_service_date: '',
+      service_interval_months: 6,
       organization_id: selectedOrgId !== 'all' ? selectedOrgId : '',
     });
     setEditingVehicle(null);
@@ -874,6 +883,9 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
 
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide border-b pb-1">Maintenance</h3>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-2">
+                  <p className="text-xs text-blue-800">Service details (last service date, KM reading, next service due) are automatically updated when a service is logged under Maintenance. Only the service intervals below are configurable here.</p>
+                </div>
                 <div className="grid grid-cols-4 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
@@ -882,26 +894,23 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                     <input
                       type="date"
                       value={formData.last_service_date}
-                      onChange={(e) => setFormData({ ...formData, last_service_date: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                      readOnly
+                      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 text-gray-500"
                     />
+                    <p className="text-xs text-gray-400 mt-0.5">Auto-updated from service records</p>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                      Last Service KM Reading
+                      Last Service KM
                     </label>
                     <input
                       type="number"
                       value={formData.last_service_km_reading}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value) || 0;
-                        setFormData({ ...formData, last_service_km_reading: val, next_service_km: formData.service_interval_km ? val + formData.service_interval_km : (formData.next_service_km || 0) });
-                      }}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
-                      placeholder="50000"
-                      min="0"
-                      step="1"
+                      readOnly
+                      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 text-gray-500"
+                      placeholder="0"
                     />
+                    <p className="text-xs text-gray-400 mt-0.5">Auto-updated from service records</p>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
@@ -912,26 +921,59 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
                       value={formData.service_interval_km}
                       onChange={(e) => {
                         const val = parseInt(e.target.value) || 0;
-                        setFormData({ ...formData, service_interval_km: val, next_service_km: formData.last_service_km_reading ? formData.last_service_km_reading + val : (formData.next_service_km || 0) });
+                        setFormData({ ...formData, service_interval_km: val });
                       }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
                       placeholder="10000"
                       min="0"
                       step="1000"
                     />
+                    <p className="text-xs text-gray-400 mt-0.5">Distance between services</p>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                      Next Service KM
+                      Service Interval (months)
                     </label>
                     <input
                       type="number"
-                      value={formData.last_service_km_reading && formData.service_interval_km ? formData.last_service_km_reading + formData.service_interval_km : (formData.next_service_km || 0)}
+                      value={formData.service_interval_months}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 6;
+                        setFormData({ ...formData, service_interval_months: val });
+                      }}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
+                      placeholder="6"
+                      min="1"
+                      max="24"
+                      step="1"
+                    />
+                    <p className="text-xs text-gray-400 mt-0.5">Time between services</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                      Next Service KM (auto)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.next_service_km ? formData.next_service_km.toLocaleString() + ' km' : '-'}
                       readOnly
                       className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 text-gray-500"
-                      placeholder="Auto-calculated"
                     />
                     <p className="text-xs text-gray-400 mt-0.5">Auto-calculated: Last Service KM + Interval</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                      Next Service Date (auto)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.next_service_date ? new Date(formData.next_service_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                      readOnly
+                      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-gray-50 text-gray-500"
+                    />
+                    <p className="text-xs text-gray-400 mt-0.5">Auto-calculated: Last Service Date + Interval months</p>
                   </div>
                 </div>
               </div>
