@@ -1090,13 +1090,13 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
               {selectedVehicle && (
                 <button
+                  type="button"
                   onClick={() => {
+                    alert('Button clicked! selectedVehicle: ' + selectedVehicle?.registration_number);
                     setError('');
-                    // Advance immediately — safety checks run afterward
-                    goToOdometer();
+                    setStep('enter-odometer');
                   }}
-                  disabled={loading}
-                  className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                  className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition-colors"
                 >
                   Continue to Odometer Reading
                 </button>
