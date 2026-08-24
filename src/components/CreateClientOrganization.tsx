@@ -904,7 +904,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">SA ID Number <span className="text-red-500">*</span></label>
                 <input type="text" required maxLength={13} value={formData.company_registration_number}
-                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="e.g., 8001015009087"
                 />
@@ -969,14 +969,14 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Postal Code</label>
                 <input type="text" value={formData.postal_code}
-                  onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Country</label>
                 <input type="text" value={formData.country}
-                  onChange={(e) => safeSetFormData({ ...formData, country: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, country: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
@@ -1067,7 +1067,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Holder Name <span className="text-red-500">*</span></label>
                 <input type="text" value={clientBankDetails.bank_account_holder}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="As it appears on the account"
                 />
@@ -1076,7 +1076,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Number <span className="text-red-500">*</span></label>
                 <input type="text" value={clientBankDetails.bank_account_number}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value })}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="Account number"
                 />
@@ -1084,7 +1084,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Branch Code <span className="text-red-500">*</span></label>
                 <input type="text" value={clientBankDetails.bank_branch_code}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value })}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="e.g. 250655"
                 />
@@ -1134,7 +1134,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">SA ID Number</label>
                 <input type="text" maxLength={13} value={formData.company_registration_number}
-                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="e.g., 8001015009087"
                 />
@@ -1203,14 +1203,14 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Postal Code</label>
                 <input type="text" value={formData.postal_code}
-                  onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Country</label>
                 <input type="text" value={formData.country}
-                  onChange={(e) => safeSetFormData({ ...formData, country: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, country: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -1306,7 +1306,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">SA ID Number <span className="text-red-500">*</span></label>
                 <input type="text" required maxLength={13} value={formData.company_registration_number}
-                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="e.g., 8001015009087"
                 />
@@ -1357,14 +1357,14 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Postal Code</label>
                 <input type="text" value={formData.postal_code}
-                  onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Country</label>
                 <input type="text" value={formData.country}
-                  onChange={(e) => safeSetFormData({ ...formData, country: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, country: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
@@ -1494,7 +1494,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Holder Name <span className="text-red-500">*</span></label>
                 <input type="text" value={clientBankDetails.bank_account_holder}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value.toUpperCase() })}
                   readOnly={mainUserIsIndividual}
                   className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${mainUserIsIndividual ? 'bg-gray-50 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'}`}
                   placeholder="As it appears on the account"
@@ -1504,7 +1504,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Number <span className="text-red-500">*</span></label>
                 <input type="text" value={clientBankDetails.bank_account_number}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value })}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="Account number"
                 />
@@ -1512,7 +1512,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Branch Code <span className="text-red-500">*</span></label>
                 <input type="text" value={clientBankDetails.bank_branch_code}
-                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value })}
+                  onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="e.g. 250655"
                 />
@@ -1563,7 +1563,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-0.5">Please Specify <span className="text-red-500">*</span></label>
                   <input type="text" required value={formData.entity_type_other}
-                    onChange={(e) => safeSetFormData({ ...formData, entity_type_other: e.target.value })}
+                    onChange={(e) => safeSetFormData({ ...formData, entity_type_other: e.target.value.toUpperCase() })}
                     className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="e.g., Non-profit Organisation"
                   />
@@ -1572,14 +1572,14 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">Registration Number</label>
                 <input type="text" value={formData.company_registration_number}
-                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, company_registration_number: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-0.5">VAT Number</label>
                 <input type="text" value={formData.vat_number}
-                  onChange={(e) => safeSetFormData({ ...formData, vat_number: e.target.value })}
+                  onChange={(e) => safeSetFormData({ ...formData, vat_number: e.target.value.toUpperCase() })}
                   className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
@@ -1647,7 +1647,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <input
                 type="text"
                 value={formData.postal_code}
-                onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value })}
+                onChange={(e) => safeSetFormData({ ...formData, postal_code: e.target.value.toUpperCase() })}
                 className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
@@ -1656,7 +1656,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               <input
                 type="text"
                 value={formData.country}
-                onChange={(e) => safeSetFormData({ ...formData, country: e.target.value })}
+                onChange={(e) => safeSetFormData({ ...formData, country: e.target.value.toUpperCase() })}
                 className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
@@ -1766,7 +1766,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Holder Name <span className="text-red-500">*</span></label>
                   <input type="text" value={clientBankDetails.bank_account_holder}
-                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value })}
+                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_holder: e.target.value.toUpperCase() })}
                     className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="As it appears on the account"
                   />
@@ -1774,7 +1774,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-0.5">Account Number <span className="text-red-500">*</span></label>
                   <input type="text" value={clientBankDetails.bank_account_number}
-                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value })}
+                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_account_number: e.target.value.toUpperCase() })}
                     className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Account number"
                   />
@@ -1782,7 +1782,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-0.5">Branch Code <span className="text-red-500">*</span></label>
                   <input type="text" value={clientBankDetails.bank_branch_code}
-                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value })}
+                    onChange={(e) => setClientBankDetails({ ...clientBankDetails, bank_branch_code: e.target.value.toUpperCase() })}
                     className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="e.g. 250655"
                   />

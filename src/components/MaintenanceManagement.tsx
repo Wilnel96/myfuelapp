@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wrench, Plus, Trash2, X, Search, ArrowLeft, DollarSign, Calendar, Truck, CheckSquare, Square } from 'lucide-react';
+import { Wrench, Plus, Trash2, X, Search, ArrowLeft, DollarSign, Calendar, Truck, CheckSquare, Square, Pencil } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Vehicle {
@@ -102,6 +102,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [totalMaintenanceCost, setTotalMaintenanceCost] = useState(0);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [orgId, setOrgId] = useState<string>('');
 
@@ -226,9 +227,47 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
 
   const isOtherSelected = formData.maintenance_items.includes('Other');
 
+  const handleEditRecord = (record: MaintenanceRecord) => {
+    setEditingId(record.id);
+    const items = record.maintenance_items || [];
+    const otherItem = items.find(i => i.startsWith('Other: '));
+    const customDesc = otherItem ? otherItem.replace(/^Other: /, '') : '';
+    const cleanItems = items.map(i => i.startsWith('Other: ') ? 'Other' : i);
+    setFormData({
+      maintenance_type: record.maintenance_type,
+      description: record.description,
+      maintenance_date: record.maintenance_date,
+      odometer_reading: record.odometer_reading != null ? String(record.odometer_reading) : '',
+      cost: String(record.cost),
+      workshop: record.workshop || '',
+      maintenance_items: cleanItems,
+      custom_item_description: customDesc,
+    });
+    setShowAddForm(true);
+  };
+
+  const handleCancelForm = () => {
+    setShowAddForm(false);
+    setEditingId(null);
+    setFormData({
+      maintenance_type: 'service',
+      description: '',
+      maintenance_date: new Date().toISOString().split('T')[0],
+      odometer_reading: '',
+      cost: '',
+      workshop: '',
+      maintenance_items: [],
+      custom_item_description: '',
+    });
+  };
+
   const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVehicle || !formData.maintenance_date) return;
+    if (!formData.odometer_reading.trim()) {
+      alert('Odometer reading is required. Please enter the current odometer reading in km.');
+      return;
+    }
 
     const itemsForSave = [...formData.maintenance_items];
     if (itemsForSave.includes('Other') && formData.custom_item_description.trim()) {
@@ -254,9 +293,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
         workshop: formData.workshop.trim() || null,
       };
 
-      if (formData.odometer_reading) {
-        insertData.odometer_reading = parseInt(formData.odometer_reading);
-      }
+      insertData.odometer_reading = parseInt(formData.odometer_reading);
 
       if (itemsForSave.length > 0) {
         insertData.maintenance_items = itemsForSave;
@@ -266,9 +303,17 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
         insertData.created_by = user.id;
       }
 
-      const { error } = await supabase
-        .from('vehicle_maintenance_records')
-        .insert(insertData);
+      let error;
+      if (editingId) {
+        ({ error } = await supabase
+          .from('vehicle_maintenance_records')
+          .update(insertData)
+          .eq('id', editingId));
+      } else {
+        ({ error } = await supabase
+          .from('vehicle_maintenance_records')
+          .insert(insertData));
+      }
 
       if (error) {
         alert(`Failed to save record: ${error.message}`);
@@ -276,6 +321,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
       }
 
       setShowAddForm(false);
+      setEditingId(null);
       setFormData({
         maintenance_type: 'service',
         description: '',
@@ -348,7 +394,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
               </div>
             </div>
             <button
-              onClick={() => setShowAddForm(true)}
+              onClick={() => { setEditingId(null); setFormData({ maintenance_type: 'service', description: '', maintenance_date: new Date().toISOString().split('T')[0], odometer_reading: '', cost: '', workshop: '', maintenance_items: [], custom_item_description: '' }); setShowAddForm(true); }}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -407,7 +453,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Odometer</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Workshop</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Cost</th>
-                    <th className="px-4 py-3"></th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -452,7 +498,14 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">{record.workshop || '-'}</td>
                       <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 whitespace-nowrap">{formatCurrency(parseFloat(String(record.cost || 0)))}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => handleEditRecord(record)}
+                          className="text-blue-600 hover:text-blue-700 mr-3"
+                          title="Edit record"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleDeleteRecord(record.id)}
                           className="text-red-600 hover:text-red-700"
@@ -481,8 +534,8 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full my-8 max-h-[90vh] flex flex-col">
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
-                <h3 className="text-lg font-semibold text-gray-900">Log Maintenance Record</h3>
-                <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600">
+                <h3 className="text-lg font-semibold text-gray-900">{editingId ? 'Edit Maintenance Record' : 'Log Maintenance Record'}</h3>
+                <button onClick={handleCancelForm} className="text-gray-400 hover:text-gray-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -543,7 +596,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                       <input
                         type="text"
                         value={formData.custom_item_description}
-                        onChange={(e) => setFormData({ ...formData, custom_item_description: e.target.value })}
+                        onChange={(e) => setFormData({ ...formData, custom_item_description: e.target.value.toUpperCase() })}
                         placeholder="Enter a description for the custom maintenance item"
                         className="w-full border border-gray-300 rounded-lg px-3 py-2"
                       />
@@ -571,16 +624,17 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                   <input
                     type="text"
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value.toUpperCase() })}
                     placeholder="e.g. 90,000 km major service"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Odometer (km)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Odometer (km) *</label>
                     <input
                       type="number"
+                      required
                       value={formData.odometer_reading}
                       onChange={(e) => setFormData({ ...formData, odometer_reading: e.target.value })}
                       placeholder="e.g. 125000"
@@ -605,7 +659,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                   <input
                     type="text"
                     value={formData.workshop}
-                    onChange={(e) => setFormData({ ...formData, workshop: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, workshop: e.target.value.toUpperCase() })}
                     placeholder="e.g. ABC Motors"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   />
@@ -613,7 +667,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                 <div className="flex gap-3 pt-2 flex-shrink-0">
                   <button
                     type="button"
-                    onClick={() => setShowAddForm(false)}
+                    onClick={handleCancelForm}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
@@ -623,7 +677,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                     disabled={saving}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
                   >
-                    {saving ? 'Saving...' : 'Save Record'}
+                    {saving ? 'Saving...' : editingId ? 'Update Record' : 'Save Record'}
                   </button>
                 </div>
               </form>
