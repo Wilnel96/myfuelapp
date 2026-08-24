@@ -978,7 +978,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
           <p className="text-gray-600 mb-2">Vehicle: {selectedVehicle?.registration_number}</p>
           <p className="text-gray-600 mb-6">Odometer: {parseInt(odometerReading).toLocaleString()} km</p>
           <button
-            onClick={resetForm}
+            onClick={onBack}
             className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
           >
             OK
