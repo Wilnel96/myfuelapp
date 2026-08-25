@@ -1018,82 +1018,146 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
                   </td>
                 </tr>
               ) : (
-                filteredDrivers.map((driver) => (
-                  <tr key={driver.id} className={`hover:bg-gray-50 ${driver.deleted_at ? 'bg-gray-50 opacity-60' : ''}`}>
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className={`font-medium ${driver.deleted_at ? 'text-gray-500' : 'text-gray-900'}`}>
-                          {driver.first_name} {driver.surname}
-                          {driver.deleted_at && <span className="ml-2 text-xs text-red-600">(Deleted)</span>}
-                        </p>
-                        {driver.email && <p className="text-xs text-gray-500">{driver.email}</p>}
-                      </div>
-                    </td>
-                    {userRole === 'super_admin' && (
-                      <td className="px-4 py-3 text-sm text-gray-700">{driver.organizations?.name || 'N/A'}</td>
-                    )}
-                    <td className="px-4 py-3 text-sm text-gray-700">{driver.id_number}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{driver.phone_number}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{driver.license_number}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{driver.license_type}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-sm ${isLicenseExpired(driver.license_expiry_date) ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
-                        {new Date(driver.license_expiry_date).toLocaleDateString()}
-                        {isLicenseExpired(driver.license_expiry_date) && ' (Expired)'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {driver.deleted_at ? (
-                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
-                          Inactive
-                        </span>
-                      ) : (
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          driver.status === 'active' ? 'bg-green-100 text-green-800' :
-                          driver.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {driver.status}
-                        </span>
+                <>
+                  {filteredDrivers.filter(d => !d.deleted_at && d.status === 'active').map((driver) => (
+                    <tr key={driver.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {driver.first_name} {driver.surname}
+                          </p>
+                          {driver.email && <p className="text-xs text-gray-500">{driver.email}</p>}
+                        </div>
+                      </td>
+                      {userRole === 'super_admin' && (
+                        <td className="px-4 py-3 text-sm text-gray-700">{driver.organizations?.name || 'N/A'}</td>
                       )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {driver.deleted_at ? (
+                      <td className="px-4 py-3 text-sm text-gray-700">{driver.id_number}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{driver.phone_number}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{driver.license_number}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{driver.license_type}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-sm ${isLicenseExpired(driver.license_expiry_date) ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
+                          {new Date(driver.license_expiry_date).toLocaleDateString()}
+                          {isLicenseExpired(driver.license_expiry_date) && ' (Expired)'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                          active
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {canEditDriver && (
                           <button
-                            onClick={() => handleReactivate(driver.id)}
-                            className="flex items-center gap-1 px-3 py-1 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
-                            title="Reactivate Driver"
+                            onClick={() => openModal(driver)}
+                            className="text-blue-600 hover:text-blue-700"
+                            title="Edit Driver"
                           >
-                            <RotateCcw className="w-4 h-4" />
-                            Reactivate
+                            <Edit2 className="w-4 h-4" />
                           </button>
-                        ) : (
-                          <>
-                            {canEditDriver && (
-                            <button
-                              onClick={() => openModal(driver)}
-                              className="text-blue-600 hover:text-blue-700"
-                              title="Edit Driver"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
+                          )}
+                          {canDeleteDriver && (
+                          <button
+                            onClick={() => handleDelete(driver.id)}
+                            className="text-red-600 hover:text-red-700"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredDrivers.some(d => d.deleted_at || d.status !== 'active') && (
+                    <>
+                      <tr key="inactive-divider">
+                        <td colSpan={userRole === 'super_admin' ? 9 : 8} className="px-4 py-3 bg-gray-100">
+                          <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">
+                            Inactive & Deleted ({filteredDrivers.filter(d => d.deleted_at || d.status !== 'active').length})
+                          </p>
+                        </td>
+                      </tr>
+                      {filteredDrivers.filter(d => d.deleted_at || d.status !== 'active').map((driver) => (
+                        <tr key={driver.id} className="hover:bg-gray-50 bg-gray-50 opacity-60">
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="font-medium text-gray-500">
+                                {driver.first_name} {driver.surname}
+                                {driver.deleted_at && <span className="ml-2 text-xs text-red-600">(Deleted)</span>}
+                              </p>
+                              {driver.email && <p className="text-xs text-gray-500">{driver.email}</p>}
+                            </div>
+                          </td>
+                          {userRole === 'super_admin' && (
+                            <td className="px-4 py-3 text-sm text-gray-700">{driver.organizations?.name || 'N/A'}</td>
+                          )}
+                          <td className="px-4 py-3 text-sm text-gray-700">{driver.id_number}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{driver.phone_number}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{driver.license_number}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{driver.license_type}</td>
+                          <td className="px-4 py-3">
+                            <span className={`text-sm ${isLicenseExpired(driver.license_expiry_date) ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
+                              {new Date(driver.license_expiry_date).toLocaleDateString()}
+                              {isLicenseExpired(driver.license_expiry_date) && ' (Expired)'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {driver.deleted_at ? (
+                              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                Inactive
+                              </span>
+                            ) : (
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                driver.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {driver.status}
+                              </span>
                             )}
-                            {canDeleteDriver && (
-                            <button
-                              onClick={() => handleDelete(driver.id)}
-                              className="text-red-600 hover:text-red-700"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {driver.deleted_at ? (
+                                <button
+                                  onClick={() => handleReactivate(driver.id)}
+                                  className="flex items-center gap-1 px-3 py-1 text-sm text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
+                                  title="Reactivate Driver"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                  Reactivate
+                                </button>
+                              ) : (
+                                <>
+                                  {canEditDriver && (
+                                  <button
+                                    onClick={() => openModal(driver)}
+                                    className="text-blue-600 hover:text-blue-700"
+                                    title="Edit Driver"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  )}
+                                  {canDeleteDriver && (
+                                  <button
+                                    onClick={() => handleDelete(driver.id)}
+                                    className="text-red-600 hover:text-red-700"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </>
+                  )}
+                </>
               )}
             </tbody>
           </table>
