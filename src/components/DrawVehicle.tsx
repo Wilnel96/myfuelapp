@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Camera, AlertCircle, CheckCircle, ArrowLeft, Package } from 'lucide-react';
 import BarcodeScanner from './BarcodeScanner';
+import VoiceInput from './VoiceInput';
 import { supabase } from '../lib/supabase';
 
 interface Vehicle {
@@ -1201,7 +1202,10 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
             )}
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Current Odometer Reading (km)</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Current Odometer Reading (km)</label>
+                <VoiceInput value={odometerReading} onChange={setOdometerReading} numeric />
+              </div>
               <input
                 type="number"
                 inputMode="numeric"
@@ -1216,20 +1220,23 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Trip Description <span className="text-gray-500 text-xs">(Optional)</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">
+                  Trip Description <span className="text-gray-500 text-xs">(Optional)</span>
+                </label>
+                <VoiceInput value={tripDescription} onChange={setTripDescription} />
+              </div>
               <textarea
                 value={tripDescription}
                 onChange={(e) => setTripDescription(e.target.value)}
                 className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base bg-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                 style={{ fontSize: '16px', minHeight: '80px' }}
-                placeholder="e.g., Delivery of parcels"
+                placeholder="e.g., Delivery of parcels to Cape Town, then to Bellville, odometer at 21034"
                 rows={3}
                 maxLength={500}
               />
               <p className="text-xs text-gray-500 mt-1">
-                Describe the purpose of this trip (optional)
+                Describe the purpose of this trip. Tap Speak to dictate, including destinations and odometer readings.
               </p>
             </div>
 
