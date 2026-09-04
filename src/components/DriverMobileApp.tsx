@@ -321,32 +321,30 @@ export default function DriverMobileApp({ driver, onLogout, onDriverUpdate }: Dr
             </div>
           </button>
 
-          {drawnVehicles.length > 0 && (
-            <button
-              onClick={() => setCurrentView('update_trip')}
-              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all transform hover:-translate-y-1 text-left group border-l-4 border-teal-500"
-            >
-              <div className="flex items-start gap-4">
-                <div className="bg-teal-100 p-3 rounded-lg group-hover:bg-teal-200 transition-colors">
-                  <ClipboardList className="w-8 h-8 text-teal-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Update Trip Details</h3>
-                  <p className="text-sm text-gray-600">Add destinations or notes to an active trip by voice</p>
-                  {drawnVehicles.length === 1 && (
-                    <p className="text-xs text-teal-600 font-medium mt-1">
-                      Active: {drawnVehicles[0].vehicleRegistration}
-                    </p>
-                  )}
-                  {drawnVehicles.length > 1 && (
-                    <p className="text-xs text-teal-600 font-medium mt-1">
-                      {drawnVehicles.length} vehicles currently drawn
-                    </p>
-                  )}
-                </div>
+          <button
+            onClick={() => setCurrentView('update_trip')}
+            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all transform hover:-translate-y-1 text-left group border-l-4 border-teal-500"
+          >
+            <div className="flex items-start gap-4">
+              <div className="bg-teal-100 p-3 rounded-lg group-hover:bg-teal-200 transition-colors">
+                <ClipboardList className="w-8 h-8 text-teal-600" />
               </div>
-            </button>
-          )}
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Trip Notes</h3>
+                <p className="text-sm text-gray-600">Add or edit trip descriptions by voice — for active and completed trips</p>
+                {drawnVehicles.length === 1 && (
+                  <p className="text-xs text-teal-600 font-medium mt-1">
+                    Active: {drawnVehicles[0].vehicleRegistration}
+                  </p>
+                )}
+                {drawnVehicles.length > 1 && (
+                  <p className="text-xs text-teal-600 font-medium mt-1">
+                    {drawnVehicles.length} vehicles currently drawn
+                  </p>
+                )}
+              </div>
+            </div>
+          </button>
 
           <button
             onClick={() => setCurrentView('return')}
