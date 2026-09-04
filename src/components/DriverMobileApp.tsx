@@ -173,10 +173,17 @@ export default function DriverMobileApp({ driver, onLogout, onDriverUpdate }: Dr
 
             <div className="space-y-3">
               <button
+                onClick={() => { setShowDrawnReminder(false); setCurrentView('update_trip'); }}
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+              >
+                <ClipboardList className="w-5 h-5" />
+                Update Trip Details
+              </button>
+              <button
                 onClick={() => { setShowDrawnReminder(false); }}
                 className="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg font-semibold transition-colors"
               >
-                Proceed Anyway
+                Proceed to Draw Another Vehicle
               </button>
               <button
                 onClick={() => { setShowDrawnReminder(false); setCurrentView('menu'); }}
@@ -314,6 +321,33 @@ export default function DriverMobileApp({ driver, onLogout, onDriverUpdate }: Dr
             </div>
           </button>
 
+          {drawnVehicles.length > 0 && (
+            <button
+              onClick={() => setCurrentView('update_trip')}
+              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all transform hover:-translate-y-1 text-left group border-l-4 border-teal-500"
+            >
+              <div className="flex items-start gap-4">
+                <div className="bg-teal-100 p-3 rounded-lg group-hover:bg-teal-200 transition-colors">
+                  <ClipboardList className="w-8 h-8 text-teal-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Update Trip Details</h3>
+                  <p className="text-sm text-gray-600">Add destinations or notes to an active trip by voice</p>
+                  {drawnVehicles.length === 1 && (
+                    <p className="text-xs text-teal-600 font-medium mt-1">
+                      Active: {drawnVehicles[0].vehicleRegistration}
+                    </p>
+                  )}
+                  {drawnVehicles.length > 1 && (
+                    <p className="text-xs text-teal-600 font-medium mt-1">
+                      {drawnVehicles.length} vehicles currently drawn
+                    </p>
+                  )}
+                </div>
+              </div>
+            </button>
+          )}
+
           <button
             onClick={() => setCurrentView('return')}
             className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all transform hover:-translate-y-1 text-left group"
@@ -343,33 +377,6 @@ export default function DriverMobileApp({ driver, onLogout, onDriverUpdate }: Dr
               </div>
             </div>
           </button>
-
-          {drawnVehicles.length > 0 && (
-            <button
-              onClick={() => setCurrentView('update_trip')}
-              className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all transform hover:-translate-y-1 text-left group"
-            >
-              <div className="flex items-start gap-4">
-                <div className="bg-teal-100 p-3 rounded-lg group-hover:bg-teal-200 transition-colors">
-                  <ClipboardList className="w-8 h-8 text-teal-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Update Trip Details</h3>
-                  <p className="text-sm text-gray-600">Add destinations or notes to an active trip by voice</p>
-                  {drawnVehicles.length === 1 && (
-                    <p className="text-xs text-teal-600 mt-1">
-                      Active: {drawnVehicles[0].vehicleRegistration}
-                    </p>
-                  )}
-                  {drawnVehicles.length > 1 && (
-                    <p className="text-xs text-teal-600 mt-1">
-                      {drawnVehicles.length} vehicles currently drawn
-                    </p>
-                  )}
-                </div>
-              </div>
-            </button>
-          )}
 
           <button
             onClick={() => setCurrentView('directory')}
