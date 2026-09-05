@@ -26,6 +26,8 @@ export default function VoiceInput({ value, onChange, disabled, numeric = false 
   const [error, setError] = useState('');
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const valueRef = useRef(value);
+  const appendedFinalRef = useRef('');
+  const lastResultIndexRef = useRef(0);
 
   useEffect(() => {
     valueRef.current = value;
@@ -46,30 +48,32 @@ export default function VoiceInput({ value, onChange, disabled, numeric = false 
     recognition.interimResults = true;
 
     recognition.onresult = (event: any) => {
-      let finalText = '';
       let interimText = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalText += transcript;
+          const trimmed = transcript.trim();
+          if (trimmed && !appendedFinalRef.current.endsWith(trimmed)) {
+            const current = valueRef.current;
+            if (numeric) {
+              const digits = trimmed.replace(/\D/g, '');
+              if (digits) {
+                onChange(digits);
+              }
+            } else {
+              const separator = current && !current.endsWith(' ') ? ' ' : '';
+              const newValue = current + separator + trimmed;
+              onChange(newValue);
+              valueRef.current = newValue;
+            }
+            appendedFinalRef.current += (appendedFinalRef.current ? ' ' : '') + trimmed;
+          }
         } else {
           interimText += transcript;
         }
       }
 
-      if (finalText) {
-        const current = valueRef.current;
-        if (numeric) {
-          const digits = finalText.replace(/\D/g, '');
-          if (digits) {
-            onChange(digits);
-          }
-        } else {
-          const separator = current && !current.endsWith(' ') ? ' ' : '';
-          onChange(current + separator + finalText.trim());
-        }
-      }
       setInterim(interimText);
     };
 
@@ -110,6 +114,8 @@ export default function VoiceInput({ value, onChange, disabled, numeric = false 
       setInterim('');
     } else {
       setError('');
+      appendedFinalRef.current = '';
+      lastResultIndexRef.current = 0;
       try {
         recognitionRef.current.start();
         setListening(true);
@@ -163,3 +169,6 @@ export default function VoiceInput({ value, onChange, disabled, numeric = false 
     </div>
   );
 }
+
+
+export default VoiceInput
