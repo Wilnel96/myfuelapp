@@ -169,6 +169,3 @@ export default function VoiceInput({ value, onChange, disabled, numeric = false 
     </div>
   );
 }
-
-
-export default VoiceInput
