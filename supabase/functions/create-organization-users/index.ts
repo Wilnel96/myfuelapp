@@ -175,7 +175,6 @@ Deno.serve(async (req: Request) => {
             first_name: userData.name,
             surname: userData.surname,
             title: title,
-            password: userData.password,
             phone_office: userData.phone_office || null,
             phone_mobile: userData.phone_mobile || null,
             organization_id: organization_id,

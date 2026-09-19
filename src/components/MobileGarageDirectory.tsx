@@ -3,6 +3,12 @@ import { ArrowLeft, MapPin, Phone, Mail, ChevronDown, ChevronUp, Fuel, Navigatio
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName, sortFuelTypes } from '../lib/fuelTypes';
 
+// Only non-sensitive garage columns: passwords and banking details are never read by the app.
+const GARAGE_DIRECTORY_COLUMNS =
+  'id, organization_id, name, address_line_1, address_line_2, city, province, postal_code, country, ' +
+  'latitude, longitude, email_address, phone_number, contact_persons, fuel_brand, fuel_types, fuel_prices, ' +
+  'other_offerings, garage_capabilities, price_zone, vat_number, status';
+
 interface OtherOfferings {
   convenience_shop?: boolean;
   branded_convenience_store?: { enabled: boolean; name: string };
@@ -64,6 +70,7 @@ export default function MobileGarageDirectory({ onBack, organizationId }: Mobile
     loadGarages();
   }, [organizationId]);
 
+
   const loadGarages = async () => {
     setLoading(true);
 
@@ -72,7 +79,7 @@ export default function MobileGarageDirectory({ onBack, organizationId }: Mobile
       const [garagesResult, accountsResult] = await Promise.all([
         supabase
           .from('garages')
-          .select('*')
+          .select(GARAGE_DIRECTORY_COLUMNS)
           .eq('status', 'active')
           .order('name'),
         supabase
@@ -94,7 +101,7 @@ export default function MobileGarageDirectory({ onBack, organizationId }: Mobile
       // For non-drivers: show all active garages
       const { data: garagesData } = await supabase
         .from('garages')
-        .select('*')
+        .select(GARAGE_DIRECTORY_COLUMNS)
         .eq('status', 'active')
         .order('name');
 

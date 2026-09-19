@@ -112,11 +112,7 @@ Deno.serve(async (req: Request) => {
       console.error("Failed to clear password_change_required flag:", flagError);
     }
 
-    // Also update the password in organization_users table
-    await adminClient
-      .from("organization_users")
-      .update({ password: newPassword })
-      .eq("user_id", userId);
+    // The chosen password is never stored in the database in readable form.
 
     return new Response(
       JSON.stringify({
@@ -128,7 +124,7 @@ Deno.serve(async (req: Request) => {
   } catch (error: any) {
     console.error("Change password error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to change password" }),
+      JSON.stringify({ error: "Failed to change password" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }

@@ -65,7 +65,11 @@ export function DriverPaymentSettings({ driverId, onClose }: DriverPaymentSettin
           .single(),
         supabase
           .from('driver_payment_settings')
-          .select('*')
+          .select(
+            'id, driver_id, organization_id, daily_spending_limit, monthly_spending_limit, payment_enabled, ' +
+            'is_pin_active, require_pin_change, failed_pin_attempts, locked_until, last_payment_at, ' +
+            'pin_last_changed, created_at, updated_at'
+          )
           .eq('driver_id', driverId)
           .maybeSingle(),
         supabase
@@ -129,7 +133,7 @@ export function DriverPaymentSettings({ driverId, onClose }: DriverPaymentSettin
         .from('driver_payment_settings')
         .update(updatePayload)
         .eq('driver_id', driverId)
-        .select();
+        .select('id, driver_id, daily_spending_limit, monthly_spending_limit, payment_enabled');
 
       console.log('Update result:', {
         data,

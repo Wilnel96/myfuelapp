@@ -293,7 +293,15 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
   const loadGarages = async () => {
     try {
       const [{ data: allGarages }, { data: garageAccounts }] = await Promise.all([
-        supabase.from('garages').select('*').eq('status', 'active').order('name'),
+        supabase
+          .from('garages')
+          .select(
+            'id, organization_id, name, address_line_1, address_line_2, city, province, postal_code, country, ' +
+            'latitude, longitude, email_address, phone_number, contact_persons, commission_rate, fuel_brand, ' +
+            'fuel_types, fuel_prices, other_offerings, garage_capabilities, price_zone, vat_number, status'
+          )
+          .eq('status', 'active')
+          .order('name'),
         supabase
           .from('organization_garage_accounts')
           .select('garage_id, account_number')

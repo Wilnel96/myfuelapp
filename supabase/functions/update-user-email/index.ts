@@ -159,10 +159,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Update the email and password in organization_users table
+    // Update the email in organization_users. The temporary password is never
+    // stored in the database in readable form.
     const { error: orgUpdateError } = await adminClient
       .from('organization_users')
-      .update({ email: new_email, password: tempPassword })
+      .update({ email: new_email })
       .eq('user_id', user_id);
 
     if (orgUpdateError) {

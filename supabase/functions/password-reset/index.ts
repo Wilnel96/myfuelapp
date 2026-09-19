@@ -13,15 +13,31 @@ function generateTempPassword(): string {
   const special = "!@#$%^&*";
   const all = lower + upper + numbers + special;
 
-  const pick = (chars: string) => chars[Math.floor(Math.random() * chars.length)];
+  // Cryptographically secure selection: Math.random() is predictable and must
+  // never be used to generate a credential.
+  const randomInt = (max: number) => {
+    const buf = new Uint32Array(1);
+    const limit = Math.floor(0xffffffff / max) * max;
+    let value = 0;
+    do {
+      crypto.getRandomValues(buf);
+      value = buf[0];
+    } while (value >= limit);
+    return value % max;
+  };
+  const pick = (chars: string) => chars[randomInt(chars.length)];
 
   // Guarantee at least one of each category
-  let password = pick(lower) + pick(upper) + pick(numbers) + pick(special);
+  const chars = [pick(lower), pick(upper), pick(numbers), pick(special)];
   for (let i = 0; i < 8; i++) {
-    password += pick(all);
+    chars.push(pick(all));
   }
-  // Shuffle
-  return password.split("").sort(() => Math.random() - 0.5).join("");
+  // Fisher-Yates shuffle with the same secure source
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
 }
 
 Deno.serve(async (req: Request) => {
@@ -108,11 +124,7 @@ Deno.serve(async (req: Request) => {
       console.error("Failed to set password_change_required flag:", flagError);
     }
 
-    // Also update the password in organization_users table for consistency
-    await adminClient
-      .from("organization_users")
-      .update({ password: tempPassword })
-      .eq("user_id", targetUser.id);
+    // The temporary password is never stored in the database in readable form.
 
     // Send the email with the temporary password
     const resendApiKey = Deno.env.get("RESEND_API_KEY");

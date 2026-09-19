@@ -1,0 +1,659 @@
+== backup_logs rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins can create backups INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+   POL Super admins can update backups UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+   POL Super admins can view all backups SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+== bank_statement_imports rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Users can create bank imports for their organization INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can update bank imports for their organization UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can view bank imports for their organization SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== bank_statement_transactions rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL System can create bank transactions INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+   POL Users can update bank transactions for their organization UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can view bank transactions for their organization SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== banking_day_overrides rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins can manage banking day overrides ALL ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+   POL Users can view banking day overrides SELECT ['authenticated']
+      U: true
+== client_statements rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL client_read_own_statements SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM organization_users ou   WHERE ((ou.user_id = auth.uid()) AND (ou.organization_id = client_statements.organization_id))))
+   POL mgmt_read_client_statements SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM (profiles p      JOIN organization_users ou ON ((ou.user_id = p.id)))   WHERE ((p.id = auth.uid()) AND (ou.is_main_user = true) AND (EXISTS ( SELECT 1            FROM organizations o           WHERE ((o.is_management_org = true) AND (o.id = ou.organization_id)))))))
+   POL super_admin_all_client_statements ALL ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+== credit_control_actions rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins can insert credit control actions INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+   POL Users can view accessible credit control actions SELECT ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))) OR (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.user_id = ( SELECT auth.uid() AS uid)) AND (organization_users.organization_id = credit_control_actions.organization_id)))))
+== credit_note_line_items rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Client users can select own org credit note line items SELECT ['authenticated']
+      U: (credit_note_id IN ( SELECT cn.id    FROM (credit_notes cn      JOIN organization_users ou ON ((ou.organization_id = cn.organization_id)))   WHERE ((ou.user_id = auth.uid()) AND (ou.is_active = true))))
+   POL Management users can insert credit note line items INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = ANY (ARRAY['super_admin'::text, 'management'::text])))))
+   POL Management users can select credit note line items SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = ANY (ARRAY['super_admin'::text, 'management'::text])))))
+   POL Management users can update credit note line items UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = ANY (ARRAY['super_admin'::text, 'management'::text])))))
+      C: (EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = ANY (ARRAY['super_admin'::text, 'management'::text])))))
+== credit_note_sequence rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL authenticated_can_read_credit_note_sequence SELECT ['authenticated']
+      U: true
+== credit_notes rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Client users can select own org credit notes SELECT ['authenticated']
+      U: (organization_id IN ( SELECT organization_users.organization_id    FROM organization_users   WHERE ((organization_users.user_id = auth.uid()) AND (organization_users.is_active = true))))
+   POL Management users can insert credit notes INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = ANY (ARRAY['super_admin'::text, 'management'::text])))))
+   POL Management users can select credit notes SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = ANY (ARRAY['super_admin'::text, 'management'::text])))))
+   POL Management users can update credit notes UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = ANY (ARRAY['super_admin'::text, 'management'::text])))))
+      C: (EXISTS ( SELECT 1    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = ANY (ARRAY['super_admin'::text, 'management'::text])))))
+   POL Users can create credit notes for their organization INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can update credit notes for their organization UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can view credit notes for their organization SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== custom_report_templates rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL report_templates_delete_policy DELETE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL report_templates_insert_policy INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL report_templates_select_policy SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL report_templates_update_policy UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== debit_order_mandate_documents rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins can delete documents DELETE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+   POL Users can insert documents for accessible mandates INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM debit_order_mandates m   WHERE ((m.id = debit_order_mandate_documents.mandate_id) AND user_can_access_mandate(m.organization_id))))
+   POL Users can update documents for accessible mandates UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM debit_order_mandates m   WHERE ((m.id = debit_order_mandate_documents.mandate_id) AND user_can_access_mandate(m.organization_id))))
+      C: (EXISTS ( SELECT 1    FROM debit_order_mandates m   WHERE ((m.id = debit_order_mandate_documents.mandate_id) AND user_can_access_mandate(m.organization_id))))
+   POL Users can view documents for accessible mandates SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM debit_order_mandates m   WHERE ((m.id = debit_order_mandate_documents.mandate_id) AND user_can_access_mandate(m.organization_id))))
+== debit_order_mandates rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins can delete mandates DELETE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+   POL Users can insert mandates for their organization INSERT ['authenticated']
+      C: user_can_access_mandate(organization_id)
+   POL Users can update mandates for their organization UPDATE ['authenticated']
+      U: user_can_access_mandate(organization_id)
+      C: user_can_access_mandate(organization_id)
+   POL Users can view mandates for their organization SELECT ['authenticated']
+      U: user_can_access_mandate(organization_id)
+== debit_order_run_items rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins can insert debit order run items INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+   POL Super admins can select debit order run items SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+== debit_order_runs rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins can insert debit order runs INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+   POL Super admins can manage debit order runs SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+   POL Super admins can update debit order runs UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+== driver_employment_costs rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL delete_driver_employment_costs DELETE ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text)))) OR (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.user_id = auth.uid()) AND (organization_users.organization_id = driver_employment_costs.organization_id) AND (organization_users.is_active = true) AND ((organization_users.is_main_user = true) OR (organiz
+   POL insert_driver_employment_costs INSERT ['authenticated']
+      C: can_edit_driver_employment(organization_id)
+   POL select_driver_employment_costs SELECT ['authenticated']
+      U: can_view_driver_employment(organization_id)
+   POL update_driver_employment_costs UPDATE ['authenticated']
+      U: can_edit_driver_employment(organization_id)
+      C: can_edit_driver_employment(organization_id)
+== driver_payment_settings rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Anonymous users can view driver spending limits SELECT ['anon']
+      U: true
+   POL Main users can manage driver payment settings ALL ['authenticated']
+      U: can_manage_driver_payment_settings(organization_id)
+      C: can_manage_driver_payment_settings(organization_id)
+   POL Users can view driver payment settings SELECT ['authenticated']
+      U: true
+== driver_sessions rls=True
+== driver_spending_tracking rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Organization users can view driver spending SELECT ['authenticated']
+      U: ((driver_id IN ( SELECT d.id    FROM (drivers d      JOIN profiles p ON ((p.organization_id = d.organization_id)))   WHERE (p.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== drivers rls=True
+   grant anon ['INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Authenticated users can delete drivers DELETE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (organization_id IN ( SELECT organizations.id    FROM organizations   WHERE (organizations.parent_org_id IN ( SELECT profiles.organization_id            FROM profiles           WHERE (profiles.id = ( SELECT auth.uid() AS uid)))))) OR (EXISTS ( SELECT 1    FROM profiles  
+   POL Authenticated users can insert drivers INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (organization_id IN ( SELECT organizations.id    FROM organizations   WHERE (organizations.parent_org_id IN ( SELECT profiles.organization_id            FROM profiles           WHERE (profiles.id = ( SELECT auth.uid() AS uid)))))) OR (EXISTS ( SELECT 1    FROM profiles  
+   POL Authenticated users can update drivers UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (organization_id IN ( SELECT organizations.id    FROM organizations   WHERE (organizations.parent_org_id IN ( SELECT profiles.organization_id            FROM profiles           WHERE (profiles.id = ( SELECT auth.uid() AS uid)))))) OR (EXISTS ( SELECT 1    FROM profiles  
+   POL Authenticated users can view drivers SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (user_id = ( SELECT auth.uid() AS uid)) OR (organization_id IN ( SELECT organizations.id    FROM organizations   WHERE (organizations.parent_org_id IN ( SELECT profiles.organization_id            FROM profiles           WHERE (profiles.id = ( SELECT auth.uid() AS uid))))
+   POL drivers_select_own_org_anon SELECT ['anon']
+      U: ((status = 'active'::text) AND (organization_id = current_driver_org_id()))
+== encryption_keys rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Service role can manage encryption keys ALL ['authenticated']
+      U: (( SELECT auth.uid() AS uid) IN ( SELECT profiles.id    FROM profiles   WHERE (profiles.organization_id = ( SELECT organizations.id            FROM organizations           WHERE (organizations.is_management_org = true)          LIMIT 1))))
+   POL Super admins can manage encryption keys ALL ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+== failed_payment_attempts rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL System can create failed attempt records INSERT ['authenticated']
+      C: ((organization_id IS NOT NULL) AND (attempt_date IS NOT NULL))
+   POL Users can update failed attempts for their organization UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can view failed attempts for their organization SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== file_snapshots rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins and admins can create file snapshots INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = ANY (ARRAY['super_admin'::text, 'admin'::text])))))
+   POL Super admins and admins can view all file snapshots SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = ANY (ARRAY['super_admin'::text, 'admin'::text])))))
+   POL Super admins can delete file snapshots DELETE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+== fuel_cards rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL fuel_cards_select_policy SELECT ['authenticated']
+      U: (organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid))))
+== fuel_transaction_invoices rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Garage users can view invoices for their garage SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM ((fuel_transactions ft      JOIN garages g ON ((g.id = ft.garage_id)))      JOIN organization_users ou ON ((ou.organization_id = g.organization_id)))   WHERE ((ft.id = fuel_transaction_invoices.fuel_transaction_id) AND (ou.user_id = auth.uid()) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true))))
+   POL Garages can view their fuel transaction invoices SELECT ['anon']
+      U: true
+   POL System can insert fuel transaction invoices INSERT ['authenticated']
+      C: ((organization_id IS NOT NULL) AND (invoice_number IS NOT NULL))
+   POL Users can read fuel transaction invoices SELECT ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.organization_id = fuel_transaction_invoices.organization_id) AND (organization_users.user_id = ( SELECT auth.uid() AS uid))))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== fuel_transaction_items rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Anonymous users can read fuel transaction items SELECT ['anon']
+      U: true
+   POL System can insert fuel transaction items INSERT ['authenticated']
+      C: (fuel_transaction_id IS NOT NULL)
+   POL Users can read fuel transaction items SELECT ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM (fuel_transactions ft      JOIN organization_users ou ON ((ou.organization_id = ft.organization_id)))   WHERE ((ft.id = fuel_transaction_items.fuel_transaction_id) AND (ou.user_id = ( SELECT auth.uid() AS uid))))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== fuel_transactions rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL fuel_transactions_no_direct_insert INSERT ['authenticated']
+      C: false
+   POL fuel_transactions_select_policy SELECT ['authenticated']
+      U: (organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid))))
+   POL fuel_transactions_select_policy_anon SELECT ['anon']
+      U: true
+== garage_debtor_payments rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Garage users can insert own payments INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM (organization_users ou      JOIN garages g ON ((g.organization_id = ou.organization_id)))   WHERE ((ou.user_id = auth.uid()) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true) AND (g.id = garage_debtor_payments.garage_id))))
+   POL Garage users can view own payments SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM (organization_users ou      JOIN garages g ON ((g.organization_id = ou.organization_id)))   WHERE ((ou.user_id = auth.uid()) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true) AND (g.id = garage_debtor_payments.garage_id))))
+   POL Garages can insert own payments (anon) INSERT ['anon']
+      C: (EXISTS ( SELECT 1    FROM garages   WHERE (garages.id = garage_debtor_payments.garage_id)))
+   POL Garages can view own payments (anon) SELECT ['anon']
+      U: true
+   POL Org users can insert payments for their garage accounts INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM organization_users ou   WHERE ((ou.user_id = auth.uid()) AND (ou.organization_id = garage_debtor_payments.organization_id) AND (ou.is_active = true))))
+   POL Organizations can view own payments SELECT ['authenticated']
+      U: (organization_id IN ( SELECT organization_users.organization_id    FROM organization_users   WHERE (organization_users.user_id = auth.uid())))
+   POL Super admins can delete payments DELETE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.user_id = auth.uid()) AND (organization_users.role = 'super_admin'::text))))
+   POL Super admins can insert payments INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.user_id = auth.uid()) AND (organization_users.role = 'super_admin'::text))))
+   POL Super admins can update payments UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.user_id = auth.uid()) AND (organization_users.role = 'super_admin'::text))))
+   POL Super admins can view all payments SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.user_id = auth.uid()) AND (organization_users.role = 'super_admin'::text))))
+== garage_fee_invoice_line_items rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL mgmt_delete_garage_fee_line_items DELETE ['authenticated']
+      U: true
+   POL mgmt_insert_garage_fee_line_items INSERT ['authenticated']
+      C: true
+   POL mgmt_select_garage_fee_line_items SELECT ['authenticated']
+      U: true
+   POL mgmt_update_garage_fee_line_items UPDATE ['authenticated']
+      U: true
+      C: true
+== garage_fee_invoices rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL mgmt_delete_garage_fee_invoices DELETE ['authenticated']
+      U: true
+   POL mgmt_insert_garage_fee_invoices INSERT ['authenticated']
+      C: true
+   POL mgmt_select_garage_fee_invoices SELECT ['authenticated']
+      U: true
+   POL mgmt_update_garage_fee_invoices UPDATE ['authenticated']
+      U: true
+      C: true
+== garage_statements rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Anonymous garage can insert statements INSERT ['anon']
+      C: (garage_id IN ( SELECT garages.id    FROM garages   WHERE (garages.password = extensions.crypt(((current_setting('request.headers'::text, true))::json ->> 'x-garage-password'::text), garages.password))))
+   POL Anonymous garage can read own statements SELECT ['anon']
+      U: true
+   POL Authenticated garage users can insert own statements INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM (organization_users ou      JOIN garages g ON ((g.organization_id = ou.organization_id)))   WHERE ((ou.user_id = auth.uid()) AND (ou.role = 'garage_user'::text) AND (g.id = garage_statements.garage_id) AND (ou.is_active = true))))
+   POL Garage can insert own statements INSERT ['authenticated']
+      C: (garage_id IN ( SELECT garages.id    FROM garages   WHERE (garages.password = extensions.crypt(((current_setting('request.headers'::text))::json ->> 'x-garage-password'::text), garages.password))))
+   POL Garage can read own statements SELECT ['authenticated']
+      U: (garage_id IN ( SELECT garages.id    FROM garages   WHERE (garages.password = extensions.crypt(((current_setting('request.headers'::text))::json ->> 'x-garage-password'::text), garages.password))))
+   POL Garage users can view own statements SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM (garages g      JOIN organization_users ou ON ((ou.organization_id = g.organization_id)))   WHERE ((g.id = garage_statements.garage_id) AND (ou.user_id = auth.uid()) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true))))
+   POL Organization users can read own statements SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.user_id = auth.uid()) AND (organization_users.organization_id = garage_statements.organization_id) AND (organization_users.is_active = true))))
+   POL Super admin can read all garage statements SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+== garages rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Anonymous users can view garages SELECT ['anon']
+      U: true
+   POL Garage users can update own garage UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM organization_users ou   WHERE ((ou.user_id = auth.uid()) AND (ou.organization_id = garages.organization_id) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true))))
+      C: (EXISTS ( SELECT 1    FROM organization_users ou   WHERE ((ou.user_id = auth.uid()) AND (ou.organization_id = garages.organization_id) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true))))
+   POL Garage users can view own garage SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM organization_users ou   WHERE ((ou.user_id = auth.uid()) AND (ou.organization_id = garages.organization_id) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true))))
+   POL Service role can insert garages INSERT ['service_role']
+      C: true
+   POL garages_insert_policy INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = ANY (ARRAY['super_admin'::text, 'admin'::text])))))
+   POL garages_select_by_org SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = ANY (ARRAY['super_admin'::text, 'admin'::text])))))
+   POL garages_update_policy UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = ANY (ARRAY['super_admin'::text, 'admin'::text])))))
+== global_settings rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Anyone can read global settings SELECT ['anon', 'authenticated']
+      U: true
+   POL Super admins can read global settings SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+   POL Super admins can update global settings UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text))))
+== invoice_line_items rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Comprehensive line items access ALL ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM (invoices i      JOIN organization_users ou ON ((ou.organization_id = i.organization_id)))   WHERE ((i.id = invoice_line_items.invoice_id) AND (ou.user_id = ( SELECT auth.uid() AS uid)) AND (ou.can_view_reports = true)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))) OR (EXISTS ( 
+   POL anon can read invoice line items for garage managed orgs SELECT ['anon']
+      U: (EXISTS ( SELECT 1    FROM (invoices i      JOIN organizations o ON ((o.id = i.organization_id)))   WHERE ((i.id = invoice_line_items.invoice_id) AND (o.is_garage_managed = true) AND (o.managing_garage_id IS NOT NULL))))
+== invoice_sequence rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins can manage invoice sequence ALL ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+== invoices rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL anon can read invoices for garage managed orgs SELECT ['anon']
+      U: (EXISTS ( SELECT 1    FROM organizations o   WHERE ((o.id = invoices.organization_id) AND (o.is_garage_managed = true) AND (o.managing_garage_id IS NOT NULL))))
+   POL invoices_delete DELETE ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))) OR is_management_org_user(( SELECT auth.uid() AS uid)))
+   POL invoices_insert INSERT ['authenticated']
+      C: ((EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))) OR is_management_org_user(( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.organization_id = invoices.organization_id) AND (organization_users.user_id = ( SELECT auth.uid() AS uid)) AND (organization_users.c
+   POL invoices_select SELECT ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))) OR is_management_org_user(( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.organization_id = invoices.organization_id) AND (organization_users.user_id = ( SELECT auth.uid() AS uid)) AND (organization_users.c
+   POL invoices_update UPDATE ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))) OR is_management_org_user(( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.organization_id = invoices.organization_id) AND (organization_users.user_id = ( SELECT auth.uid() AS uid)) AND (organization_users.c
+      C: ((EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))) OR is_management_org_user(( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.organization_id = invoices.organization_id) AND (organization_users.user_id = ( SELECT auth.uid() AS uid)) AND (organization_users.c
+== nfc_payment_transactions rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Drivers and org users can manage nfc transactions ALL ['authenticated']
+      U: ((driver_id IN ( SELECT drivers.id    FROM drivers   WHERE (drivers.user_id = ( SELECT auth.uid() AS uid)))) OR ((driver_id IN ( SELECT d.id    FROM (drivers d      JOIN profiles p ON ((p.organization_id = d.organization_id)))   WHERE (p.id = ( SELECT auth.uid() AS uid)))) AND (EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.user_id = ( SELECT auth.uid() AS uid)) AND (org
+   POL Users can view nfc transactions SELECT ['authenticated']
+      U: true
+== organization_garage_accounts rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Anonymous users can view organization garage accounts SELECT ['anon']
+      U: true
+   POL Garage users can update own local accounts UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM (garages g      JOIN organization_users ou ON ((ou.organization_id = g.organization_id)))   WHERE ((g.id = organization_garage_accounts.garage_id) AND (ou.user_id = auth.uid()) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true))))
+      C: (EXISTS ( SELECT 1    FROM (garages g      JOIN organization_users ou ON ((ou.organization_id = g.organization_id)))   WHERE ((g.id = organization_garage_accounts.garage_id) AND (ou.user_id = auth.uid()) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true))))
+   POL Garage users can view own local accounts SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM (garages g      JOIN organization_users ou ON ((ou.organization_id = g.organization_id)))   WHERE ((g.id = organization_garage_accounts.garage_id) AND (ou.user_id = auth.uid()) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true))))
+   POL Organization users can insert their garage accounts INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT organization_users.organization_id    FROM organization_users   WHERE (organization_users.user_id = auth.uid()))) OR (organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = auth.uid()))))
+   POL Organization users can update their garage accounts UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT organization_users.organization_id    FROM organization_users   WHERE (organization_users.user_id = auth.uid()))) OR (organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = auth.uid()))))
+      C: ((organization_id IN ( SELECT organization_users.organization_id    FROM organization_users   WHERE (organization_users.user_id = auth.uid()))) OR (organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = auth.uid()))))
+   POL Organization users can view their garage accounts SELECT ['authenticated']
+      U: (organization_id IN ( SELECT organization_users.organization_id    FROM organization_users   WHERE (organization_users.user_id = ( SELECT auth.uid() AS uid))))
+   POL Super admin full access to org garage accounts ALL ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+== organization_payment_cards rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Anonymous drivers can read org payment cards SELECT ['anon']
+      U: true
+   POL Comprehensive payment cards access SELECT ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.organization_id = organization_payment_cards.organization_id) AND (organization_users.user_id = ( SELECT auth.uid() AS uid))))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))) OR (EXISTS ( SELECT 1    FROM drivers d   WHERE ((d.user_id
+   POL Main users can delete their org payment cards DELETE ['authenticated']
+      U: (organization_id IN ( SELECT organization_users.organization_id    FROM organization_users   WHERE ((organization_users.user_id = ( SELECT auth.uid() AS uid)) AND ((organization_users.is_main_user = true) OR (organization_users.is_secondary_main_user = true)))))
+   POL Super admin full access to payment cards ALL ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+== organization_users rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Users can view their own organization_users record SELECT ['authenticated']
+      U: (user_id = auth.uid())
+   POL org_users_delete_policy DELETE ['authenticated']
+      U: can_manage_organization_users(organization_id)
+   POL org_users_insert_policy INSERT ['authenticated']
+      C: can_manage_organization_users(organization_id)
+   POL org_users_select_policy SELECT ['authenticated']
+      U: can_view_organization_users(organization_id)
+   POL org_users_select_policy_anonymous SELECT ['anon']
+      U: (EXISTS ( SELECT 1    FROM organization_garage_accounts   WHERE (organization_garage_accounts.organization_id = organization_users.organization_id)))
+   POL org_users_update_policy UPDATE ['authenticated']
+      U: can_manage_organization_users(organization_id)
+   POL organization_users_insert_policy INSERT ['authenticated']
+      C: ((EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text)))) OR (EXISTS ( SELECT 1    FROM organization_users ou   WHERE ((ou.user_id = auth.uid()) AND (ou.organization_id = organization_users.organization_id) AND (ou.is_main_user = true) AND (ou.can_manage_users = true)))) OR (user_id = auth.uid()))
+== organizations rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Garage users can view client organizations SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM ((organization_garage_accounts oga      JOIN garages g ON ((g.id = oga.garage_id)))      JOIN organization_users ou ON ((ou.organization_id = g.organization_id)))   WHERE ((oga.organization_id = organizations.id) AND (ou.user_id = auth.uid()) AND (ou.role = 'garage_user'::text) AND (ou.is_active = true))))
+   POL organizations_insert_policy INSERT ['authenticated']
+      C: ((EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'super_admin'::text)))) OR ((is_management_org = false) AND (organization_type = 'client'::text)))
+   POL organizations_select_policy SELECT ['authenticated']
+      U: true
+   POL organizations_select_policy_anon SELECT ['anon']
+      U: true
+   POL organizations_update_policy UPDATE ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM organization_users   WHERE ((organization_users.user_id = ( SELECT auth.uid() AS uid)) AND (organization_users.organization_id = organizations.id) AND (organization_users.can_edit_organization_info = true)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== payment_allocations rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Users can create allocations for accessible payments INSERT ['authenticated']
+      C: ((payment_id IN ( SELECT p.id    FROM (payments p      JOIN profiles pr ON ((pr.organization_id = p.organization_id)))   WHERE (pr.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can view allocations for accessible payments SELECT ['authenticated']
+      U: ((payment_id IN ( SELECT p.id    FROM (payments p      JOIN profiles pr ON ((pr.organization_id = p.organization_id)))   WHERE (pr.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== payment_proof_documents rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Users can update proof documents for their organization UPDATE ['authenticated']
+      U: ((payment_id IN ( SELECT p.id    FROM (payments p      JOIN profiles pr ON ((pr.organization_id = p.organization_id)))   WHERE (pr.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can upload proof documents for their organization INSERT ['authenticated']
+      C: ((payment_id IN ( SELECT p.id    FROM (payments p      JOIN profiles pr ON ((pr.organization_id = p.organization_id)))   WHERE (pr.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can view proof documents for their organization SELECT ['authenticated']
+      U: ((payment_id IN ( SELECT p.id    FROM (payments p      JOIN profiles pr ON ((pr.organization_id = p.organization_id)))   WHERE (pr.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== payments rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Users can create payments for their organization INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can update payments for their organization UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can view payments for their organization SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== price_zone_references rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL anon_read_price_zones SELECT ['anon']
+      U: true
+   POL auth_read_price_zones SELECT ['authenticated']
+      U: true
+== profiles rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Users can update own profile UPDATE ['authenticated']
+      U: (id = auth.uid())
+      C: (id = auth.uid())
+   POL profiles_select_policy SELECT ['authenticated']
+      U: true
+   POL users_clear_own_password_change_flag UPDATE ['authenticated']
+      U: (auth.uid() = id)
+      C: ((auth.uid() = id) AND (password_change_required = false))
+== public_holidays rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins can manage public holidays ALL ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+   POL Users can view public holidays SELECT ['authenticated']
+      U: true
+== reconciliation_matches rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Users can create reconciliation matches for their organization INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can update reconciliation matches for their organization UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can view reconciliation matches for their organization SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== snapshot_groups rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Super admins and admins can create snapshot groups INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = ANY (ARRAY['super_admin'::text, 'admin'::text])))))
+   POL Super admins and admins can view all snapshot groups SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = ANY (ARRAY['super_admin'::text, 'admin'::text])))))
+   POL Super admins can delete snapshot groups DELETE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+== statement_sequence rls=False
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+== system_documentation rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL All authenticated users can read system documentation SELECT ['authenticated']
+      U: true
+   POL Super admins can manage system documentation ALL ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text))))
+== trailers rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL delete_own_trailers DELETE ['authenticated']
+      U: ((organization_id IN ( SELECT org_user.organization_id    FROM organization_users org_user   WHERE ((org_user.user_id = auth.uid()) AND (org_user.is_active = true)))) OR (organization_id IN ( SELECT p.organization_id    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = 'super_admin'::text)))) OR (organization_id IN ( SELECT p.organization_id    FROM (profiles p      JOIN organizations o O
+   POL insert_own_trailers INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT org_user.organization_id    FROM organization_users org_user   WHERE ((org_user.user_id = auth.uid()) AND (org_user.is_active = true)))) OR (organization_id IN ( SELECT p.organization_id    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = 'super_admin'::text)))) OR (organization_id IN ( SELECT p.organization_id    FROM (profiles p      JOIN organizations o O
+   POL select_own_trailers SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT org_user.organization_id    FROM organization_users org_user   WHERE ((org_user.user_id = auth.uid()) AND (org_user.is_active = true)))) OR (organization_id IN ( SELECT p.organization_id    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = 'super_admin'::text)))) OR (organization_id IN ( SELECT p.organization_id    FROM (profiles p      JOIN organizations o O
+   POL select_trailers_anon SELECT ['anon', 'authenticated']
+      U: ((status = 'active'::text) AND (deleted_at IS NULL))
+   POL update_own_trailers UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT org_user.organization_id    FROM organization_users org_user   WHERE ((org_user.user_id = auth.uid()) AND (org_user.is_active = true)))) OR (organization_id IN ( SELECT p.organization_id    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = 'super_admin'::text)))) OR (organization_id IN ( SELECT p.organization_id    FROM (profiles p      JOIN organizations o O
+      C: ((organization_id IN ( SELECT org_user.organization_id    FROM organization_users org_user   WHERE ((org_user.user_id = auth.uid()) AND (org_user.is_active = true)))) OR (organization_id IN ( SELECT p.organization_id    FROM profiles p   WHERE ((p.id = auth.uid()) AND (p.role = 'super_admin'::text)))) OR (organization_id IN ( SELECT p.organization_id    FROM (profiles p      JOIN organizations o O
+== vehicle_exceptions rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL Drivers can create exceptions via anonymous access INSERT ['anon']
+      C: ((EXISTS ( SELECT 1    FROM drivers   WHERE ((drivers.id = vehicle_exceptions.driver_id) AND (drivers.organization_id = vehicle_exceptions.organization_id) AND (drivers.status = 'active'::text)))) AND (EXISTS ( SELECT 1    FROM vehicles   WHERE ((vehicles.id = vehicle_exceptions.vehicle_id) AND (vehicles.organization_id = vehicle_exceptions.organization_id) AND (vehicles.deleted_at IS NULL)))))
+   POL Users can create exceptions INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can update exceptions UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL Users can view vehicle exceptions SELECT ['authenticated']
+      U: ((EXISTS ( SELECT 1    FROM (vehicles v      JOIN organization_users ou ON ((ou.organization_id = v.organization_id)))   WHERE ((v.id = vehicle_exceptions.vehicle_id) AND (ou.user_id = ( SELECT auth.uid() AS uid))))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+== vehicle_maintenance_records rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL delete_own_maintenance_records DELETE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND ((profiles.role = 'super_admin'::text) OR (profiles.organization_id = vehicle_maintenance_records.organization_id)))))
+   POL insert_own_maintenance_records INSERT ['authenticated']
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND ((profiles.role = 'super_admin'::text) OR (profiles.organization_id = vehicle_maintenance_records.organization_id)))))
+   POL select_own_maintenance_records SELECT ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND ((profiles.role = 'super_admin'::text) OR (profiles.organization_id = vehicle_maintenance_records.organization_id)))))
+   POL update_own_maintenance_records UPDATE ['authenticated']
+      U: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND ((profiles.role = 'super_admin'::text) OR (profiles.organization_id = vehicle_maintenance_records.organization_id)))))
+      C: (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid()) AND ((profiles.role = 'super_admin'::text) OR (profiles.organization_id = vehicle_maintenance_records.organization_id)))))
+== vehicle_transactions rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL vehicle_trans_insert_by_org INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL vehicle_trans_insert_public INSERT ['anon']
+      C: ((vehicle_id IS NOT NULL) AND (transaction_type IS NOT NULL))
+   POL vehicle_trans_select_by_org SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = ( SELECT auth.uid() AS uid)) AND (profiles.role = 'super_admin'::text)))))
+   POL vehicle_trans_select_public SELECT ['anon']
+      U: true
+   POL vehicle_trans_update_public UPDATE ['anon', 'authenticated']
+      U: true
+      C: true
+== vehicles rls=True
+   grant anon ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   grant authenticated ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] upd:all ins:all sel:None
+   POL anon_read_vehicles SELECT ['anon']
+      U: true
+   POL vehicles_anon_active_select SELECT ['anon']
+      U: (deleted_at IS NULL)
+   POL vehicles_delete_policy DELETE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (organization_id IN ( SELECT organizations.id    FROM organizations   WHERE (organizations.parent_org_id IN ( SELECT profiles.organization_id            FROM profiles           WHERE (profiles.id = ( SELECT auth.uid() AS uid)))))) OR (EXISTS ( SELECT 1    FROM profiles  
+   POL vehicles_insert_policy INSERT ['authenticated']
+      C: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (organization_id IN ( SELECT organizations.id    FROM organizations   WHERE (organizations.parent_org_id IN ( SELECT profiles.organization_id            FROM profiles           WHERE (profiles.id = ( SELECT auth.uid() AS uid)))))) OR (EXISTS ( SELECT 1    FROM profiles  
+   POL vehicles_org_select SELECT ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = auth.uid()))) OR (organization_id IN ( SELECT organizations.id    FROM organizations   WHERE (organizations.parent_org_id IN ( SELECT profiles.organization_id            FROM profiles           WHERE (profiles.id = auth.uid()))))) OR (EXISTS ( SELECT 1    FROM profiles   WHERE ((profiles.id = auth.uid())
+   POL vehicles_update_policy UPDATE ['authenticated']
+      U: ((organization_id IN ( SELECT profiles.organization_id    FROM profiles   WHERE (profiles.id = ( SELECT auth.uid() AS uid)))) OR (organization_id IN ( SELECT organizations.id    FROM organizations   WHERE (organizations.parent_org_id IN ( SELECT profiles.organization_id            FROM profiles           WHERE (profiles.id = ( SELECT auth.uid() AS uid)))))) OR (EXISTS ( SELECT 1    FROM profiles  
+
+
+===VIEWS===
+{"schema": "public", "name": "invoice_integrity_check", "kind": "view", "security_invoker": false, "sources": [{"ref": "public.invoice_line_items", "rls_enabled": true, "client_readable": true}, {"ref": "public.invoices", "rls_enabled": true, "client_readable": true}], "grants": [{"role": "authenticated", "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE"], "updatable_columns": "all", "insertable_columns": "all"}]}
+{"schema": "public", "name": "overdue_invoices_summary", "kind": "view", "security_invoker": true, "sources": [{"ref": "public.invoices", "rls_enabled": true, "client_readable": true}, {"ref": "public.organizations", "rls_enabled": true, "client_readable": true}], "grants": [{"role": "anon", "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE"], "updatable_columns": "all", "insertable_columns": "all"}, {"role": "authenticated", "privileges": ["SELECT", "INSERT", "UPDATE", "DELETE"], "updatable_columns": "all", "insertable_columns": "all"}]}
+
+
+===DEFINER FUNCS===
+{"schema": "public", "name": "acquire_transaction_lock", "arguments": "p_driver_id uuid, p_vehicle_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "acquire_transaction_lock", "arguments": "p_organization_id uuid, p_lock_type text", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "add_banking_days", "arguments": "from_date date, days_to_add integer", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "allocate_payment", "arguments": "payment_id_param uuid, allocations jsonb", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "apply_late_payment_interest", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "approve_garage_signup", "arguments": "p_garage_id uuid, p_contact_email text, p_contact_password text", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "auto_match_bank_transactions", "arguments": "p_import_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "belongs_to_organization", "arguments": "org_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "calculate_debit_order_submission_date", "arguments": "payment_date integer, payment_month date, lead_days integer", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "calculate_late_payment_interest", "arguments": "principal_amount numeric, annual_rate numeric, days_overdue integer", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "calculate_payment_due_date", "arguments": "invoice_date date, payment_terms text, payment_date_day integer", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "calculate_prorata_amount", "arguments": "monthly_fee numeric, start_date date, end_date date", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "calculate_statement_totals", "arguments": "p_statement_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "can_edit_driver_employment", "arguments": "p_organization_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "can_manage_driver_payment_settings", "arguments": "p_organization_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "can_manage_organization_users", "arguments": "org_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "can_view_driver_employment", "arguments": "p_organization_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "can_view_organization_users", "arguments": "target_org_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "check_driver_license_qualifies", "arguments": "p_driver_license_code text, p_vehicle_license_required text", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "check_driver_spending_limit", "arguments": "p_driver_id uuid, p_transaction_amount numeric", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "check_driver_trailer_license_qualifies", "arguments": "p_driver_license_code text, p_trailer_gvm_weight integer", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "check_fuel_transaction_invoice_integrity", "arguments": "p_invoice_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "check_garage_account_limit", "arguments": "p_organization_id uuid, p_garage_id uuid, p_transaction_amount numeric", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "check_organization_spending_limit", "arguments": "p_organization_id uuid, p_transaction_amount numeric", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "check_registration_number_availability", "arguments": "p_reg_number text", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "check_vehicle_drawn_by_driver", "arguments": "p_vehicle_id uuid, p_driver_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "complete_client_signup", "arguments": "p_user_id uuid, p_registration_number text, p_vat_number text, p_email text, p_phone_number text, p_address_line_1 text, p_address_line_2 text, p_city text, p_province text, p_postal_code text, p_payment_option text, p_mobile_phone text, p_id_number text", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "complete_client_signup", "arguments": "p_user_id uuid, p_registration_number text, p_vat_number text, p_email text, p_phone_number text, p_address_line_1 text, p_address_line_2 text, p_city text, p_province text, p_postal_code text, p_payment_option text, p_mobile_phone text, p_id_number text, p_account_type text", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "complete_nfc_payment", "arguments": "p_nfc_payment_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "count_banking_days_between", "arguments": "start_date date, end_date date", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "create_garage_user", "arguments": "p_garage_id uuid, p_email text, p_password text, p_name text, p_surname text, p_mobile_phone text, p_title text", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "create_garage_with_organization", "arguments": "p_garage_data jsonb, p_org_name text, p_org_vat_number text, p_org_city text, p_org_province text", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "current_driver_id", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "current_driver_org_id", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "exec_sql", "arguments": "sql_query text", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "expire_old_mandates", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "fail_nfc_payment_fallback_to_eft", "arguments": "p_nfc_payment_id uuid, p_failure_reason text, p_failure_code text", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "generate_debit_order_batch", "arguments": "processing_date date, submission_date date", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "generate_debit_order_run_number", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "generate_fuel_invoice_number", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "generate_garage_statement_number", "arguments": "p_garage_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "generate_invoice_number", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "generate_monthly_invoices", "arguments": "billing_month date", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "generate_payment_number", "arguments": "p_garage_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "generate_payment_number", "arguments": "p_garage_id uuid, p_organization_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "get_driver_current_spending", "arguments": "p_driver_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "get_garage_primary_contact", "arguments": "garage_row garages", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "get_invoice_integrity_stats", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "get_next_credit_note_number", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "get_next_invoice_number", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "get_next_statement_number", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "get_statement_invoices", "arguments": "p_garage_id uuid, p_organization_id uuid, p_period_start date, p_period_end date", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "get_statement_payments", "arguments": "p_garage_id uuid, p_organization_id uuid, p_period_start date, p_period_end date", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "has_valid_debit_order_mandate", "arguments": "org_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "increment_driver_spending", "arguments": "p_driver_id uuid, p_amount numeric, p_transaction_date date", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "is_banking_day", "arguments": "check_date date", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "is_client_organization", "arguments": "org_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "is_management_org_user", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "is_management_org_user", "arguments": "user_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "is_management_organization", "arguments": "org_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "link_garage_user_to_organization", "arguments": "p_organization_id uuid, p_user_id uuid, p_name text, p_surname text, p_mobile_phone text", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "mark_debit_orders_submitted", "arguments": "batch_invoice_ids uuid[], submission_timestamp timestamp with time zone", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "next_banking_day", "arguments": "from_date date", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "previous_banking_day", "arguments": "from_date date", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "process_credit_control", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "process_debit_order_results", "arguments": "p_invoice_id uuid, p_success boolean, p_bank_return_code text, p_failure_reason text", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "public_garage_signup", "arguments": "p_garage_data jsonb", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "reactivate_driver", "arguments": "driver_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "reactivate_vehicle", "arguments": "vehicle_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "remove_secondary_main_user_with_role", "arguments": "user_id_to_demote uuid, new_title text, new_permissions jsonb", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "retry_failed_payments", "arguments": "", "security_definer": true, "search_path_set": true, "execute_roles": []}
+{"schema": "public", "name": "soft_delete_driver", "arguments": "driver_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "soft_delete_vehicle", "arguments": "vehicle_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "subtract_banking_days", "arguments": "from_date date, days_to_subtract integer", "security_definer": false, "search_path_set": true, "execute_roles": ["anon", "authenticated"]}
+{"schema": "public", "name": "suggest_payment_matches", "arguments": "p_bank_transaction_id uuid, p_max_suggestions integer", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "toggle_secondary_main_user", "arguments": "user_id_to_toggle uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "transfer_main_user", "arguments": "from_user_id uuid, to_user_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "update_invoice_totals", "arguments": "invoice_id_param uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "user_can_access_mandate", "arguments": "mandate_org_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "user_can_see_organization", "arguments": "target_org_id uuid, user_org_id uuid", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}
+{"schema": "public", "name": "validate_id_number_dob", "arguments": "id_number text, date_of_birth date", "security_definer": true, "search_path_set": true, "execute_roles": ["authenticated"]}

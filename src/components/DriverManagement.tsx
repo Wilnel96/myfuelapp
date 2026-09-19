@@ -353,7 +353,11 @@ export default function DriverManagement({ onNavigate }: DriverManagementProps =
       const [settingsResult, spendingResult] = await Promise.all([
         supabase
           .from('driver_payment_settings')
-          .select('*')
+          .select(
+            'id, driver_id, organization_id, daily_spending_limit, monthly_spending_limit, payment_enabled, ' +
+            'is_pin_active, require_pin_change, failed_pin_attempts, locked_until, last_payment_at, ' +
+            'pin_last_changed, created_at, updated_at'
+          )
           .eq('driver_id', driverId)
           .maybeSingle(),
         supabase
