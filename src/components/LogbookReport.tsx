@@ -12,8 +12,8 @@ interface LogbookRow {
   driver_name: string;
   opening_km: number;
   trip_reason: string;
-  closing_km: number;
-  km_travelled: number;
+  closing_km: number | null;
+  km_travelled: number | null;
   sequence_number: number;
 }
 
@@ -162,12 +162,12 @@ export default function LogbookReport() {
       }
       const g = groups.get(key)!;
       g.rows.push(row);
-      g.totalKm += row.km_travelled;
+      g.totalKm += row.km_travelled || 0;
     }
     return Array.from(groups.values()).sort((a, b) => a.registration.localeCompare(b.registration));
   }, [rows]);
 
-  const totalKm = rows.reduce((sum, r) => sum + r.km_travelled, 0);
+  const totalKm = rows.reduce((sum, r) => sum + (r.km_travelled || 0), 0);
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -193,10 +193,10 @@ export default function LogbookReport() {
         'Driver': row.driver_name,
         'Open km': row.opening_km,
         'Reason': row.trip_reason,
-        'Closing km': row.closing_km,
-        'KM Travelled': row.km_travelled,
+        'Closing km': row.closing_km ?? '',
+        'KM Travelled': row.km_travelled ?? '',
       });
-      prevClosingKm = row.closing_km;
+      prevClosingKm = row.closing_km ?? null;
       prevVehicle = row.vehicle_registration;
     }
 
@@ -232,7 +232,7 @@ export default function LogbookReport() {
       if (prevVehicle && prevVehicle !== row.vehicle_registration) {
         csv += '\n';
       }
-      csv += `${row.entry_date},${safe(row.vehicle_registration)},${safe(row.driver_name)},${row.opening_km},${safe(row.trip_reason)},${row.closing_km},${row.km_travelled}\n`;
+      csv += `${row.entry_date},${safe(row.vehicle_registration)},${safe(row.driver_name)},${row.opening_km},${safe(row.trip_reason)},${row.closing_km ?? ''},${row.km_travelled ?? ''}\n`;
       prevVehicle = row.vehicle_registration;
     }
     csv += `\n,,,,"TOTAL KM",,${totalKm}\n`;
@@ -420,8 +420,8 @@ export default function LogbookReport() {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono">{row.opening_km.toLocaleString()}</td>
                                 <td className="px-4 py-3 text-sm text-gray-800">{row.trip_reason}</td>
-                                <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono">{row.closing_km.toLocaleString()}</td>
-                                <td className="px-4 py-3 text-sm text-blue-700 text-right font-medium">{row.km_travelled.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono">{row.closing_km != null ? row.closing_km.toLocaleString() : <span className="text-gray-400 italic">—</span>}</td>
+                                <td className="px-4 py-3 text-sm text-blue-700 text-right font-medium">{row.km_travelled != null ? row.km_travelled.toLocaleString() : <span className="text-gray-400 italic">—</span>}</td>
                               </tr>
                             ))}
                           </tbody>

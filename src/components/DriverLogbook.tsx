@@ -28,8 +28,8 @@ interface LogbookEntry {
   sequence_number: number;
   opening_km: number;
   trip_reason: string;
-  closing_km: number;
-  km_travelled: number;
+  closing_km: number | null;
+  km_travelled: number | null;
   entry_date: string;
   created_at: string;
   vehicle_registration?: string;
@@ -37,7 +37,7 @@ interface LogbookEntry {
   vehicle_model?: string;
 }
 
-type VoiceStep = 'idle' | 'asking_open_km' | 'confirm_open_km' | 'asking_reason' | 'asking_close_km' | 'confirm_close_km' | 'done';
+type VoiceStep = 'idle' | 'asking_open_km' | 'asking_reason' | 'done';
 
 // --- Word-to-number converter ---
 // Speech recognition returns "twelve thousand three hundred forty five" as text.
@@ -163,11 +163,12 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [voiceStep, setVoiceStep] = useState<VoiceStep>('idle');
   const [voiceOpenKm, setVoiceOpenKm] = useState('');
   const [voiceReason, setVoiceReason] = useState('');
-  const [voiceCloseKm, setVoiceCloseKm] = useState('');
   const [voiceInterim, setVoiceInterim] = useState('');
-  const [voiceError, setVoiceError] = useState('');
-  const [voiceNumeric, setVoiceNumeric] = useState(false);
-  const recognitionRef = useRef<any>(null);
+  const [voiceError, setVoiceError] = useState('');  const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef(false);
+  const [isListening, setIsListening] = useState(false);
+  const confirmingRef = useRef(false);
+  const closingKmEntryIdRef = useRef<string | null>(null);
   const voiceStepRef = useRef<VoiceStep>('idle');
   const voiceValuesRef = useRef({ openKm: '', reason: '', closeKm: '' });
 
@@ -182,8 +183,8 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   }, [voiceStep]);
 
   useEffect(() => {
-    voiceValuesRef.current = { openKm: voiceOpenKm, reason: voiceReason, closeKm: voiceCloseKm };
-  }, [voiceOpenKm, voiceReason, voiceCloseKm]);
+    voiceValuesRef.current = { openKm: voiceOpenKm, reason: voiceReason, closeKm: '' };
+  }, [voiceOpenKm, voiceReason]);
 
   useEffect(() => {
     loadTrips();
@@ -279,6 +280,8 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   // --- Voice recognition helpers ---
 
   const stopRecognition = useCallback(() => {
+    isListeningRef.current = false;
+    setIsListening(false);
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -293,11 +296,16 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const speak = (text: string): Promise<void> => {
     return new Promise((resolve) => {
       try {
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'en-ZA';
         utterance.rate = 0.9;
-        utterance.onend = () => resolve();
-        utterance.onerror = () => resolve();
+        let resolved = false;
+        const done = () => { if (!resolved) { resolved = true; resolve(); } };
+        utterance.onend = done;
+        utterance.onerror = done;
+        // Fallback timeout — some mobile browsers never fire onend
+        setTimeout(done, text.length * 80 + 2000);
         window.speechSynthesis.speak(utterance);
       } catch {
         resolve();
@@ -323,16 +331,24 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       return;
     }
 
+    // If already listening, stop instead (toggle behavior)
+    if (isListeningRef.current) {
+      stopRecognition();
+      return;
+    }
+
     stopRecognition();
 
     const recognition = new SpeechRecognition();
     recognition.lang = 'en-ZA';
     recognition.continuous = false;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 3;
 
-    setVoiceNumeric(numeric);
     setVoiceInterim('');
     setVoiceError('');
+    isListeningRef.current = true;
+    setIsListening(true);
 
     recognition.onresult = (event: any) => {
       let finalText = '';
@@ -356,11 +372,10 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           if (parsed) {
             if (step === 'asking_open_km') {
               setVoiceOpenKm(parsed);
-            } else if (step === 'asking_close_km') {
-              setVoiceCloseKm(parsed);
+            } else if (closingKmEntryIdRef.current) {
+              setClosingKmValue(parsed);
             }
           } else {
-            // Could not parse — show what was heard so the driver can correct manually
             setVoiceInterim(`Heard: "${finalText}" — please enter the number manually`);
           }
         } else {
@@ -378,13 +393,15 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       if (event.error === 'not-allowed') {
         setVoiceError('Microphone access denied');
       } else if (event.error === 'no-speech') {
-        // ignore
+        // ignore — let driver tap Speak again
       } else {
         setVoiceError('Voice error: ' + event.error);
       }
     };
 
     recognition.onend = () => {
+      isListeningRef.current = false;
+      setIsListening(false);
       setVoiceInterim('');
       recognitionRef.current = null;
     };
@@ -404,10 +421,10 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     if (!selectedTrip) return;
     setVoiceOpenKm('');
     setVoiceReason('');
-    setVoiceCloseKm('');
+    confirmingRef.current = false;
 
     const lastEntry = entries.length > 0 ? entries[entries.length - 1] : null;
-    const suggestedOpenKm = lastEntry ? lastEntry.closing_km : selectedTrip.odometerReading;
+    const suggestedOpenKm = lastEntry?.closing_km != null ? lastEntry.closing_km : selectedTrip.odometerReading;
 
     setVoiceOpenKm(String(suggestedOpenKm));
     setVoiceStep('asking_open_km');
@@ -415,41 +432,34 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   };
 
   const confirmOpenKm = async () => {
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
     stopRecognition();
-    setVoiceStep('confirm_open_km');
-    await speak(`Opening kilometers: ${formatNumber(voiceOpenKm)}. Is that correct? Tap confirm to continue.`);
     setVoiceStep('asking_reason');
+    await speak(`Opening kilometers: ${formatNumber(voiceOpenKm)}.`);
+    confirmingRef.current = false;
     await speakThenListen('What is the reason for the trip?', false);
   };
 
   const confirmReason = async () => {
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
     stopRecognition();
-    setVoiceStep('asking_close_km');
-    await speakThenListen('What are the closing kilometers?', true);
-  };
-
-  const confirmCloseKm = async () => {
-    stopRecognition();
-    setVoiceStep('confirm_close_km');
-    await speak(`Closing kilometers: ${formatNumber(voiceCloseKm)}. Is that correct?`);
     setVoiceStep('done');
     await saveVoiceEntry();
+    confirmingRef.current = false;
   };
 
   const saveVoiceEntry = async () => {
-    if (!selectedTrip || !voiceOpenKm || !voiceReason || !voiceCloseKm) return;
+    if (!selectedTrip || !voiceOpenKm || !voiceReason) return;
     setSaving(true);
     setError('');
 
     try {
       const openKm = parseInt(voiceOpenKm, 10);
-      const closeKm = parseInt(voiceCloseKm, 10);
 
-      if (isNaN(openKm) || isNaN(closeKm)) {
-        throw new Error('Invalid kilometer values');
-      }
-      if (closeKm < openKm) {
-        throw new Error('Closing kilometers cannot be less than opening kilometers');
+      if (isNaN(openKm)) {
+        throw new Error('Invalid opening kilometer value');
       }
 
       const seqNum = entries.length > 0 ? Math.max(...entries.map(e => e.sequence_number)) + 1 : 1;
@@ -464,7 +474,8 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           sequence_number: seqNum,
           opening_km: openKm,
           trip_reason: voiceReason.trim(),
-          closing_km: closeKm,
+          closing_km: null,
+          km_travelled: null,
           entry_date: new Date().toISOString().split('T')[0],
         })
         .select()
@@ -480,13 +491,12 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       };
 
       setEntries(prev => [...prev, newEntry]);
-      setSuccessMsg('Logbook entry saved successfully');
+      setSuccessMsg('Logbook entry saved. Add closing kilometers later when the trip is complete.');
       setVoiceStep('idle');
       setVoiceOpenKm('');
       setVoiceReason('');
-      setVoiceCloseKm('');
 
-      await speak('Entry saved. You can add another trip leg or go back.');
+      await speak('Entry saved. You can add closing kilometers later.');
     } catch (err: any) {
       setError(err.message || 'Failed to save logbook entry');
       setVoiceStep('idle');
@@ -500,28 +510,86 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     setVoiceStep('idle');
     setVoiceOpenKm('');
     setVoiceReason('');
-    setVoiceCloseKm('');
     setVoiceInterim('');
     setVoiceError('');
+    confirmingRef.current = false;
+  };
+
+  // --- Add closing km to a pending entry ---
+  const [closingKmEntryId, setClosingKmEntryIdState] = useState<string | null>(null);
+  const [closingKmValue, setClosingKmValue] = useState('');
+  const [closingKmSaving, setClosingKmSaving] = useState(false);
+
+  const setClosingKmEntryId = (id: string | null) => {
+    closingKmEntryIdRef.current = id;
+    setClosingKmEntryIdState(id);
+  };
+
+  const handleAddClosingKm = async () => {
+    if (!closingKmEntryId || !closingKmValue) return;
+    const closeKm = parseInt(closingKmValue, 10);
+    if (isNaN(closeKm)) {
+      setError('Invalid closing kilometer value');
+      return;
+    }
+
+    const entry = entries.find(e => e.id === closingKmEntryId);
+    if (entry && closeKm < entry.opening_km) {
+      setError('Closing km cannot be less than opening km');
+      return;
+    }
+
+    setClosingKmSaving(true);
+    setError('');
+    try {
+      const { error: updateError } = await supabase
+        .from('trip_logbook_entries')
+        .update({
+          closing_km: closeKm,
+          km_travelled: closeKm - (entry?.opening_km || 0),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', closingKmEntryId);
+
+      if (updateError) throw updateError;
+
+      setEntries(prev => prev.map(e =>
+        e.id === closingKmEntryId
+          ? { ...e, closing_km: closeKm, km_travelled: closeKm - e.opening_km }
+          : e
+      ));
+      setClosingKmEntryId(null);
+      setClosingKmValue('');
+      setSuccessMsg('Closing kilometers added');
+    } catch (err: any) {
+      setError(err.message || 'Failed to update closing km');
+    } finally {
+      setClosingKmSaving(false);
+    }
   };
 
   // --- Manual entry ---
 
   const handleManualSubmit = async () => {
     if (!selectedTrip) return;
-    if (!manualOpenKm || !manualReason.trim() || !manualCloseKm) {
-      setError('All fields are required');
+    if (!manualOpenKm || !manualReason.trim()) {
+      setError('Open km and reason are required');
       return;
     }
 
     const openKm = parseInt(manualOpenKm, 10);
-    const closeKm = parseInt(manualCloseKm, 10);
 
-    if (isNaN(openKm) || isNaN(closeKm)) {
-      setError('Invalid kilometer values');
+    if (isNaN(openKm)) {
+      setError('Invalid opening kilometer value');
       return;
     }
-    if (closeKm < openKm) {
+
+    const closeKm = manualCloseKm ? parseInt(manualCloseKm, 10) : null;
+    if (closeKm !== null && isNaN(closeKm)) {
+      setError('Invalid closing kilometer value');
+      return;
+    }
+    if (closeKm !== null && closeKm < openKm) {
       setError('Closing km cannot be less than opening km');
       return;
     }
@@ -543,6 +611,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           opening_km: openKm,
           trip_reason: manualReason.trim(),
           closing_km: closeKm,
+          km_travelled: closeKm !== null ? closeKm - openKm : null,
           entry_date: new Date().toISOString().split('T')[0],
         })
         .select()
@@ -576,20 +645,24 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     setEditingId(entry.id);
     setEditOpenKm(String(entry.opening_km));
     setEditReason(entry.trip_reason);
-    setEditCloseKm(String(entry.closing_km));
+    setEditCloseKm(entry.closing_km != null ? String(entry.closing_km) : '');
   };
 
   const handleEditSave = async () => {
     if (!editingId) return;
 
     const openKm = parseInt(editOpenKm, 10);
-    const closeKm = parseInt(editCloseKm, 10);
+    const closeKm = editCloseKm ? parseInt(editCloseKm, 10) : null;
 
-    if (isNaN(openKm) || isNaN(closeKm)) {
-      setError('Invalid kilometer values');
+    if (isNaN(openKm)) {
+      setError('Invalid opening kilometer value');
       return;
     }
-    if (closeKm < openKm) {
+    if (closeKm !== null && isNaN(closeKm)) {
+      setError('Invalid closing kilometer value');
+      return;
+    }
+    if (closeKm !== null && closeKm < openKm) {
       setError('Closing km cannot be less than opening km');
       return;
     }
@@ -604,6 +677,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           opening_km: openKm,
           trip_reason: editReason.trim(),
           closing_km: closeKm,
+          km_travelled: closeKm !== null ? closeKm - openKm : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingId);
@@ -612,7 +686,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       setEntries(prev => prev.map(e =>
         e.id === editingId
-          ? { ...e, opening_km: openKm, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm - openKm }
+          ? { ...e, opening_km: openKm, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm !== null ? closeKm - openKm : null }
           : e
       ));
       setEditingId(null);
@@ -681,7 +755,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     });
   };
 
-  const totalKm = entries.reduce((sum, e) => sum + e.km_travelled, 0);
+  const totalKm = entries.reduce((sum, e) => sum + (e.km_travelled || 0), 0);
 
   // --- Cleanup speech synthesis on unmount ---
   useEffect(() => {
@@ -775,9 +849,9 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
   // --- Logbook entry screen for selected trip ---
 
-  const isListening = voiceStep !== 'idle' && voiceStep !== 'done';
+  const isListeningNow = isListening;
   const lastEntry = entries.length > 0 ? entries[entries.length - 1] : null;
-  const suggestedOpenKm = lastEntry ? lastEntry.closing_km : selectedTrip.odometerReading;
+  const suggestedOpenKm = lastEntry?.closing_km != null ? lastEntry.closing_km : selectedTrip.odometerReading;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -836,19 +910,19 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
             <div className="space-y-4">
               {/* Step indicator */}
               <div className="flex items-center gap-2 text-sm">
-                <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_open_km' || voiceStep === 'confirm_open_km' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_open_km' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
                   1. Open km
                 </span>
                 <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_reason' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
                   2. Reason
                 </span>
-                <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_close_km' || voiceStep === 'confirm_close_km' || voiceStep === 'done' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                  3. Close km
+                <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'done' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                  Save
                 </span>
               </div>
 
               {/* Open km */}
-              {(voiceStep === 'asking_open_km' || voiceStep === 'confirm_open_km') && (
+              {voiceStep === 'asking_open_km' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Opening Kilometers</label>
                   <div className="flex gap-2">
@@ -860,17 +934,15 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                       placeholder="e.g. 12345"
                       style={{ fontSize: '16px' }}
                     />
-                    {voiceStep === 'asking_open_km' && (
-                      <button
-                        onClick={() => startListening(true)}
-                        className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                          isListening ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                        }`}
-                      >
-                        {isListening ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                        {isListening ? 'Stop' : 'Speak'}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => startListening(true)}
+                      className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                        isListeningNow ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      }`}
+                    >
+                      {isListeningNow ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      {isListeningNow ? 'Stop' : 'Speak'}
+                    </button>
                   </div>
                   {voiceInterim && voiceStep === 'asking_open_km' && (
                     <p className="text-xs text-gray-500 mt-1">Hearing: "{voiceInterim}"</p>
@@ -879,7 +951,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                   <div className="flex gap-2 mt-3">
                     <button
                       onClick={confirmOpenKm}
-                      disabled={!voiceOpenKm}
+                      disabled={!voiceOpenKm || saving}
                       className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
                     >
                       <Check className="w-5 h-5" />
@@ -911,11 +983,11 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                     <button
                       onClick={() => startListening(false)}
                       className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 self-start ${
-                        isListening ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                        isListeningNow ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
                       }`}
                     >
-                      {isListening ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                      {isListening ? 'Stop' : 'Speak'}
+                      {isListeningNow ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      {isListeningNow ? 'Stop' : 'Speak'}
                     </button>
                   </div>
                   {voiceInterim && (
@@ -925,60 +997,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                   <div className="flex gap-2 mt-3">
                     <button
                       onClick={confirmReason}
-                      disabled={!voiceReason.trim()}
-                      className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Check className="w-5 h-5" />
-                      Confirm Reason
-                    </button>
-                    <button
-                      onClick={cancelVoice}
-                      className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Close km */}
-              {(voiceStep === 'asking_close_km' || voiceStep === 'confirm_close_km') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Closing Kilometers</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      value={voiceCloseKm}
-                      onChange={(e) => setVoiceCloseKm(e.target.value)}
-                      className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
-                      placeholder="e.g. 12500"
-                      style={{ fontSize: '16px' }}
-                    />
-                    {voiceStep === 'asking_close_km' && (
-                      <button
-                        onClick={() => startListening(true)}
-                        className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                          isListening ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                        }`}
-                      >
-                        {isListening ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                        {isListening ? 'Stop' : 'Speak'}
-                      </button>
-                    )}
-                  </div>
-                  {voiceInterim && voiceStep === 'asking_close_km' && (
-                    <p className="text-xs text-gray-500 mt-1">Hearing: "{voiceInterim}"</p>
-                  )}
-                  {voiceError && <p className="text-xs text-red-500 mt-1">{voiceError}</p>}
-                  {voiceCloseKm && voiceOpenKm && (
-                    <p className="text-xs text-blue-600 mt-1">
-                      Distance: {(parseInt(voiceCloseKm, 10) - parseInt(voiceOpenKm, 10)).toLocaleString()} km
-                    </p>
-                  )}
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={confirmCloseKm}
-                      disabled={!voiceCloseKm || saving}
+                      disabled={!voiceReason.trim() || saving}
                       className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
                     >
                       {saving ? 'Saving...' : (<><Check className="w-5 h-5" /> Save Entry</>)}
@@ -998,7 +1017,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                 <div className="text-center py-4">
                   <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
                   <p className="text-gray-700 font-medium">
-                    {saving ? 'Saving...' : 'Entry saved! Add another trip leg?'}
+                    {saving ? 'Saving...' : 'Entry saved! Closing km can be added later.'}
                   </p>
                   {!saving && (
                     <div className="flex gap-2 mt-4">
@@ -1065,13 +1084,13 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Closing Kilometers</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Closing Kilometers <span className="text-gray-400 font-normal">(optional — add later if unknown)</span></label>
                 <input
                   type="number"
                   value={manualCloseKm}
                   onChange={(e) => setManualCloseKm(e.target.value)}
                   className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
-                  placeholder="e.g. 12500"
+                  placeholder="Leave blank to add later"
                   style={{ fontSize: '16px' }}
                 />
                 {manualOpenKm && manualCloseKm && (
@@ -1096,6 +1115,67 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Inline closing km form for pending entries */}
+        {closingKmEntryId && (
+          <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-4">
+            <h3 className="font-bold text-teal-900 mb-2">Add Closing Kilometers</h3>
+            {(() => {
+              const pendingEntry = entries.find(e => e.id === closingKmEntryId);
+              if (!pendingEntry) return null;
+              return (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">
+                    Open km: <span className="font-mono font-medium">{pendingEntry.opening_km.toLocaleString()}</span> — {pendingEntry.trip_reason}
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={closingKmValue}
+                      onChange={(e) => setClosingKmValue(e.target.value)}
+                      className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-teal-500 focus:outline-none"
+                      placeholder="Closing km reading"
+                      style={{ fontSize: '16px' }}
+                      autoFocus
+                    />
+                    <button
+                      onClick={() => startListening(true)}
+                      className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                        isListeningNow ? 'bg-red-100 text-red-700' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+                      }`}
+                    >
+                      {isListeningNow ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      {isListeningNow ? 'Stop' : 'Speak'}
+                    </button>
+                  </div>
+                  {voiceInterim && (
+                    <p className="text-xs text-gray-500">Hearing: "{voiceInterim}"</p>
+                  )}
+                  {closingKmValue && (
+                    <p className="text-xs text-teal-700 font-medium">
+                      Distance: {Math.max(0, parseInt(closingKmValue || '0', 10) - pendingEntry.opening_km).toLocaleString()} km
+                    </p>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={handleAddClosingKm}
+                      disabled={!closingKmValue || closingKmSaving}
+                      className="flex-1 bg-teal-600 text-white py-3 rounded-lg font-semibold hover:bg-teal-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {closingKmSaving ? 'Saving...' : (<><Check className="w-5 h-5" /> Save Closing km</>)}
+                    </button>
+                    <button
+                      onClick={() => { setClosingKmEntryId(null); setClosingKmValue(''); stopRecognition(); }}
+                      className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1177,10 +1257,18 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                           <td className="px-3 py-2 text-sm text-gray-700">{entry.entry_date}</td>
                           <td className="px-3 py-2 text-sm text-gray-900 text-right font-mono">{entry.opening_km.toLocaleString()}</td>
                           <td className="px-3 py-2 text-sm text-gray-800">{entry.trip_reason}</td>
-                          <td className="px-3 py-2 text-sm text-gray-900 text-right font-mono">{entry.closing_km.toLocaleString()}</td>
-                          <td className="px-3 py-2 text-sm text-blue-700 text-right font-medium">{entry.km_travelled.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-sm text-gray-900 text-right font-mono">{entry.closing_km != null ? entry.closing_km.toLocaleString() : <span className="text-gray-400 italic">—</span>}</td>
+                          <td className="px-3 py-2 text-sm text-blue-700 text-right font-medium">{entry.km_travelled != null ? entry.km_travelled.toLocaleString() : <span className="text-gray-400 italic">—</span>}</td>
                           <td className="px-3 py-2">
                             <div className="flex gap-1">
+                              {entry.closing_km == null && closingKmEntryId !== entry.id && (
+                                <button
+                                  onClick={() => { setClosingKmEntryId(entry.id); setClosingKmValue(''); }}
+                                  className="text-xs font-medium text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 transition-colors whitespace-nowrap"
+                                >
+                                  + Close km
+                                </button>
+                              )}
                               <button
                                 onClick={() => startEdit(entry)}
                                 className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
@@ -1212,7 +1300,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           </div>
         )}
 
-        {entries.length === 0 && voiceStep === 'idle' && !showManualForm && (
+        {entries.length === 0 && voiceStep === 'idle' && !showManualForm && !closingKmEntryId && (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 font-medium">No logbook entries yet</p>
