@@ -39,6 +39,111 @@ interface LogbookEntry {
 
 type VoiceStep = 'idle' | 'asking_open_km' | 'confirm_open_km' | 'asking_reason' | 'asking_close_km' | 'confirm_close_km' | 'done';
 
+// --- Word-to-number converter ---
+// Speech recognition returns "twelve thousand three hundred forty five" as text.
+// This converts spoken English number words into numeric digits.
+const NUMBER_WORDS: Record<string, number> = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+  twenty: 20, thirty: 30, forty: 40, fifty: 50,
+  sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+  hundred: 100, thousand: 1000, million: 1000000,
+  // Common mishearings
+  tree: 3, free: 3, for: 4, ate: 8, niner: 9,
+};
+
+function wordsToNumber(text: string): number | null {
+  // First try: if the transcript already contains digits, extract them
+  const digitsOnly = text.replace(/[^0-9]/g, '');
+  if (digitsOnly) {
+    const n = parseInt(digitsOnly, 10);
+    return isNaN(n) ? null : n;
+  }
+
+  // Second try: convert word forms to numbers
+  const lower = text.toLowerCase().trim();
+  if (!lower) return null;
+
+  // Handle "double three four" style or "three four five" digit-by-digit
+  const words = lower.split(/[\s,\-]+/).filter(Boolean);
+  const digitWords = words.filter(w =>
+    ['zero','one','two','three','four','five','six','seven','eight','nine','tree','free','for','ate','niner']
+      .includes(w)
+  );
+  // If all words are single-digit words, concatenate them
+  if (digitWords.length > 1 && digitWords.length === words.length) {
+    let concat = '';
+    for (const w of digitWords) {
+      const d = NUMBER_WORDS[w];
+      if (d !== undefined && d < 10) concat += String(d);
+    }
+    if (concat) {
+      const n = parseInt(concat, 10);
+      return isNaN(n) ? null : n;
+    }
+  }
+
+  // General word-to-number: handle "twelve thousand three hundred forty five"
+  let total = 0;
+  let current = 0;
+  let foundAny = false;
+
+  for (const word of words) {
+    const val = NUMBER_WORDS[word];
+    if (val === undefined) continue;
+    foundAny = true;
+
+    if (val === 100) {
+      current = (current === 0 ? 1 : current) * 100;
+    } else if (val >= 1000) {
+      total += (current === 0 ? 1 : current) * val;
+      current = 0;
+    } else {
+      current += val;
+    }
+  }
+
+  total += current;
+  return foundAny && total > 0 ? total : null;
+}
+
+// Convert spoken text to a km string, trying multiple strategies
+function parseKmFromSpeech(text: string): string {
+  // Strategy 1: direct digits in the transcript (e.g. "1 2 3 4 5" or "12345")
+  const digitsOnly = text.replace(/[^0-9]/g, '');
+  if (digitsOnly) return digitsOnly;
+
+  // Strategy 2: word-to-number conversion
+  const n = wordsToNumber(text);
+  if (n !== null && n > 0) return String(n);
+
+  // Strategy 3: try cleaning up common speech recognition artifacts
+  // e.g. "one two three four five" -> extract individual digits
+  const lower = text.toLowerCase().trim();
+  const singleDigitMap: Record<string, string> = {
+    zero: '0', one: '1', won: '1', two: '2', to: '2', too: '2',
+    three: '3', tree: '3', free: '3', four: '4', for: '4',
+    five: '5', six: '6', seven: '7', eight: '8', ate: '8',
+    nine: '9', niner: '9',
+  };
+  const parts = lower.split(/[\s,\-]+/).filter(Boolean);
+  let digitStr = '';
+  let allDigits = true;
+  for (const p of parts) {
+    const d = singleDigitMap[p];
+    if (d !== undefined) {
+      digitStr += d;
+    } else {
+      allDigits = false;
+    }
+  }
+  if (allDigits && digitStr) return digitStr;
+
+  return '';
+}
+
 export default function DriverLogbook({ organizationId, driverId, driverName, onBack }: DriverLogbookProps) {
   const [trips, setTrips] = useState<DrawnTrip[]>([]);
   const [selectedTrip, setSelectedTrip] = useState<DrawnTrip | null>(null);
@@ -200,6 +305,15 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     });
   };
 
+  // Speak a prompt, then wait a short beat before opening the mic so the
+  // device doesn't capture its own speech output.
+  const speakThenListen = async (prompt: string, numeric: boolean) => {
+    await speak(prompt);
+    // Give the audio system a moment to release the speaker before opening the mic
+    await new Promise(resolve => setTimeout(resolve, 300));
+    startListening(numeric);
+  };
+
   const startListening = (numeric: boolean) => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -238,20 +352,25 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       if (finalText) {
         const step = voiceStepRef.current;
         if (numeric) {
-          const digits = finalText.replace(/\D/g, '');
-          if (digits) {
+          const parsed = parseKmFromSpeech(finalText);
+          if (parsed) {
             if (step === 'asking_open_km') {
-              setVoiceOpenKm(digits);
+              setVoiceOpenKm(parsed);
             } else if (step === 'asking_close_km') {
-              setVoiceCloseKm(digits);
+              setVoiceCloseKm(parsed);
             }
+          } else {
+            // Could not parse — show what was heard so the driver can correct manually
+            setVoiceInterim(`Heard: "${finalText}" — please enter the number manually`);
           }
         } else {
           if (step === 'asking_reason') {
             setVoiceReason(finalText);
           }
         }
-        setVoiceInterim('');
+        if (!numeric || parseKmFromSpeech(finalText)) {
+          setVoiceInterim('');
+        }
       }
     };
 
@@ -292,24 +411,21 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
     setVoiceOpenKm(String(suggestedOpenKm));
     setVoiceStep('asking_open_km');
-    await speak('What are the opening kilometers?');
-    startListening(true);
+    await speakThenListen('What are the opening kilometers?', true);
   };
 
   const confirmOpenKm = async () => {
     stopRecognition();
     setVoiceStep('confirm_open_km');
-    await speak(`Opening kilometers: ${formatNumber(voiceOpenKm)}. Is that correct? Say yes or tap confirm.`);
+    await speak(`Opening kilometers: ${formatNumber(voiceOpenKm)}. Is that correct? Tap confirm to continue.`);
     setVoiceStep('asking_reason');
-    await speak('What is the reason for the trip?');
-    startListening(false);
+    await speakThenListen('What is the reason for the trip?', false);
   };
 
   const confirmReason = async () => {
     stopRecognition();
     setVoiceStep('asking_close_km');
-    await speak('What are the closing kilometers?');
-    startListening(true);
+    await speakThenListen('What are the closing kilometers?', true);
   };
 
   const confirmCloseKm = async () => {
