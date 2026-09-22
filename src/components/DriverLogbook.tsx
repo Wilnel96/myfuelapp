@@ -1,0 +1,1111 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { ArrowLeft, Mic, Square, Plus, Trash2, Edit2, Check, X, Download, AlertCircle, CheckCircle, BookOpen, Car } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+interface DriverLogbookProps {
+  organizationId: string;
+  driverId: string;
+  driverName: string;
+  onBack: () => void;
+}
+
+interface DrawnTrip {
+  id: string;
+  vehicleId: string;
+  vehicleRegistration: string;
+  vehicleMake: string;
+  vehicleModel: string;
+  odometerReading: number;
+  drawnAt: string;
+  returned: boolean;
+  returnOdometer: number | null;
+}
+
+interface LogbookEntry {
+  id: string;
+  vehicle_transaction_id: string | null;
+  vehicle_id: string;
+  sequence_number: number;
+  opening_km: number;
+  trip_reason: string;
+  closing_km: number;
+  km_travelled: number;
+  entry_date: string;
+  created_at: string;
+  vehicle_registration?: string;
+  vehicle_make?: string;
+  vehicle_model?: string;
+}
+
+type VoiceStep = 'idle' | 'asking_open_km' | 'confirm_open_km' | 'asking_reason' | 'asking_close_km' | 'confirm_close_km' | 'done';
+
+export default function DriverLogbook({ organizationId, driverId, driverName, onBack }: DriverLogbookProps) {
+  const [trips, setTrips] = useState<DrawnTrip[]>([]);
+  const [selectedTrip, setSelectedTrip] = useState<DrawnTrip | null>(null);
+  const [entries, setEntries] = useState<LogbookEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // Manual entry form state
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualOpenKm, setManualOpenKm] = useState('');
+  const [manualReason, setManualReason] = useState('');
+  const [manualCloseKm, setManualCloseKm] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Voice guided entry state
+  const [voiceStep, setVoiceStep] = useState<VoiceStep>('idle');
+  const [voiceOpenKm, setVoiceOpenKm] = useState('');
+  const [voiceReason, setVoiceReason] = useState('');
+  const [voiceCloseKm, setVoiceCloseKm] = useState('');
+  const [voiceInterim, setVoiceInterim] = useState('');
+  const [voiceError, setVoiceError] = useState('');
+  const [voiceNumeric, setVoiceNumeric] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const voiceStepRef = useRef<VoiceStep>('idle');
+  const voiceValuesRef = useRef({ openKm: '', reason: '', closeKm: '' });
+
+  // Edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editOpenKm, setEditOpenKm] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [editCloseKm, setEditCloseKm] = useState('');
+
+  useEffect(() => {
+    voiceStepRef.current = voiceStep;
+  }, [voiceStep]);
+
+  useEffect(() => {
+    voiceValuesRef.current = { openKm: voiceOpenKm, reason: voiceReason, closeKm: voiceCloseKm };
+  }, [voiceOpenKm, voiceReason, voiceCloseKm]);
+
+  useEffect(() => {
+    loadTrips();
+  }, []);
+
+  const loadTrips = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data: draws, error: drawError } = await supabase
+        .from('vehicle_transactions')
+        .select(`
+          id,
+          vehicle_id,
+          odometer_reading,
+          created_at,
+          vehicles!inner(registration_number, make, model)
+        `)
+        .eq('driver_id', driverId)
+        .eq('transaction_type', 'draw')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (drawError) throw drawError;
+
+      const allTrips: DrawnTrip[] = [];
+
+      for (const draw of draws || []) {
+        const { data: returnData } = await supabase
+          .from('vehicle_transactions')
+          .select('id, odometer_reading, created_at')
+          .eq('related_transaction_id', draw.id)
+          .eq('transaction_type', 'return')
+          .limit(1)
+          .maybeSingle();
+
+        allTrips.push({
+          id: draw.id,
+          vehicleId: draw.vehicle_id,
+          vehicleRegistration: (draw.vehicles as any).registration_number,
+          vehicleMake: (draw.vehicles as any).make || '',
+          vehicleModel: (draw.vehicles as any).model || '',
+          odometerReading: draw.odometer_reading,
+          drawnAt: draw.created_at,
+          returned: !!returnData,
+          returnOdometer: returnData?.odometer_reading ?? null,
+        });
+      }
+
+      setTrips(allTrips);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load trips');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadEntries = async (trip: DrawnTrip) => {
+    try {
+      const { data, error: entriesError } = await supabase
+        .from('trip_logbook_entries')
+        .select('*')
+        .eq('driver_id', driverId)
+        .eq('vehicle_id', trip.vehicleId)
+        .order('entry_date', { ascending: true })
+        .order('sequence_number', { ascending: true });
+
+      if (entriesError) throw entriesError;
+
+      const enrichedEntries = (data || []).map((e: any) => ({
+        ...e,
+        vehicle_registration: trip.vehicleRegistration,
+        vehicle_make: trip.vehicleMake,
+        vehicle_model: trip.vehicleModel,
+      }));
+
+      setEntries(enrichedEntries);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load logbook entries');
+    }
+  };
+
+  const handleSelectTrip = (trip: DrawnTrip) => {
+    setSelectedTrip(trip);
+    setEntries([]);
+    setError('');
+    setSuccessMsg('');
+    setShowManualForm(false);
+    setVoiceStep('idle');
+    loadEntries(trip);
+  };
+
+  // --- Voice recognition helpers ---
+
+  const stopRecognition = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // already stopped
+      }
+      recognitionRef.current = null;
+    }
+    setVoiceInterim('');
+  }, []);
+
+  const speak = (text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      try {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-ZA';
+        utterance.rate = 0.9;
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        resolve();
+      }
+    });
+  };
+
+  const startListening = (numeric: boolean) => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceError('Voice input not supported on this browser');
+      return;
+    }
+
+    stopRecognition();
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-ZA';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    setVoiceNumeric(numeric);
+    setVoiceInterim('');
+    setVoiceError('');
+
+    recognition.onresult = (event: any) => {
+      let finalText = '';
+      let interimText = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalText = transcript.trim();
+        } else {
+          interimText += transcript;
+        }
+      }
+
+      setVoiceInterim(interimText);
+
+      if (finalText) {
+        const step = voiceStepRef.current;
+        if (numeric) {
+          const digits = finalText.replace(/\D/g, '');
+          if (digits) {
+            if (step === 'asking_open_km') {
+              setVoiceOpenKm(digits);
+            } else if (step === 'asking_close_km') {
+              setVoiceCloseKm(digits);
+            }
+          }
+        } else {
+          if (step === 'asking_reason') {
+            setVoiceReason(finalText);
+          }
+        }
+        setVoiceInterim('');
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event.error === 'not-allowed') {
+        setVoiceError('Microphone access denied');
+      } else if (event.error === 'no-speech') {
+        // ignore
+      } else {
+        setVoiceError('Voice error: ' + event.error);
+      }
+    };
+
+    recognition.onend = () => {
+      setVoiceInterim('');
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+    } catch {
+      // already started
+    }
+  };
+
+  // --- Guided voice flow ---
+
+  const startGuidedVoice = async () => {
+    if (!selectedTrip) return;
+    setVoiceOpenKm('');
+    setVoiceReason('');
+    setVoiceCloseKm('');
+
+    const lastEntry = entries.length > 0 ? entries[entries.length - 1] : null;
+    const suggestedOpenKm = lastEntry ? lastEntry.closing_km : selectedTrip.odometerReading;
+
+    setVoiceOpenKm(String(suggestedOpenKm));
+    setVoiceStep('asking_open_km');
+    await speak('What are the opening kilometers?');
+    startListening(true);
+  };
+
+  const confirmOpenKm = async () => {
+    stopRecognition();
+    setVoiceStep('confirm_open_km');
+    await speak(`Opening kilometers: ${formatNumber(voiceOpenKm)}. Is that correct? Say yes or tap confirm.`);
+    setVoiceStep('asking_reason');
+    await speak('What is the reason for the trip?');
+    startListening(false);
+  };
+
+  const confirmReason = async () => {
+    stopRecognition();
+    setVoiceStep('asking_close_km');
+    await speak('What are the closing kilometers?');
+    startListening(true);
+  };
+
+  const confirmCloseKm = async () => {
+    stopRecognition();
+    setVoiceStep('confirm_close_km');
+    await speak(`Closing kilometers: ${formatNumber(voiceCloseKm)}. Is that correct?`);
+    setVoiceStep('done');
+    await saveVoiceEntry();
+  };
+
+  const saveVoiceEntry = async () => {
+    if (!selectedTrip || !voiceOpenKm || !voiceReason || !voiceCloseKm) return;
+    setSaving(true);
+    setError('');
+
+    try {
+      const openKm = parseInt(voiceOpenKm, 10);
+      const closeKm = parseInt(voiceCloseKm, 10);
+
+      if (isNaN(openKm) || isNaN(closeKm)) {
+        throw new Error('Invalid kilometer values');
+      }
+      if (closeKm < openKm) {
+        throw new Error('Closing kilometers cannot be less than opening kilometers');
+      }
+
+      const seqNum = entries.length > 0 ? Math.max(...entries.map(e => e.sequence_number)) + 1 : 1;
+
+      const { data, error: insertError } = await supabase
+        .from('trip_logbook_entries')
+        .insert({
+          vehicle_transaction_id: selectedTrip.id,
+          organization_id: organizationId,
+          driver_id: driverId,
+          vehicle_id: selectedTrip.vehicleId,
+          sequence_number: seqNum,
+          opening_km: openKm,
+          trip_reason: voiceReason.trim(),
+          closing_km: closeKm,
+          entry_date: new Date().toISOString().split('T')[0],
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      const newEntry: LogbookEntry = {
+        ...data,
+        vehicle_registration: selectedTrip.vehicleRegistration,
+        vehicle_make: selectedTrip.vehicleMake,
+        vehicle_model: selectedTrip.vehicleModel,
+      };
+
+      setEntries(prev => [...prev, newEntry]);
+      setSuccessMsg('Logbook entry saved successfully');
+      setVoiceStep('idle');
+      setVoiceOpenKm('');
+      setVoiceReason('');
+      setVoiceCloseKm('');
+
+      await speak('Entry saved. You can add another trip leg or go back.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to save logbook entry');
+      setVoiceStep('idle');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancelVoice = () => {
+    stopRecognition();
+    setVoiceStep('idle');
+    setVoiceOpenKm('');
+    setVoiceReason('');
+    setVoiceCloseKm('');
+    setVoiceInterim('');
+    setVoiceError('');
+  };
+
+  // --- Manual entry ---
+
+  const handleManualSubmit = async () => {
+    if (!selectedTrip) return;
+    if (!manualOpenKm || !manualReason.trim() || !manualCloseKm) {
+      setError('All fields are required');
+      return;
+    }
+
+    const openKm = parseInt(manualOpenKm, 10);
+    const closeKm = parseInt(manualCloseKm, 10);
+
+    if (isNaN(openKm) || isNaN(closeKm)) {
+      setError('Invalid kilometer values');
+      return;
+    }
+    if (closeKm < openKm) {
+      setError('Closing km cannot be less than opening km');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const seqNum = entries.length > 0 ? Math.max(...entries.map(e => e.sequence_number)) + 1 : 1;
+
+      const { data, error: insertError } = await supabase
+        .from('trip_logbook_entries')
+        .insert({
+          vehicle_transaction_id: selectedTrip.id,
+          organization_id: organizationId,
+          driver_id: driverId,
+          vehicle_id: selectedTrip.vehicleId,
+          sequence_number: seqNum,
+          opening_km: openKm,
+          trip_reason: manualReason.trim(),
+          closing_km: closeKm,
+          entry_date: new Date().toISOString().split('T')[0],
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      const newEntry: LogbookEntry = {
+        ...data,
+        vehicle_registration: selectedTrip.vehicleRegistration,
+        vehicle_make: selectedTrip.vehicleMake,
+        vehicle_model: selectedTrip.vehicleModel,
+      };
+
+      setEntries(prev => [...prev, newEntry]);
+      setSuccessMsg('Logbook entry saved successfully');
+      setManualOpenKm('');
+      setManualReason('');
+      setManualCloseKm('');
+      setShowManualForm(false);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save logbook entry');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // --- Edit entry ---
+
+  const startEdit = (entry: LogbookEntry) => {
+    setEditingId(entry.id);
+    setEditOpenKm(String(entry.opening_km));
+    setEditReason(entry.trip_reason);
+    setEditCloseKm(String(entry.closing_km));
+  };
+
+  const handleEditSave = async () => {
+    if (!editingId) return;
+
+    const openKm = parseInt(editOpenKm, 10);
+    const closeKm = parseInt(editCloseKm, 10);
+
+    if (isNaN(openKm) || isNaN(closeKm)) {
+      setError('Invalid kilometer values');
+      return;
+    }
+    if (closeKm < openKm) {
+      setError('Closing km cannot be less than opening km');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const { error: updateError } = await supabase
+        .from('trip_logbook_entries')
+        .update({
+          opening_km: openKm,
+          trip_reason: editReason.trim(),
+          closing_km: closeKm,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingId);
+
+      if (updateError) throw updateError;
+
+      setEntries(prev => prev.map(e =>
+        e.id === editingId
+          ? { ...e, opening_km: openKm, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm - openKm }
+          : e
+      ));
+      setEditingId(null);
+      setSuccessMsg('Entry updated successfully');
+    } catch (err: any) {
+      setError(err.message || 'Failed to update entry');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (entryId: string) => {
+    if (!confirm('Delete this logbook entry?')) return;
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('trip_logbook_entries')
+        .delete()
+        .eq('id', entryId);
+
+      if (deleteError) throw deleteError;
+
+      setEntries(prev => prev.filter(e => e.id !== entryId));
+      setSuccessMsg('Entry deleted');
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete entry');
+    }
+  };
+
+  // --- Export ---
+
+  const exportCSV = () => {
+    if (!entries.length || !selectedTrip) return;
+
+    let csv = `SARS Logbook - ${selectedTrip.vehicleRegistration}\nDriver: ${driverName}\nDate: ${new Date().toLocaleDateString('en-ZA')}\n\n`;
+    csv += 'Date,Open km,Reason,Closing km,KM Travelled\n';
+
+    let totalKm = 0;
+    for (const e of entries) {
+      const safe = (s: string) => `"${(s || '').replace(/"/g, '""')}"`;
+      csv += `${e.entry_date},${e.opening_km},${safe(e.trip_reason)},${e.closing_km},${e.km_travelled}\n`;
+      totalKm += e.km_travelled;
+    }
+    csv += `\n,,Total,${totalKm}\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `logbook-${selectedTrip.vehicleRegistration}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const formatNumber = (val: string) => {
+    const n = parseInt(val, 10);
+    return isNaN(n) ? val : n.toLocaleString();
+  };
+
+  const formatTime = (iso: string) => {
+    return new Date(iso).toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const totalKm = entries.reduce((sum, e) => sum + e.km_travelled, 0);
+
+  // --- Cleanup speech synthesis on unmount ---
+  useEffect(() => {
+    return () => {
+      stopRecognition();
+      try {
+        window.speechSynthesis.cancel();
+      } catch {
+        // ignore
+      }
+    };
+  }, [stopRecognition]);
+
+  // --- Trip selection screen ---
+
+  if (!selectedTrip) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-blue-600 text-white p-4 sticky top-0 z-10">
+          <div className="flex items-center gap-3">
+            <button onClick={onBack} className="hover:bg-blue-700 p-2 rounded-lg transition-colors">
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold">SARS Logbook</h1>
+              <p className="text-sm text-blue-100">Select a trip to record logbook entries</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 max-w-2xl mx-auto">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <p className="text-gray-500">Loading trips...</p>
+            </div>
+          ) : trips.length === 0 ? (
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">No trips found</p>
+              <p className="text-sm text-gray-400 mt-1">Draw a vehicle first to start recording logbook entries.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {trips.map((trip) => (
+                <button
+                  key={trip.id}
+                  onClick={() => handleSelectTrip(trip)}
+                  className="w-full bg-white rounded-lg shadow hover:shadow-md transition-shadow p-4 text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${trip.returned ? 'bg-gray-100' : 'bg-teal-100'}`}>
+                        <Car className={`w-6 h-6 ${trip.returned ? 'text-gray-500' : 'text-teal-600'}`} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900 text-lg">{trip.vehicleRegistration}</p>
+                        <p className="text-sm text-gray-600">{trip.vehicleMake} {trip.vehicleModel}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Drawn: {formatTime(trip.drawnAt)} — Start: {trip.odometerReading.toLocaleString()} km
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {trip.returned ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          <CheckCircle className="w-3 h-3" />
+                          Completed
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 bg-teal-50 px-2 py-1 rounded">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // --- Logbook entry screen for selected trip ---
+
+  const isListening = voiceStep !== 'idle' && voiceStep !== 'done';
+  const lastEntry = entries.length > 0 ? entries[entries.length - 1] : null;
+  const suggestedOpenKm = lastEntry ? lastEntry.closing_km : selectedTrip.odometerReading;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="bg-blue-600 text-white p-4 sticky top-0 z-10">
+        <div className="flex items-center gap-3">
+          <button onClick={() => { stopRecognition(); setSelectedTrip(null); }} className="hover:bg-blue-700 p-2 rounded-lg transition-colors">
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <div className="flex-1">
+            <h1 className="text-xl font-bold">Logbook — {selectedTrip.vehicleRegistration}</h1>
+            <p className="text-sm text-blue-100">{selectedTrip.vehicleMake} {selectedTrip.vehicleModel}</p>
+          </div>
+          {entries.length > 0 && (
+            <button
+              onClick={exportCSV}
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 hover:bg-blue-800 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Export
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 max-w-2xl mx-auto">
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        {successMsg && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-green-800 text-sm">{successMsg}</p>
+          </div>
+        )}
+
+        {/* Guided Voice Entry */}
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <Mic className="w-5 h-5 text-blue-600" />
+            Voice Guided Entry
+          </h2>
+
+          {voiceStep === 'idle' ? (
+            <button
+              onClick={startGuidedVoice}
+              className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-lg"
+            >
+              <Mic className="w-6 h-6" />
+              Start Voice Entry
+            </button>
+          ) : (
+            <div className="space-y-4">
+              {/* Step indicator */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_open_km' || voiceStep === 'confirm_open_km' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                  1. Open km
+                </span>
+                <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_reason' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                  2. Reason
+                </span>
+                <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_close_km' || voiceStep === 'confirm_close_km' || voiceStep === 'done' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                  3. Close km
+                </span>
+              </div>
+
+              {/* Open km */}
+              {(voiceStep === 'asking_open_km' || voiceStep === 'confirm_open_km') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Opening Kilometers</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={voiceOpenKm}
+                      onChange={(e) => setVoiceOpenKm(e.target.value)}
+                      className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                      placeholder="e.g. 12345"
+                      style={{ fontSize: '16px' }}
+                    />
+                    {voiceStep === 'asking_open_km' && (
+                      <button
+                        onClick={() => startListening(true)}
+                        className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                          isListening ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                        }`}
+                      >
+                        {isListening ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                        {isListening ? 'Stop' : 'Speak'}
+                      </button>
+                    )}
+                  </div>
+                  {voiceInterim && voiceStep === 'asking_open_km' && (
+                    <p className="text-xs text-gray-500 mt-1">Hearing: "{voiceInterim}"</p>
+                  )}
+                  {voiceError && <p className="text-xs text-red-500 mt-1">{voiceError}</p>}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={confirmOpenKm}
+                      disabled={!voiceOpenKm}
+                      className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-5 h-5" />
+                      Confirm Open km
+                    </button>
+                    <button
+                      onClick={cancelVoice}
+                      className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Reason */}
+              {voiceStep === 'asking_reason' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Trip</label>
+                  <div className="flex gap-2">
+                    <textarea
+                      value={voiceReason}
+                      onChange={(e) => setVoiceReason(e.target.value)}
+                      className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                      placeholder="e.g. Delivery to client in Cape Town"
+                      style={{ fontSize: '16px', minHeight: '80px' }}
+                      rows={3}
+                    />
+                    <button
+                      onClick={() => startListening(false)}
+                      className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 self-start ${
+                        isListening ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      }`}
+                    >
+                      {isListening ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      {isListening ? 'Stop' : 'Speak'}
+                    </button>
+                  </div>
+                  {voiceInterim && (
+                    <p className="text-xs text-gray-500 mt-1">Hearing: "{voiceInterim}"</p>
+                  )}
+                  {voiceError && <p className="text-xs text-red-500 mt-1">{voiceError}</p>}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={confirmReason}
+                      disabled={!voiceReason.trim()}
+                      className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-5 h-5" />
+                      Confirm Reason
+                    </button>
+                    <button
+                      onClick={cancelVoice}
+                      className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Close km */}
+              {(voiceStep === 'asking_close_km' || voiceStep === 'confirm_close_km') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Closing Kilometers</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={voiceCloseKm}
+                      onChange={(e) => setVoiceCloseKm(e.target.value)}
+                      className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                      placeholder="e.g. 12500"
+                      style={{ fontSize: '16px' }}
+                    />
+                    {voiceStep === 'asking_close_km' && (
+                      <button
+                        onClick={() => startListening(true)}
+                        className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                          isListening ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                        }`}
+                      >
+                        {isListening ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                        {isListening ? 'Stop' : 'Speak'}
+                      </button>
+                    )}
+                  </div>
+                  {voiceInterim && voiceStep === 'asking_close_km' && (
+                    <p className="text-xs text-gray-500 mt-1">Hearing: "{voiceInterim}"</p>
+                  )}
+                  {voiceError && <p className="text-xs text-red-500 mt-1">{voiceError}</p>}
+                  {voiceCloseKm && voiceOpenKm && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Distance: {(parseInt(voiceCloseKm, 10) - parseInt(voiceOpenKm, 10)).toLocaleString()} km
+                    </p>
+                  )}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={confirmCloseKm}
+                      disabled={!voiceCloseKm || saving}
+                      className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
+                    >
+                      {saving ? 'Saving...' : (<><Check className="w-5 h-5" /> Save Entry</>)}
+                    </button>
+                    <button
+                      onClick={cancelVoice}
+                      className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Done */}
+              {voiceStep === 'done' && (
+                <div className="text-center py-4">
+                  <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
+                  <p className="text-gray-700 font-medium">
+                    {saving ? 'Saving...' : 'Entry saved! Add another trip leg?'}
+                  </p>
+                  {!saving && (
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={startGuidedVoice}
+                        className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Add Another Leg
+                      </button>
+                      <button
+                        onClick={() => setVoiceStep('idle')}
+                        className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Manual entry toggle */}
+        {voiceStep === 'idle' && !showManualForm && (
+          <button
+            onClick={() => {
+              setShowManualForm(true);
+              setManualOpenKm(String(suggestedOpenKm));
+            }}
+            className="w-full bg-white border-2 border-dashed border-gray-300 rounded-lg py-3 mb-4 text-gray-600 font-medium hover:border-gray-400 transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Add Entry Manually
+          </button>
+        )}
+
+        {/* Manual entry form */}
+        {showManualForm && voiceStep === 'idle' && (
+          <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Manual Entry</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Opening Kilometers</label>
+                <input
+                  type="number"
+                  value={manualOpenKm}
+                  onChange={(e) => setManualOpenKm(e.target.value)}
+                  className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                  placeholder="e.g. 12345"
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Trip</label>
+                <textarea
+                  value={manualReason}
+                  onChange={(e) => setManualReason(e.target.value)}
+                  className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                  placeholder="e.g. Delivery to client in Cape Town"
+                  style={{ fontSize: '16px', minHeight: '80px' }}
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Closing Kilometers</label>
+                <input
+                  type="number"
+                  value={manualCloseKm}
+                  onChange={(e) => setManualCloseKm(e.target.value)}
+                  className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                  placeholder="e.g. 12500"
+                  style={{ fontSize: '16px' }}
+                />
+                {manualOpenKm && manualCloseKm && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    Distance: {Math.max(0, parseInt(manualCloseKm || '0', 10) - parseInt(manualOpenKm || '0', 10)).toLocaleString()} km
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleManualSubmit}
+                  disabled={saving}
+                  className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 transition-colors"
+                >
+                  {saving ? 'Saving...' : 'Save Entry'}
+                </button>
+                <button
+                  onClick={() => { setShowManualForm(false); setManualOpenKm(''); setManualReason(''); setManualCloseKm(''); }}
+                  className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Entries table */}
+        {entries.length > 0 && (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <h2 className="font-bold text-gray-900">Logbook Entries</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {entries.length} {entries.length === 1 ? 'entry' : 'entries'} — Total: {totalKm.toLocaleString()} km
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-100 border-b border-gray-200">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Open km</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Close km</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">KM</th>
+                    <th className="px-3 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {entries.map((entry) => (
+                    <tr key={entry.id} className="hover:bg-gray-50">
+                      {editingId === entry.id ? (
+                        <>
+                          <td className="px-3 py-2 text-sm text-gray-700">{entry.entry_date}</td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              value={editOpenKm}
+                              onChange={(e) => setEditOpenKm(e.target.value)}
+                              className="w-24 border border-gray-300 rounded px-2 py-1 text-sm"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="text"
+                              value={editReason}
+                              onChange={(e) => setEditReason(e.target.value)}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              value={editCloseKm}
+                              onChange={(e) => setEditCloseKm(e.target.value)}
+                              className="w-24 border border-gray-300 rounded px-2 py-1 text-sm"
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-sm text-blue-700 font-medium">
+                            {(parseInt(editCloseKm || '0', 10) - parseInt(editOpenKm || '0', 10)).toLocaleString()}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex gap-1">
+                              <button
+                                onClick={handleEditSave}
+                                disabled={saving}
+                                className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setEditingId(null)}
+                                className="p-1.5 text-gray-400 hover:bg-gray-100 rounded transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-3 py-2 text-sm text-gray-700">{entry.entry_date}</td>
+                          <td className="px-3 py-2 text-sm text-gray-900 text-right font-mono">{entry.opening_km.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-sm text-gray-800">{entry.trip_reason}</td>
+                          <td className="px-3 py-2 text-sm text-gray-900 text-right font-mono">{entry.closing_km.toLocaleString()}</td>
+                          <td className="px-3 py-2 text-sm text-blue-700 text-right font-medium">{entry.km_travelled.toLocaleString()}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => startEdit(entry)}
+                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(entry.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-50 font-semibold">
+                    <td colSpan={4} className="px-3 py-3 text-sm text-gray-900 text-right">Total KM Travelled:</td>
+                    <td className="px-3 py-3 text-sm text-blue-700 text-right">{totalKm.toLocaleString()}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {entries.length === 0 && voiceStep === 'idle' && !showManualForm && (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium">No logbook entries yet</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Use voice guided entry or manual entry to add your first trip leg.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

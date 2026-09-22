@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName } from '../lib/fuelTypes';
-import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare, Clock, DollarSign, Mail } from 'lucide-react';
+import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare, Clock, DollarSign, Mail, BookOpen } from 'lucide-react';
 import DailyTripReport from './DailyTripReport';
 import UnreturnedVehiclesReport from './UnreturnedVehiclesReport';
 import VehicleReturnNotesReport from './VehicleReturnNotesReport';
+import LogbookReport from './LogbookReport';
 import EmailReportModal from './EmailReportModal';
 
 interface ReportType {
@@ -23,6 +24,7 @@ const regularReportTypes: ReportType[] = [
     { id: 'daily-trip-report', name: 'Daily Trip Report', description: 'View daily vehicle usage, KM travelled, and trip descriptions', icon: TruckIcon },
     { id: 'unreturned-vehicles', name: 'Vehicles Not Returned', description: 'Vehicles drawn on a specific day that were never returned', icon: AlertTriangle },
     { id: 'return-notes', name: 'Vehicle Return Notes', description: 'Driver notes submitted at vehicle return — conditions, issues, trip feedback', icon: MessageSquare },
+    { id: 'sars-logbook', name: 'SARS Logbook', description: 'Logbook entries with open km, reason, close km for expense claims', icon: BookOpen },
     { id: 'overview', name: 'Fuel Transactions', description: 'General fuel purchase statistics', icon: BarChart3 },
     { id: 'driver', name: 'Driver Reports', description: 'Performance and usage by driver', icon: FileText },
     { id: 'vehicle', name: 'Vehicle Reports', description: 'Efficiency and usage by vehicle', icon: TrendingUp },
@@ -1410,6 +1412,8 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
           <UnreturnedVehiclesReport />
         ) : selectedReport === 'return-notes' ? (
           <VehicleReturnNotesReport />
+        ) : selectedReport === 'sars-logbook' ? (
+          <LogbookReport />
         ) : error ? (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-800 font-medium">Error loading reports</p>

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Fuel, Car, LogOut, MapPin, ArrowLeft, Lock, AlertCircle, ClipboardList } from 'lucide-react';
+import { Fuel, Car, LogOut, MapPin, ArrowLeft, Lock, AlertCircle, ClipboardList, BookOpen } from 'lucide-react';
 import { DriverData } from './DriverAuth';
 import DriverMobileFuelPurchase from './DriverMobileFuelPurchase';
 import DrawVehicle from './DrawVehicle';
 import ReturnVehicle from './ReturnVehicle';
 import MobileGarageDirectory from './MobileGarageDirectory';
 import UpdateTripDescription from './UpdateTripDescription';
+import DriverLogbook from './DriverLogbook';
 import { DriverPINSetup } from './DriverPINSetup';
 import { supabase } from '../lib/supabase';
 
@@ -15,7 +16,7 @@ interface DriverMobileAppProps {
   onDriverUpdate?: (updatedDriver: DriverData) => void;
 }
 
-type MenuOption = 'menu' | 'draw' | 'return' | 'refuel' | 'directory' | 'pin_setup' | 'update_trip';
+type MenuOption = 'menu' | 'draw' | 'return' | 'refuel' | 'directory' | 'pin_setup' | 'update_trip' | 'logbook';
 
 interface DrawnVehicle {
   id: string;
@@ -262,6 +263,17 @@ export default function DriverMobileApp({ driver, onLogout, onDriverUpdate }: Dr
     );
   }
 
+  if (currentView === 'logbook') {
+    return (
+      <DriverLogbook
+        organizationId={driver.organizationId}
+        driverId={driver.id}
+        driverName={`${driver.firstName} ${driver.lastName}`}
+        onBack={() => setCurrentView('menu')}
+      />
+    );
+  }
+
   if (currentView === 'directory') {
     return (
       <MobileGarageDirectory
@@ -339,6 +351,31 @@ export default function DriverMobileApp({ driver, onLogout, onDriverUpdate }: Dr
                 )}
                 {drawnVehicles.length > 1 && (
                   <p className="text-xs text-teal-600 font-medium mt-1">
+                    {drawnVehicles.length} vehicles currently drawn
+                  </p>
+                )}
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setCurrentView('logbook')}
+            className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-all transform hover:-translate-y-1 text-left group border-l-4 border-indigo-500"
+          >
+            <div className="flex items-start gap-4">
+              <div className="bg-indigo-100 p-3 rounded-lg group-hover:bg-indigo-200 transition-colors">
+                <BookOpen className="w-8 h-8 text-indigo-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900 mb-1">SARS Logbook</h3>
+                <p className="text-sm text-gray-600">Record trip legs with open km, reason, and close km — guided by voice</p>
+                {drawnVehicles.length === 1 && (
+                  <p className="text-xs text-indigo-600 font-medium mt-1">
+                    Active: {drawnVehicles[0].vehicleRegistration}
+                  </p>
+                )}
+                {drawnVehicles.length > 1 && (
+                  <p className="text-xs text-indigo-600 font-medium mt-1">
                     {drawnVehicles.length} vehicles currently drawn
                   </p>
                 )}
