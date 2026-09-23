@@ -157,6 +157,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [manualOpenKm, setManualOpenKm] = useState('');
   const [manualReason, setManualReason] = useState('');
   const [manualCloseKm, setManualCloseKm] = useState('');
+  const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
 
   // Voice guided entry state
@@ -612,7 +613,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           trip_reason: manualReason.trim(),
           closing_km: closeKm,
           km_travelled: closeKm !== null ? closeKm - openKm : null,
-          entry_date: new Date().toISOString().split('T')[0],
+          entry_date: manualDate || new Date().toISOString().split('T')[0],
         })
         .select()
         .single();
@@ -631,6 +632,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       setManualOpenKm('');
       setManualReason('');
       setManualCloseKm('');
+      setManualDate(new Date().toISOString().split('T')[0]);
       setShowManualForm(false);
     } catch (err: any) {
       setError(err.message || 'Failed to save logbook entry');
@@ -1061,6 +1063,16 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           <div className="bg-white rounded-lg shadow p-4 mb-4">
             <h2 className="text-lg font-bold text-gray-900 mb-3">Manual Entry</h2>
             <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={manualDate}
+                  onChange={(e) => setManualDate(e.target.value)}
+                  className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Opening Kilometers</label>
                 <input
