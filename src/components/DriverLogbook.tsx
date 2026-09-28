@@ -249,7 +249,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         .from('trip_logbook_entries')
         .select('*')
         .eq('driver_id', driverId)
-        .eq('vehicle_id', trip.vehicleId)
+        .eq('vehicle_transaction_id', trip.id)
         .order('entry_date', { ascending: true })
         .order('sequence_number', { ascending: true });
 
@@ -729,8 +729,8 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     let totalKm = 0;
     for (const e of entries) {
       const safe = (s: string) => `"${(s || '').replace(/"/g, '""')}"`;
-      csv += `${e.entry_date},${e.opening_km},${safe(e.trip_reason)},${e.closing_km},${e.km_travelled}\n`;
-      totalKm += e.km_travelled;
+      csv += `${e.entry_date},${e.opening_km},${safe(e.trip_reason)},${e.closing_km ?? ''},${e.km_travelled ?? ''}\n`;
+      totalKm += e.km_travelled || 0;
     }
     csv += `\n,,Total,${totalKm}\n`;
 
@@ -1130,68 +1130,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           </div>
         )}
 
-        {/* Inline closing km form for pending entries */}
-        {closingKmEntryId && (
-          <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-4">
-            <h3 className="font-bold text-teal-900 mb-2">Add Closing Kilometers</h3>
-            {(() => {
-              const pendingEntry = entries.find(e => e.id === closingKmEntryId);
-              if (!pendingEntry) return null;
-              return (
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">
-                    Open km: <span className="font-mono font-medium">{pendingEntry.opening_km.toLocaleString()}</span> — {pendingEntry.trip_reason}
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      value={closingKmValue}
-                      onChange={(e) => setClosingKmValue(e.target.value)}
-                      className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-teal-500 focus:outline-none"
-                      placeholder="Closing km reading"
-                      style={{ fontSize: '16px' }}
-                      autoFocus
-                    />
-                    <button
-                      onClick={() => startListening(true)}
-                      className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                        isListeningNow ? 'bg-red-100 text-red-700' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
-                      }`}
-                    >
-                      {isListeningNow ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                      {isListeningNow ? 'Stop' : 'Speak'}
-                    </button>
-                  </div>
-                  {voiceInterim && (
-                    <p className="text-xs text-gray-500">Hearing: "{voiceInterim}"</p>
-                  )}
-                  {closingKmValue && (
-                    <p className="text-xs text-teal-700 font-medium">
-                      Distance: {Math.max(0, parseInt(closingKmValue || '0', 10) - pendingEntry.opening_km).toLocaleString()} km
-                    </p>
-                  )}
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={handleAddClosingKm}
-                      disabled={!closingKmValue || closingKmSaving}
-                      className="flex-1 bg-teal-600 text-white py-3 rounded-lg font-semibold hover:bg-teal-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
-                    >
-                      {closingKmSaving ? 'Saving...' : (<><Check className="w-5 h-5" /> Save Closing km</>)}
-                    </button>
-                    <button
-                      onClick={() => { setClosingKmEntryId(null); setClosingKmValue(''); stopRecognition(); }}
-                      className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
-        {/* Entries table */}
+        {/* Entries list — card-based for mobile usability */}
         {entries.length > 0 && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
@@ -1201,113 +1140,203 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
               </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-100 border-b border-gray-200">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Open km</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Close km</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">KM</th>
-                    <th className="px-3 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {entries.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-gray-50">
-                      {editingId === entry.id ? (
-                        <>
-                          <td className="px-3 py-2 text-sm text-gray-700">{entry.entry_date}</td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              value={editOpenKm}
-                              onChange={(e) => setEditOpenKm(e.target.value)}
-                              className="w-24 border border-gray-300 rounded px-2 py-1 text-sm"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={editReason}
-                              onChange={(e) => setEditReason(e.target.value)}
-                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              value={editCloseKm}
-                              onChange={(e) => setEditCloseKm(e.target.value)}
-                              className="w-24 border border-gray-300 rounded px-2 py-1 text-sm"
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-sm text-blue-700 font-medium">
-                            {(parseInt(editCloseKm || '0', 10) - parseInt(editOpenKm || '0', 10)).toLocaleString()}
-                          </td>
-                          <td className="px-3 py-2">
-                            <div className="flex gap-1">
-                              <button
-                                onClick={handleEditSave}
-                                disabled={saving}
-                                className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => setEditingId(null)}
-                                className="p-1.5 text-gray-400 hover:bg-gray-100 rounded transition-colors"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="px-3 py-2 text-sm text-gray-700">{entry.entry_date}</td>
-                          <td className="px-3 py-2 text-sm text-gray-900 text-right font-mono">{entry.opening_km.toLocaleString()}</td>
-                          <td className="px-3 py-2 text-sm text-gray-800">{entry.trip_reason}</td>
-                          <td className="px-3 py-2 text-sm text-gray-900 text-right font-mono">{entry.closing_km != null ? entry.closing_km.toLocaleString() : <span className="text-gray-400 italic">—</span>}</td>
-                          <td className="px-3 py-2 text-sm text-blue-700 text-right font-medium">{entry.km_travelled != null ? entry.km_travelled.toLocaleString() : <span className="text-gray-400 italic">—</span>}</td>
-                          <td className="px-3 py-2">
-                            <div className="flex gap-1">
-                              {entry.closing_km == null && closingKmEntryId !== entry.id && (
-                                <button
-                                  onClick={() => { setClosingKmEntryId(entry.id); setClosingKmValue(''); }}
-                                  className="text-xs font-medium text-teal-600 hover:text-teal-700 px-2 py-1 rounded hover:bg-teal-50 transition-colors whitespace-nowrap"
-                                >
-                                  + Close km
-                                </button>
-                              )}
-                              <button
-                                onClick={() => startEdit(entry)}
-                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(entry.id)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </>
+            <div className="divide-y divide-gray-200">
+              {entries.map((entry, idx) => (
+                <div key={entry.id} className="p-4">
+                  {editingId === entry.id ? (
+                    /* --- Inline edit mode --- */
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-500">Editing entry #{idx + 1}</span>
+                        <span className="text-xs text-gray-400">{entry.entry_date}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Open km</label>
+                          <input
+                            type="number"
+                            value={editOpenKm}
+                            onChange={(e) => setEditOpenKm(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                            style={{ fontSize: '16px' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Close km</label>
+                          <input
+                            type="number"
+                            value={editCloseKm}
+                            onChange={(e) => setEditCloseKm(e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                            placeholder="Optional"
+                            style={{ fontSize: '16px' }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Reason</label>
+                        <textarea
+                          value={editReason}
+                          onChange={(e) => setEditReason(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                          rows={2}
+                          style={{ fontSize: '16px' }}
+                        />
+                      </div>
+                      {editCloseKm && (
+                        <p className="text-xs text-blue-600 font-medium">
+                          Distance: {Math.max(0, parseInt(editCloseKm || '0', 10) - parseInt(editOpenKm || '0', 10)).toLocaleString()} km
+                        </p>
                       )}
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-gray-50 font-semibold">
-                    <td colSpan={4} className="px-3 py-3 text-sm text-gray-900 text-right">Total KM Travelled:</td>
-                    <td className="px-3 py-3 text-sm text-blue-700 text-right">{totalKm.toLocaleString()}</td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleEditSave}
+                          disabled={saving}
+                          className="flex-1 bg-green-600 text-white py-2.5 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <Check className="w-4 h-4" />
+                          {saving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="px-6 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : closingKmEntryId === entry.id ? (
+                    /* --- Inline closing km mode --- */
+                    <div className="space-y-3">
+                      <div className="bg-teal-50 rounded-lg p-3">
+                        <p className="text-sm text-gray-700">
+                          <span className="font-medium">Open km:</span> {entry.opening_km.toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-700 mt-0.5">
+                          <span className="font-medium">Reason:</span> {entry.trip_reason}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Closing Kilometers</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="number"
+                            value={closingKmValue}
+                            onChange={(e) => setClosingKmValue(e.target.value)}
+                            className="flex-1 border-2 border-gray-300 rounded-lg px-3 py-2.5 text-base focus:border-teal-500 focus:outline-none"
+                            placeholder="Enter closing km"
+                            style={{ fontSize: '16px' }}
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => startListening(true)}
+                            className={`px-3 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${
+                              isListeningNow ? 'bg-red-100 text-red-700' : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+                            }`}
+                          >
+                            {isListeningNow ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                            {isListeningNow ? 'Stop' : 'Speak'}
+                          </button>
+                        </div>
+                        {voiceInterim && (
+                          <p className="text-xs text-gray-500 mt-1">Hearing: "{voiceInterim}"</p>
+                        )}
+                        {closingKmValue && (
+                          <p className="text-xs text-teal-700 font-medium mt-1">
+                            Distance: {Math.max(0, parseInt(closingKmValue || '0', 10) - entry.opening_km).toLocaleString()} km
+                          </p>
+                        )}
+                        {voiceError && <p className="text-xs text-red-500 mt-1">{voiceError}</p>}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleAddClosingKm}
+                          disabled={!closingKmValue || closingKmSaving}
+                          className="flex-1 bg-teal-600 text-white py-2.5 rounded-lg font-semibold hover:bg-teal-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <Check className="w-4 h-4" />
+                          {closingKmSaving ? 'Saving...' : 'Save Closing km'}
+                        </button>
+                        <button
+                          onClick={() => { setClosingKmEntryId(null); setClosingKmValue(''); stopRecognition(); }}
+                          className="px-6 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* --- Display mode --- */
+                    <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium text-gray-400">#{idx + 1}</span>
+                            <span className="text-xs text-gray-500">{entry.entry_date}</span>
+                            {entry.closing_km == null && (
+                              <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-800 mb-2 line-clamp-2">{entry.trip_reason}</p>
+                          <div className="flex items-center gap-4 text-sm">
+                            <div>
+                              <span className="text-xs text-gray-500 block">Open</span>
+                              <span className="font-mono font-medium text-gray-900">{entry.opening_km.toLocaleString()}</span>
+                            </div>
+                            <div>
+                              <span className="text-xs text-gray-500 block">Close</span>
+                              {entry.closing_km != null ? (
+                                <span className="font-mono font-medium text-gray-900">{entry.closing_km.toLocaleString()}</span>
+                              ) : (
+                                <span className="text-gray-400 italic">—</span>
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-xs text-gray-500 block">KM</span>
+                              {entry.km_travelled != null ? (
+                                <span className="font-mono font-medium text-blue-700">{entry.km_travelled.toLocaleString()}</span>
+                              ) : (
+                                <span className="text-gray-400 italic">—</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        {entry.closing_km == null && (
+                          <button
+                            onClick={() => { setClosingKmEntryId(entry.id); setClosingKmValue(''); }}
+                            className="flex-1 bg-teal-600 text-white py-2.5 rounded-lg font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-1.5 text-sm"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add Closing km
+                          </button>
+                        )}
+                        <button
+                          onClick={() => startEdit(entry)}
+                          className={`${entry.closing_km == null ? 'px-4' : 'flex-1'} bg-blue-50 text-blue-700 py-2.5 rounded-lg font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1.5 text-sm`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(entry.id)}
+                          className="px-4 bg-red-50 text-red-600 py-2.5 rounded-lg font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-1.5 text-sm"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <span className="text-sm font-semibold text-gray-900">Total KM Travelled:</span>
+              <span className="text-sm font-bold text-blue-700">{totalKm.toLocaleString()} km</span>
             </div>
           </div>
         )}
