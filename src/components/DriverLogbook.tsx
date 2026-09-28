@@ -195,6 +195,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     setLoading(true);
     setError('');
     try {
+      // Load all draws for this driver, newest first
       const { data: draws, error: drawError } = await supabase
         .from('vehicle_transactions')
         .select(`
@@ -211,18 +212,34 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       if (drawError) throw drawError;
 
-      const allTrips: DrawnTrip[] = [];
+      if (!draws || draws.length === 0) {
+        setTrips([]);
+        return;
+      }
 
-      for (const draw of draws || []) {
-        const { data: returnData } = await supabase
-          .from('vehicle_transactions')
-          .select('id, odometer_reading, created_at')
-          .eq('related_transaction_id', draw.id)
-          .eq('transaction_type', 'return')
-          .limit(1)
-          .maybeSingle();
+      // Fetch ALL return transactions for these draws in a single query
+      const drawIds = draws.map(d => d.id);
+      const { data: returns, error: returnError } = await supabase
+        .from('vehicle_transactions')
+        .select('related_transaction_id, odometer_reading, created_at')
+        .in('related_transaction_id', drawIds)
+        .eq('transaction_type', 'return');
 
-        allTrips.push({
+      if (returnError) throw returnError;
+
+      // Build a lookup map of returned draw IDs
+      const returnedMap = new Map<string, { odometer_reading: number; created_at: string }>();
+      for (const ret of returns || []) {
+        returnedMap.set(ret.related_transaction_id, {
+          odometer_reading: ret.odometer_reading,
+          created_at: ret.created_at,
+        });
+      }
+
+      // Only include trips that have NOT been returned (open trips)
+      const openTrips: DrawnTrip[] = draws
+        .filter(draw => !returnedMap.has(draw.id))
+        .map(draw => ({
           id: draw.id,
           vehicleId: draw.vehicle_id,
           vehicleRegistration: (draw.vehicles as any).registration_number,
@@ -230,12 +247,11 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           vehicleModel: (draw.vehicles as any).model || '',
           odometerReading: draw.odometer_reading,
           drawnAt: draw.created_at,
-          returned: !!returnData,
-          returnOdometer: returnData?.odometer_reading ?? null,
-        });
-      }
+          returned: false,
+          returnOdometer: null,
+        }));
 
-      setTrips(allTrips);
+      setTrips(openTrips);
     } catch (err: any) {
       setError(err.message || 'Failed to load trips');
     } finally {
@@ -783,7 +799,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
             </button>
             <div>
               <h1 className="text-xl font-bold">SARS Logbook</h1>
-              <p className="text-sm text-blue-100">Select a trip to record logbook entries</p>
+              <p className="text-sm text-blue-100">Select an open trip to add logbook entries</p>
             </div>
           </div>
         </div>
@@ -803,8 +819,8 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           ) : trips.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500 font-medium">No trips found</p>
-              <p className="text-sm text-gray-400 mt-1">Draw a vehicle first to start recording logbook entries.</p>
+              <p className="text-gray-500 font-medium">No open trips</p>
+              <p className="text-sm text-gray-400 mt-1">Draw a vehicle first to start recording logbook entries. Completed trips can be viewed in the client portal.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -816,8 +832,8 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${trip.returned ? 'bg-gray-100' : 'bg-teal-100'}`}>
-                        <Car className={`w-6 h-6 ${trip.returned ? 'text-gray-500' : 'text-teal-600'}`} />
+                      <div className="p-2 rounded-lg bg-teal-100">
+                        <Car className="w-6 h-6 text-teal-600" />
                       </div>
                       <div>
                         <p className="font-bold text-gray-900 text-lg">{trip.vehicleRegistration}</p>
@@ -828,16 +844,9 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                       </div>
                     </div>
                     <div className="text-right">
-                      {trip.returned ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          <CheckCircle className="w-3 h-3" />
-                          Completed
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 bg-teal-50 px-2 py-1 rounded">
-                          Active
-                        </span>
-                      )}
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-teal-600 bg-teal-50 px-2 py-1 rounded">
+                        Active
+                      </span>
                     </div>
                   </div>
                 </button>
