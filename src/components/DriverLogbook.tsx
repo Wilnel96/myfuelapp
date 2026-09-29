@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Mic, Square, Plus, Trash2, Edit2, Check, X, Download, AlertCircle, CheckCircle, BookOpen, Car } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { ArrowLeft, Mic, Square, Plus, Trash2, Edit2, Check, X, Download, AlertCircle, CheckCircle, BookOpen, Car, Calendar } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 
 interface DriverLogbookProps {
@@ -178,6 +179,23 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [editOpenKm, setEditOpenKm] = useState('');
   const [editReason, setEditReason] = useState('');
   const [editCloseKm, setEditCloseKm] = useState('');
+
+  // Date-range Excel download state
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [dlStartDate, setDlStartDate] = useState('');
+  const [dlEndDate, setDlEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dlLoading, setDlLoading] = useState(false);
+  const [dlError, setDlError] = useState('');
+
+  const dlDefaultStart = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  useEffect(() => {
+    if (!dlStartDate) setDlStartDate(dlDefaultStart);
+  }, [dlDefaultStart, dlStartDate]);
 
   useEffect(() => {
     voiceStepRef.current = voiceStep;
@@ -759,6 +777,118 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     URL.revokeObjectURL(url);
   };
 
+  // --- Date-range Excel export ---
+  // Fetches ALL logbook entries for this driver within a date range
+  // (across all trips, not just open ones) and downloads as a single
+  // Excel spreadsheet in SARS logbook format.
+  const exportDateRangeExcel = async () => {
+    if (!dlStartDate || !dlEndDate) {
+      setDlError('Please select both start and end dates');
+      return;
+    }
+    if (dlStartDate > dlEndDate) {
+      setDlError('Start date must be before end date');
+      return;
+    }
+
+    setDlLoading(true);
+    setDlError('');
+
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('trip_logbook_entries')
+        .select(`
+          id,
+          entry_date,
+          opening_km,
+          trip_reason,
+          closing_km,
+          km_travelled,
+          sequence_number,
+          vehicle_id,
+          vehicles!inner(registration_number, make, model)
+        `)
+        .eq('driver_id', driverId)
+        .eq('organization_id', organizationId)
+        .gte('entry_date', dlStartDate)
+        .lte('entry_date', dlEndDate)
+        .order('entry_date', { ascending: true })
+        .order('sequence_number', { ascending: true });
+
+      if (fetchError) throw fetchError;
+
+      if (!data || data.length === 0) {
+        setDlError('No logbook entries found for the selected date range');
+        return;
+      }
+
+      const mapped = data.map((r: any) => ({
+        entry_date: r.entry_date,
+        vehicle_registration: r.vehicles?.registration_number || '-',
+        vehicle_make: r.vehicles?.make || '',
+        vehicle_model: r.vehicles?.model || '',
+        opening_km: r.opening_km,
+        trip_reason: r.trip_reason,
+        closing_km: r.closing_km,
+        km_travelled: r.km_travelled,
+      }));
+
+      const totalKm = mapped.reduce((sum: number, r: any) => sum + (r.km_travelled || 0), 0);
+
+      const wb = XLSX.utils.book_new();
+
+      // Header rows
+      const excelRows: any[] = [
+        { A: `SARS Logbook — ${driverName}`, B: '', C: '', D: '', E: '', F: '', G: '' },
+        { A: `Period: ${dlStartDate} to ${dlEndDate}`, B: '', C: '', D: '', E: '', F: '', G: '' },
+        { A: `Generated: ${new Date().toLocaleString('en-GB')}`, B: '', C: '', D: '', E: '', F: '', G: '' },
+        {},
+      ];
+
+      // Column headers
+      excelRows.push({
+        A: 'Date', B: 'Vehicle', C: 'Open km', D: 'Reason', E: 'Closing km', F: 'KM Travelled',
+      });
+
+      let prevVehicle = '';
+      for (const row of mapped) {
+        if (prevVehicle && prevVehicle !== row.vehicle_registration) {
+          excelRows.push({});
+        }
+        excelRows.push({
+          A: row.entry_date,
+          B: row.vehicle_registration,
+          C: row.opening_km,
+          D: row.trip_reason,
+          E: row.closing_km ?? '',
+          F: row.km_travelled ?? '',
+        });
+        prevVehicle = row.vehicle_registration;
+      }
+
+      excelRows.push({});
+      excelRows.push({ D: 'TOTAL KM', F: totalKm });
+
+      const ws = XLSX.utils.json_to_sheet(excelRows, {
+        header: ['A', 'B', 'C', 'D', 'E', 'F'],
+        skipHeader: true,
+      });
+
+      ws['!cols'] = [
+        { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 40 }, { wch: 12 }, { wch: 14 },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'SARS Logbook');
+      XLSX.writeFile(wb, `sars-logbook-${driverName.replace(/\s+/g, '_')}-${dlStartDate}_to_${dlEndDate}.xlsx`);
+
+      setShowDownloadModal(false);
+    } catch (err: any) {
+      setDlError(err.message || 'Failed to export logbook');
+    } finally {
+      setDlLoading(false);
+    }
+  };
+
   const formatNumber = (val: string) => {
     const n = parseInt(val, 10);
     return isNaN(n) ? val : n.toLocaleString();
@@ -797,10 +927,17 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
             <button onClick={onBack} className="hover:bg-blue-700 p-2 rounded-lg transition-colors">
               <ArrowLeft className="w-6 h-6" />
             </button>
-            <div>
+            <div className="flex-1">
               <h1 className="text-xl font-bold">SARS Logbook</h1>
               <p className="text-sm text-blue-100">Select an open trip to add logbook entries</p>
             </div>
+            <button
+              onClick={() => setShowDownloadModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-blue-700 hover:bg-blue-800 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </button>
           </div>
         </div>
 
@@ -854,11 +991,69 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
             </div>
           )}
         </div>
+
+        {/* Date-range Excel download modal */}
+        {showDownloadModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                <h2 className="text-lg font-bold text-gray-900">Download Logbook</h2>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Download all your logbook entries for a date range as an Excel spreadsheet.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                  <input
+                    type="date"
+                    value={dlStartDate}
+                    onChange={(e) => { setDlStartDate(e.target.value); setDlError(''); }}
+                    className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                    style={{ fontSize: '16px' }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                  <input
+                    type="date"
+                    value={dlEndDate}
+                    onChange={(e) => { setDlEndDate(e.target.value); setDlError(''); }}
+                    className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                    style={{ fontSize: '16px' }}
+                  />
+                </div>
+                {dlError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-red-800 text-sm">{dlError}</p>
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={exportDateRangeExcel}
+                    disabled={dlLoading}
+                    className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-5 h-5" />
+                    {dlLoading ? 'Exporting...' : 'Download Excel'}
+                  </button>
+                  <button
+                    onClick={() => { setShowDownloadModal(false); setDlError(''); }}
+                    disabled={dlLoading}
+                    className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
-
-  // --- Logbook entry screen for selected trip ---
 
   const isListeningNow = isListening;
   const lastEntry = entries.length > 0 ? entries[entries.length - 1] : null;
