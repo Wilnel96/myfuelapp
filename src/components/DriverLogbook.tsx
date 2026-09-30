@@ -28,6 +28,7 @@ interface LogbookEntry {
   vehicle_id: string;
   sequence_number: number;
   opening_km: number;
+  from_location: string | null;
   trip_reason: string;
   closing_km: number | null;
   km_travelled: number | null;
@@ -38,7 +39,7 @@ interface LogbookEntry {
   vehicle_model?: string;
 }
 
-type VoiceStep = 'idle' | 'asking_open_km' | 'asking_reason' | 'done';
+type VoiceStep = 'idle' | 'asking_open_km' | 'asking_from' | 'asking_reason' | 'done';
 
 // --- Word-to-number converter ---
 // Speech recognition returns "twelve thousand three hundred forty five" as text.
@@ -156,6 +157,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   // Manual entry form state
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualOpenKm, setManualOpenKm] = useState('');
+  const [manualFrom, setManualFrom] = useState('');
   const [manualReason, setManualReason] = useState('');
   const [manualCloseKm, setManualCloseKm] = useState('');
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
@@ -164,6 +166,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   // Voice guided entry state
   const [voiceStep, setVoiceStep] = useState<VoiceStep>('idle');
   const [voiceOpenKm, setVoiceOpenKm] = useState('');
+  const [voiceFrom, setVoiceFrom] = useState('');
   const [voiceReason, setVoiceReason] = useState('');
   const [voiceInterim, setVoiceInterim] = useState('');
   const [voiceError, setVoiceError] = useState('');  const recognitionRef = useRef<any>(null);
@@ -177,6 +180,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editOpenKm, setEditOpenKm] = useState('');
+  const [editFrom, setEditFrom] = useState('');
   const [editReason, setEditReason] = useState('');
   const [editCloseKm, setEditCloseKm] = useState('');
 
@@ -204,6 +208,11 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   useEffect(() => {
     voiceValuesRef.current = { openKm: voiceOpenKm, reason: voiceReason, closeKm: '' };
   }, [voiceOpenKm, voiceReason]);
+
+  // Keep voiceStepRef in sync for the recognition callback
+  useEffect(() => {
+    voiceStepRef.current = voiceStep;
+  }, [voiceStep]);
 
   useEffect(() => {
     loadTrips();
@@ -414,7 +423,9 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
             setVoiceInterim(`Heard: "${finalText}" — please enter the number manually`);
           }
         } else {
-          if (step === 'asking_reason') {
+          if (step === 'asking_from') {
+            setVoiceFrom(finalText);
+          } else if (step === 'asking_reason') {
             setVoiceReason(finalText);
           }
         }
@@ -455,6 +466,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const startGuidedVoice = async () => {
     if (!selectedTrip) return;
     setVoiceOpenKm('');
+    setVoiceFrom('');
     setVoiceReason('');
     confirmingRef.current = false;
 
@@ -470,8 +482,18 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     if (confirmingRef.current) return;
     confirmingRef.current = true;
     stopRecognition();
-    setVoiceStep('asking_reason');
+    setVoiceStep('asking_from');
     await speak(`Opening kilometers: ${formatNumber(voiceOpenKm)}.`);
+    confirmingRef.current = false;
+    await speakThenListen('Where are you starting from?', false);
+  };
+
+  const confirmFrom = async () => {
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
+    stopRecognition();
+    setVoiceStep('asking_reason');
+    await speak(`From: ${voiceFrom}.`);
     confirmingRef.current = false;
     await speakThenListen('What is the reason for the trip?', false);
   };
@@ -487,6 +509,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
   const saveVoiceEntry = async () => {
     if (!selectedTrip || !voiceOpenKm || !voiceReason) return;
+    // from_location is optional — voiceFrom may be blank
     setSaving(true);
     setError('');
 
@@ -508,6 +531,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           vehicle_id: selectedTrip.vehicleId,
           sequence_number: seqNum,
           opening_km: openKm,
+          from_location: voiceFrom.trim() || null,
           trip_reason: voiceReason.trim(),
           closing_km: null,
           km_travelled: null,
@@ -529,6 +553,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       setSuccessMsg('Logbook entry saved. Add closing kilometers later when the trip is complete.');
       setVoiceStep('idle');
       setVoiceOpenKm('');
+      setVoiceFrom('');
       setVoiceReason('');
 
       await speak('Entry saved. You can add closing kilometers later.');
@@ -544,6 +569,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     stopRecognition();
     setVoiceStep('idle');
     setVoiceOpenKm('');
+    setVoiceFrom('');
     setVoiceReason('');
     setVoiceInterim('');
     setVoiceError('');
@@ -644,6 +670,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           vehicle_id: selectedTrip.vehicleId,
           sequence_number: seqNum,
           opening_km: openKm,
+          from_location: manualFrom.trim() || null,
           trip_reason: manualReason.trim(),
           closing_km: closeKm,
           km_travelled: closeKm !== null ? closeKm - openKm : null,
@@ -664,6 +691,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       setEntries(prev => [...prev, newEntry]);
       setSuccessMsg('Logbook entry saved successfully');
       setManualOpenKm('');
+      setManualFrom('');
       setManualReason('');
       setManualCloseKm('');
       setManualDate(new Date().toISOString().split('T')[0]);
@@ -680,6 +708,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const startEdit = (entry: LogbookEntry) => {
     setEditingId(entry.id);
     setEditOpenKm(String(entry.opening_km));
+    setEditFrom(entry.from_location || '');
     setEditReason(entry.trip_reason);
     setEditCloseKm(entry.closing_km != null ? String(entry.closing_km) : '');
   };
@@ -711,6 +740,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         .from('trip_logbook_entries')
         .update({
           opening_km: openKm,
+          from_location: editFrom.trim() || null,
           trip_reason: editReason.trim(),
           closing_km: closeKm,
           km_travelled: closeKm !== null ? closeKm - openKm : null,
@@ -722,7 +752,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       setEntries(prev => prev.map(e =>
         e.id === editingId
-          ? { ...e, opening_km: openKm, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm !== null ? closeKm - openKm : null }
+          ? { ...e, opening_km: openKm, from_location: editFrom.trim() || null, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm !== null ? closeKm - openKm : null }
           : e
       ));
       setEditingId(null);
@@ -758,15 +788,15 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     if (!entries.length || !selectedTrip) return;
 
     let csv = `SARS Logbook - ${selectedTrip.vehicleRegistration}\nDriver: ${driverName}\nDate: ${new Date().toLocaleDateString('en-ZA')}\n\n`;
-    csv += 'Date,Open km,Reason,Closing km,KM Travelled\n';
+    csv += 'Date,Open km,From,Reason,Closing km,KM Travelled\n';
 
     let totalKm = 0;
     for (const e of entries) {
       const safe = (s: string) => `"${(s || '').replace(/"/g, '""')}"`;
-      csv += `${e.entry_date},${e.opening_km},${safe(e.trip_reason)},${e.closing_km ?? ''},${e.km_travelled ?? ''}\n`;
+      csv += `${e.entry_date},${e.opening_km},${safe(e.from_location || '')},${safe(e.trip_reason)},${e.closing_km ?? ''},${e.km_travelled ?? ''}\n`;
       totalKm += e.km_travelled || 0;
     }
-    csv += `\n,,Total,${totalKm}\n`;
+    csv += `\n,,,Total,${totalKm}\n`;
 
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -801,6 +831,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           id,
           entry_date,
           opening_km,
+          from_location,
           trip_reason,
           closing_km,
           km_travelled,
@@ -828,6 +859,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         vehicle_make: r.vehicles?.make || '',
         vehicle_model: r.vehicles?.model || '',
         opening_km: r.opening_km,
+        from_location: r.from_location || '',
         trip_reason: r.trip_reason,
         closing_km: r.closing_km,
         km_travelled: r.km_travelled,
@@ -847,7 +879,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       // Column headers
       excelRows.push({
-        A: 'Date', B: 'Vehicle', C: 'Open km', D: 'Reason', E: 'Closing km', F: 'KM Travelled',
+        A: 'Date', B: 'Vehicle', C: 'Open km', D: 'From', E: 'Reason', F: 'Closing km', G: 'KM Travelled',
       });
 
       let prevVehicle = '';
@@ -859,23 +891,24 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           A: row.entry_date,
           B: row.vehicle_registration,
           C: row.opening_km,
-          D: row.trip_reason,
-          E: row.closing_km ?? '',
-          F: row.km_travelled ?? '',
+          D: row.from_location || '',
+          E: row.trip_reason,
+          F: row.closing_km ?? '',
+          G: row.km_travelled ?? '',
         });
         prevVehicle = row.vehicle_registration;
       }
 
       excelRows.push({});
-      excelRows.push({ D: 'TOTAL KM', F: totalKm });
+      excelRows.push({ E: 'TOTAL KM', G: totalKm });
 
       const ws = XLSX.utils.json_to_sheet(excelRows, {
-        header: ['A', 'B', 'C', 'D', 'E', 'F'],
+        header: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
         skipHeader: true,
       });
 
       ws['!cols'] = [
-        { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 40 }, { wch: 12 }, { wch: 14 },
+        { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 14 },
       ];
 
       XLSX.utils.book_append_sheet(wb, ws, 'SARS Logbook');
@@ -1115,12 +1148,15 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           ) : (
             <div className="space-y-4">
               {/* Step indicator */}
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-sm flex-wrap">
                 <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_open_km' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
                   1. Open km
                 </span>
+                <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_from' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                  2. From
+                </span>
                 <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_reason' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                  2. Reason
+                  3. Reason
                 </span>
                 <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'done' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
                   Save
@@ -1162,6 +1198,51 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                     >
                       <Check className="w-5 h-5" />
                       Confirm Open km
+                    </button>
+                    <button
+                      onClick={cancelVoice}
+                      className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Reason */}
+              {voiceStep === 'asking_from' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">From (starting location)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={voiceFrom}
+                      onChange={(e) => setVoiceFrom(e.target.value)}
+                      className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                      placeholder="e.g. Cape Town depot"
+                      style={{ fontSize: '16px' }}
+                    />
+                    <button
+                      onClick={() => startListening(false)}
+                      className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 self-start ${
+                        isListeningNow ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      }`}
+                    >
+                      {isListeningNow ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      {isListeningNow ? 'Stop' : 'Speak'}
+                    </button>
+                  </div>
+                  {voiceInterim && voiceStep === 'asking_from' && (
+                    <p className="text-xs text-gray-500 mt-1">Hearing: "{voiceInterim}"</p>
+                  )}
+                  {voiceError && <p className="text-xs text-red-500 mt-1">{voiceError}</p>}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={confirmFrom}
+                      className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-5 h-5" />
+                      Confirm From
                     </button>
                     <button
                       onClick={cancelVoice}
@@ -1289,6 +1370,17 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">From <span className="text-gray-400 font-normal">(starting location)</span></label>
+                <input
+                  type="text"
+                  value={manualFrom}
+                  onChange={(e) => setManualFrom(e.target.value)}
+                  className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                  placeholder="e.g. Cape Town depot"
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Trip</label>
                 <textarea
                   value={manualReason}
@@ -1324,7 +1416,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                   {saving ? 'Saving...' : 'Save Entry'}
                 </button>
                 <button
-                  onClick={() => { setShowManualForm(false); setManualOpenKm(''); setManualReason(''); setManualCloseKm(''); }}
+                  onClick={() => { setShowManualForm(false); setManualOpenKm(''); setManualFrom(''); setManualReason(''); setManualCloseKm(''); }}
                   className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                 >
                   Cancel
@@ -1378,6 +1470,17 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                         </div>
                       </div>
                       <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">From</label>
+                        <input
+                          type="text"
+                          value={editFrom}
+                          onChange={(e) => setEditFrom(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                          placeholder="e.g. Cape Town depot"
+                          style={{ fontSize: '16px' }}
+                        />
+                      </div>
+                      <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">Reason</label>
                         <textarea
                           value={editReason}
@@ -1416,6 +1519,11 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                         <p className="text-sm text-gray-700">
                           <span className="font-medium">Open km:</span> {entry.opening_km.toLocaleString()}
                         </p>
+                        {entry.from_location && (
+                          <p className="text-sm text-gray-700 mt-0.5">
+                            <span className="font-medium">From:</span> {entry.from_location}
+                          </p>
+                        )}
                         <p className="text-sm text-gray-700 mt-0.5">
                           <span className="font-medium">Reason:</span> {entry.trip_reason}
                         </p>
@@ -1483,7 +1591,12 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-gray-800 mb-2 line-clamp-2">{entry.trip_reason}</p>
+                          <p className="text-sm text-gray-800 mb-1 line-clamp-2">{entry.trip_reason}</p>
+                          {entry.from_location && (
+                            <p className="text-xs text-gray-500 mb-2">
+                              <span className="font-medium text-gray-600">From:</span> {entry.from_location}
+                            </p>
+                          )}
                           <div className="flex items-center gap-4 text-sm">
                             <div>
                               <span className="text-xs text-gray-500 block">Open</span>
