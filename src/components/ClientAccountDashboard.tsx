@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Truck, Users, FileText, Store, Settings, BarChart3, LogOut, ArrowLeft, DollarSign, Building2 } from 'lucide-react';
+import { Truck, Users, FileText, Store, Settings, BarChart3, LogOut, ArrowLeft, DollarSign, Building2, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface ClientAccountDashboardProps {
@@ -209,6 +209,15 @@ export default function ClientAccountDashboard({ onNavigate, onSignOut, initialV
             >
               <FileText className="w-5 h-5 flex-shrink-0 text-amber-600" />
               <span className="font-medium text-gray-900">Reports</span>
+            </button>
+          )}
+          {perms?.can_view_reports && (
+            <button
+              onClick={() => onNavigate('sars-logbook')}
+              className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors flex items-center gap-3"
+            >
+              <BookOpen className="w-5 h-5 flex-shrink-0 text-amber-600" />
+              <span className="font-medium text-gray-900">SARS Logbook</span>
             </button>
           )}
           {(perms?.can_create_reports || perms?.can_view_custom_reports) && (

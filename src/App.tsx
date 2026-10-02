@@ -37,6 +37,7 @@ import ClientGarageStatements from './components/ClientGarageStatements';
 import FuelInvoicesPage from './components/FuelInvoicesPage';
 import AdminPasswordReset from './components/AdminPasswordReset';
 import ForcePasswordChange from './components/ForcePasswordChange';
+import LogbookReport from './components/LogbookReport';
 import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3, FileText, Settings, CreditCard as Edit3, ArrowLeft, UserPlus, ShieldAlert } from 'lucide-react';
 import { DriverData } from './components/DriverAuth';
 
@@ -90,7 +91,7 @@ function App() {
   const [userMode, setUserMode] = useState<UserMode>(null);
   const [clientPortalType, setClientPortalType] = useState<ClientPortalType>(null);
   const [loading, setLoading] = useState(true);
-  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'trailers' | 'maintenance' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'exception-reports' | 'backup' | 'garage-statements' | null>(() => {
+  const [currentView, setCurrentViewState] = useState<'dashboard' | 'clients' | 'client-organizations-menu' | 'create-client-org' | 'client-org-info' | 'client-user-info' | 'client-financial-info' | 'vehicles' | 'trailers' | 'maintenance' | 'garages' | 'drivers' | 'invoices' | 'reports' | 'reports-menu' | 'backoffice' | 'organization' | 'custom-reports' | 'exception-reports' | 'sars-logbook' | 'backup' | 'garage-statements' | null>(() => {
     const saved = sessionStorage.getItem('appCurrentView');
     return saved ? saved as any : null;
   });
@@ -1377,6 +1378,10 @@ function App() {
           <CustomReportBuilder key="custom-reports" onNavigate={setCurrentView} />
         ) : currentView === 'exception-reports' ? (
           <ReportsDashboard key="exception-reports" onNavigate={setCurrentView} exceptionReportsOnly />
+        ) : currentView === 'sars-logbook' ? (
+          <div className="px-4 py-6">
+            <LogbookReport key="sars-logbook" />
+          </div>
         ) : currentView === 'backup' ? (
           isRealSuperAdmin ? <BackupManagement key="backup" /> : null
         ) : null}
