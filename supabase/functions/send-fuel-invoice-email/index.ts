@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.83.0";
+import { jsPDF } from "npm:jspdf@3.0.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,375 @@ const corsHeaders = {
 interface SendInvoiceRequest {
   invoiceId?: string;
   invoiceIds?: string[];
+}
+
+interface InvoiceRow {
+  id: string;
+  invoice_number: string;
+  invoice_date: string;
+  transaction_date: string;
+  fuel_type: string;
+  liters: string;
+  price_per_liter: string;
+  fuel_amount: string;
+  total_amount: string;
+  vehicle_registration: string;
+  driver_name: string;
+  garage_name: string;
+  garage_address: string;
+  garage_vat_number: string;
+  client_name: string;
+  client_address: string;
+  client_vat_number: string;
+  odometer_reading: number;
+  email_recipient: string;
+  oil_quantity: string;
+  oil_unit_price: string;
+  oil_total_amount: string;
+  oil_type: string;
+  oil_brand: string;
+  items_subtotal_excl_vat: string;
+  items_vat_amount: string;
+  items_total_incl_vat: string;
+  payment_option: string;
+  fuel_payment_terms: string;
+  fuel_payment_interest_rate: string;
+  card_last_four_digits: string;
+}
+
+function renderInvoicePDF(invoice: InvoiceRow): Uint8Array {
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const margin = 15;
+  const contentWidth = pageWidth - margin * 2;
+  let y = 15;
+
+  // Header
+  pdf.setFontSize(24);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text("MyFuelApp", pageWidth / 2, y, { align: "center" });
+
+  y += 7;
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(107, 114, 128);
+  pdf.text("Operated by Fuel Empowerment Systems (Pty) Ltd", pageWidth / 2, y, { align: "center" });
+
+  y += 6;
+  pdf.setDrawColor(17, 24, 39);
+  pdf.setLineWidth(0.5);
+  pdf.line(margin, y, pageWidth - margin, y);
+  y += 8;
+
+  // FUEL INVOICE FROM
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(107, 114, 128);
+  pdf.text("FUEL INVOICE FROM", margin, y);
+  y += 3;
+
+  const addressLines = invoice.garage_address ? invoice.garage_address.split("\n").filter(Boolean) : [];
+  const fromBoxHeight = 6 + addressLines.length * 5 + (invoice.garage_vat_number ? 5 : 0) + 3;
+  pdf.setFillColor(249, 250, 251);
+  pdf.rect(margin, y, contentWidth, fromBoxHeight, "F");
+
+  y += 5;
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text(invoice.garage_name || "Not recorded", margin + 3, y);
+
+  for (const line of addressLines) {
+    y += 5;
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(75, 85, 99);
+    pdf.text(line, margin + 3, y);
+  }
+
+  if (invoice.garage_vat_number) {
+    y += 5;
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(75, 85, 99);
+    pdf.text(`VAT No: ${invoice.garage_vat_number}`, margin + 3, y);
+  }
+
+  y += 8;
+
+  // CLIENT
+  if (invoice.client_name) {
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text("CLIENT", margin, y);
+    y += 3;
+
+    const clientLines = invoice.client_address ? invoice.client_address.split("\n").filter(Boolean) : [];
+    const hasClientVat = !!invoice.client_vat_number;
+    const clientBoxHeight = 6 + clientLines.length * 5 + (hasClientVat ? 5 : 0) + 3;
+    pdf.setFillColor(249, 250, 251);
+    pdf.rect(margin, y, contentWidth, clientBoxHeight, "F");
+
+    y += 5;
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(invoice.client_name, margin + 3, y);
+
+    for (const line of clientLines) {
+      y += 5;
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(75, 85, 99);
+      pdf.text(line, margin + 3, y);
+    }
+
+    if (hasClientVat) {
+      y += 5;
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(75, 85, 99);
+      pdf.text(`VAT No: ${invoice.client_vat_number}`, margin + 3, y);
+    }
+
+    y += 8;
+  }
+
+  // VEHICLE & DRIVER
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(107, 114, 128);
+  pdf.text("VEHICLE & DRIVER", margin, y);
+  y += 3;
+
+  pdf.setFillColor(249, 250, 251);
+  pdf.rect(margin, y, contentWidth, 13, "F");
+
+  y += 5;
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(75, 85, 99);
+  pdf.text("Vehicle:", margin + 3, y);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text(` ${invoice.vehicle_registration || "N/A"}`, margin + 3 + pdf.getTextWidth("Vehicle:"), y);
+
+  if (invoice.driver_name) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(75, 85, 99);
+    const dLabel = "Driver:";
+    const dX = margin + contentWidth / 2 - pdf.getTextWidth(dLabel) / 2;
+    pdf.text(dLabel, dX, y);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(` ${invoice.driver_name}`, dX + pdf.getTextWidth(dLabel), y);
+  }
+
+  if (invoice.odometer_reading != null) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(75, 85, 99);
+    const odoLabel = "Odometer:";
+    const odoVal = ` ${invoice.odometer_reading.toLocaleString()} km`;
+    const odoW = pdf.getTextWidth(odoLabel) + pdf.getTextWidth(odoVal);
+    pdf.text(odoLabel, margin + contentWidth - 3 - odoW, y);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(odoVal, margin + contentWidth - 3 - pdf.getTextWidth(odoVal), y);
+  }
+
+  y += 13;
+
+  // INVOICE
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(107, 114, 128);
+  pdf.text("INVOICE", margin, y);
+  y += 3;
+
+  pdf.setFillColor(249, 250, 251);
+  pdf.rect(margin, y, contentWidth, 13, "F");
+
+  y += 5;
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(75, 85, 99);
+  pdf.text("Number:", margin + 3, y);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text(` ${invoice.invoice_number}`, margin + 3 + pdf.getTextWidth("Number:"), y);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(75, 85, 99);
+  const dLabel = "Date:";
+  const dX = margin + contentWidth / 2 - pdf.getTextWidth(dLabel) / 2;
+  pdf.text(dLabel, dX, y);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text(` ${new Date(invoice.invoice_date).toLocaleDateString("en-ZA")}`, dX + pdf.getTextWidth(dLabel), y);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(75, 85, 99);
+  const tLabel = "Transaction Date & Time:";
+  const tDate = new Date(invoice.transaction_date).toLocaleDateString("en-ZA");
+  const tTime = new Date(invoice.transaction_date).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
+  const tVal = ` ${tDate} ${tTime}`;
+  const tW = pdf.getTextWidth(tLabel) + pdf.getTextWidth(tVal);
+  pdf.text(tLabel, margin + contentWidth - 3 - tW, y);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text(tVal, margin + contentWidth - 3 - pdf.getTextWidth(tVal), y);
+
+  y += 13;
+
+  // FUEL DETAILS
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(107, 114, 128);
+  pdf.text("FUEL DETAILS", margin, y);
+  y += 3;
+
+  pdf.setFillColor(249, 250, 251);
+  pdf.rect(margin, y, contentWidth, 16, "F");
+
+  y += 5;
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(75, 85, 99);
+  pdf.text("Fuel Type", margin + 3, y);
+  pdf.text("Liters", margin + contentWidth * 0.35, y, { align: "right" });
+  pdf.text("Price per Liter", margin + contentWidth * 0.6, y, { align: "right" });
+  pdf.text("Fuel Amount", margin + contentWidth - 3, y, { align: "right" });
+
+  y += 5;
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text(invoice.fuel_type || "N/A", margin + 3, y);
+  pdf.text(parseFloat(invoice.liters || "0").toFixed(2), margin + contentWidth * 0.35, y, { align: "right" });
+  pdf.text(`R ${parseFloat(invoice.price_per_liter || "0").toFixed(2)}`, margin + contentWidth * 0.6, y, { align: "right" });
+  const fuelAmt = parseFloat(invoice.liters || "0") * parseFloat(invoice.price_per_liter || "0");
+  pdf.text(`R ${fuelAmt.toFixed(2)}`, margin + contentWidth - 3, y, { align: "right" });
+
+  y += 11;
+
+  // OIL PURCHASE
+  const oilQuantity = parseFloat(invoice.oil_quantity || "0");
+  if (oilQuantity > 0) {
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text("OIL PURCHASE", margin, y);
+    y += 3;
+
+    pdf.setFillColor(249, 250, 251);
+    pdf.rect(margin, y, contentWidth, 16, "F");
+
+    y += 5;
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(75, 85, 99);
+    pdf.text("Oil Type", margin + 3, y);
+    pdf.text("Quantity", margin + contentWidth * 0.35, y, { align: "right" });
+    pdf.text("Unit Price (Incl VAT)", margin + contentWidth * 0.6, y, { align: "right" });
+    pdf.text("Oil Amount (Incl VAT)", margin + contentWidth - 3, y, { align: "right" });
+
+    y += 5;
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    const oilTypeText = `${invoice.oil_type || "N/A"}${invoice.oil_brand ? ` (${invoice.oil_brand})` : ""}`;
+    pdf.text(oilTypeText, margin + 3, y);
+    pdf.text(`${oilQuantity.toFixed(0)} Unit${oilQuantity > 1 ? "s" : ""}`, margin + contentWidth * 0.35, y, { align: "right" });
+    pdf.text(`R ${parseFloat(invoice.oil_unit_price || "0").toFixed(2)}`, margin + contentWidth * 0.6, y, { align: "right" });
+    pdf.text(`R ${parseFloat(invoice.oil_total_amount || "0").toFixed(2)}`, margin + contentWidth - 3, y, { align: "right" });
+
+    y += 7;
+    pdf.setDrawColor(209, 213, 219);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin + 3, y, margin + contentWidth - 3, y);
+
+    y += 5;
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(75, 85, 99);
+    pdf.text("Amount of VAT included:", margin + 3, y);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(17, 24, 39);
+    const oilTotal = parseFloat(invoice.oil_total_amount || "0");
+    const oilVAT = oilTotal - oilTotal / 1.15;
+    pdf.text(`R ${oilVAT.toFixed(2)}`, margin + contentWidth - 3, y, { align: "right" });
+
+    y += 10;
+  }
+
+  // TOTAL
+  pdf.setDrawColor(229, 231, 235);
+  pdf.setLineWidth(0.5);
+  pdf.line(margin, y, pageWidth - margin, y);
+
+  y += 8;
+  pdf.setFillColor(239, 246, 255);
+  pdf.rect(margin, y, contentWidth, 20, "F");
+
+  y += 13;
+  pdf.setFontSize(12);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text("TOTAL AMOUNT:", margin + 5, y);
+
+  pdf.setFontSize(16);
+  pdf.setTextColor(37, 99, 235);
+  pdf.text(`R ${parseFloat(invoice.total_amount || "0").toFixed(2)}`, pageWidth - margin - 5, y, { align: "right" });
+
+  y += 18;
+
+  // PAYMENT STATUS
+  const isCardPayment = invoice.payment_option === "Card Payment";
+  const isLocalAccount = invoice.payment_option === "Local Account";
+  if (isCardPayment || isLocalAccount) {
+    const boxColor: [number, number, number] = isCardPayment ? [240, 253, 244] : [239, 246, 255];
+    const borderColor: [number, number, number] = isCardPayment ? [134, 239, 172] : [147, 197, 253];
+    const textColor: [number, number, number] = isCardPayment ? [22, 101, 52] : [30, 64, 175];
+    pdf.setFillColor(...boxColor);
+    pdf.setDrawColor(...borderColor);
+    pdf.setLineWidth(0.4);
+    pdf.roundedRect(margin, y, contentWidth, 12, 2, 2, "FD");
+    y += 8;
+    pdf.setFontSize(9);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(...textColor);
+    let paymentText: string;
+    if (isCardPayment) {
+      paymentText = invoice.card_last_four_digits
+        ? `Paid by Credit/Debit Card  •  **** **** **** ${invoice.card_last_four_digits}`
+        : "Paid by Credit/Debit Card";
+    } else {
+      paymentText = "Garage Account Invoice — To be paid";
+    }
+    pdf.text(paymentText, pageWidth / 2, y, { align: "center" });
+    y += 8;
+  }
+
+  pdf.setFontSize(9);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(75, 85, 99);
+  pdf.text("This invoice is for accounting and tax compliance purposes.", pageWidth / 2, y, { align: "center" });
+  y += 5;
+  pdf.text("Thank you for your business.", pageWidth / 2, y, { align: "center" });
+
+  return pdf.output("arraybuffer") as Uint8Array;
+}
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }
 
 Deno.serve(async (req: Request) => {
@@ -54,6 +424,7 @@ Deno.serve(async (req: Request) => {
         driver_name,
         garage_name,
         garage_address,
+        garage_vat_number,
         odometer_reading,
         email_recipient,
         oil_quantity,
@@ -97,82 +468,39 @@ Deno.serve(async (req: Request) => {
         continue;
       }
 
-      const oilQuantity = Number(invoice.oil_quantity || 0);
-      const oilUnitPrice = Number(invoice.oil_unit_price || 0);
-      const oilTotalInclVat = Number(invoice.oil_total_amount || 0);
-      const oilExclVat = oilTotalInclVat / 1.15;
-      const oilVatAmount = oilTotalInclVat - oilExclVat;
-      const fuelAmount = Number(invoice.fuel_amount || 0);
-      const itemsVatAmount = Number(invoice.items_vat_amount || 0);
-      const itemsSubtotalExclVat = Number(invoice.items_subtotal_excl_vat || 0);
-      const itemsTotalInclVat = Number(invoice.items_total_incl_vat || 0);
+      const clientName = invoice.client_name || "Valued Client";
       const totalAmount = Number(invoice.total_amount || 0);
 
-      const hasBreakdown = oilQuantity > 0 || itemsSubtotalExclVat > 0;
+      // Generate PDF
+      let pdfBase64: string;
+      try {
+        const pdfBytes = renderInvoicePDF(invoice as InvoiceRow);
+        pdfBase64 = uint8ToBase64(pdfBytes);
+      } catch (pdfError) {
+        console.error("Failed to generate PDF for invoice", invoice.invoice_number, pdfError);
+        results.push({ invoiceId: invoice.id, sent: false, error: "PDF generation failed" });
+        continue;
+      }
 
-      const oilSection = oilQuantity > 0
-        ? `<tr><td style="padding:8px;border-bottom:1px solid #eee;">Oil (${invoice.oil_type || 'N/A'}${invoice.oil_brand ? ' — ' + invoice.oil_brand : ''})</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${oilQuantity} units</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">R ${oilUnitPrice.toFixed(2)}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">R ${oilTotalInclVat.toFixed(2)}</td></tr>`
-        : "";
+      const filename = `Fuel-Invoice-${invoice.invoice_number}.pdf`;
 
-      const breakdownRows = hasBreakdown
-        ? `<tr><td colspan="3" style="padding:8px;text-align:right;font-weight:600;">Fuel Amount (VAT Zero-Rated):</td><td style="padding:8px;text-align:right;font-weight:600;">R ${fuelAmount.toFixed(2)}</td></tr>
-           ${oilQuantity > 0 ? `<tr><td colspan="3" style="padding:8px;text-align:right;">Oil Subtotal (excl VAT):</td><td style="padding:8px;text-align:right;">R ${oilExclVat.toFixed(2)}</td></tr><tr><td colspan="3" style="padding:8px;text-align:right;">Oil VAT (15%):</td><td style="padding:8px;text-align:right;">R ${oilVatAmount.toFixed(2)}</td></tr>` : ""}
-           ${itemsSubtotalExclVat > 0 ? `<tr><td colspan="3" style="padding:8px;text-align:right;">Additional Items (excl VAT):</td><td style="padding:8px;text-align:right;">R ${itemsSubtotalExclVat.toFixed(2)}</td></tr><tr><td colspan="3" style="padding:8px;text-align:right;">Additional Items VAT:</td><td style="padding:8px;text-align:right;">R ${itemsVatAmount.toFixed(2)}</td></tr>` : ""}
-           <tr><td colspan="3" style="padding:12px 8px;text-align:right;font-weight:700;font-size:16px;">Total Amount:</td><td style="padding:12px 8px;text-align:right;font-weight:700;font-size:16px;color:#2563eb;">R ${totalAmount.toFixed(2)}</td></tr>`
-        : `<tr><td colspan="3" style="padding:12px 8px;text-align:right;font-weight:700;font-size:16px;">Total Amount (VAT Zero-Rated):</td><td style="padding:12px 8px;text-align:right;font-weight:700;font-size:16px;color:#2563eb;">R ${totalAmount.toFixed(2)}</td></tr>`;
+      const subject = `Fuel Invoice ${invoice.invoice_number} — ${invoice.vehicle_registration || ""}`.trim();
 
-      const clientName = invoice.client_name || "Valued Client";
-      const invDate = new Date(invoice.invoice_date).toLocaleDateString("en-ZA");
-      const txDate = new Date(invoice.transaction_date).toLocaleDateString("en-ZA");
+      const textBody = `Dear ${clientName},
 
-      const html = `
-        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">
-          <div style="background:#2563eb;color:white;padding:20px;border-radius:8px 8px 0 0;">
-            <h1 style="margin:0;font-size:22px;">MyFuelApp</h1>
-            <p style="margin:4px 0 0;font-size:14px;opacity:0.9;">Fuel Transaction Invoice</p>
-          </div>
-          <div style="background:#f9fafb;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;">
-            <p style="color:#1f2937;font-size:15px;margin:0 0 16px;">Dear ${clientName},</p>
-            <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 16px;">
-              A fuel transaction invoice has been generated for your account.
-            </p>
-            <table style="width:100%;font-size:14px;color:#374151;margin-bottom:20px;">
-              <tr><td style="padding:4px 0;color:#6b7280;">Invoice Number:</td><td style="padding:4px 0;font-weight:600;">${invoice.invoice_number}</td></tr>
-              <tr><td style="padding:4px 0;color:#6b7280;">Invoice Date:</td><td style="padding:4px 0;">${invDate}</td></tr>
-              <tr><td style="padding:4px 0;color:#6b7280;">Transaction Date:</td><td style="padding:4px 0;">${txDate}</td></tr>
-              <tr><td style="padding:4px 0;color:#6b7280;">Vehicle:</td><td style="padding:4px 0;">${invoice.vehicle_registration || 'N/A'}</td></tr>
-              <tr><td style="padding:4px 0;color:#6b7280;">Driver:</td><td style="padding:4px 0;">${invoice.driver_name || 'N/A'}</td></tr>
-              <tr><td style="padding:4px 0;color:#6b7280;">Odometer:</td><td style="padding:4px 0;">${invoice.odometer_reading || 'N/A'} km</td></tr>
-              <tr><td style="padding:4px 0;color:#6b7280;">Fuel Station:</td><td style="padding:4px 0;">${invoice.garage_name || 'N/A'}</td></tr>
-            </table>
-            <table style="width:100%;font-size:13px;color:#374151;border-collapse:collapse;margin-bottom:8px;">
-              <thead>
-                <tr style="background:#e5e7eb;">
-                  <th style="padding:8px;text-align:left;border-bottom:2px solid #d1d5db;">Item</th>
-                  <th style="padding:8px;text-align:right;border-bottom:2px solid #d1d5db;">Qty</th>
-                  <th style="padding:8px;text-align:right;border-bottom:2px solid #d1d5db;">Unit Price</th>
-                  <th style="padding:8px;text-align:right;border-bottom:2px solid #d1d5db;">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style="padding:8px;border-bottom:1px solid #eee;">Fuel — ${invoice.fuel_type || 'N/A'}</td>
-                  <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${Number(invoice.liters || 0).toFixed(2)} L</td>
-                  <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">R ${Number(invoice.price_per_liter || 0).toFixed(2)}</td>
-                  <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">R ${fuelAmount.toFixed(2)}</td>
-                </tr>
-                ${oilSection}
-                ${breakdownRows}
-              </tbody>
-            </table>
-            <p style="color:#6b7280;font-size:12px;margin-top:20px;border-top:1px solid #e5e7eb;padding-top:12px;">
-              This invoice is for accounting and tax compliance purposes. Please retain for your records.
-            </p>
-          </div>
-        </div>
-      `;
+Attached is Fuel Invoice ${invoice.invoice_number} for your attention.
 
-      const text = `MyFuelApp — Fuel Transaction Invoice ${invoice.invoice_number}\n\nDear ${clientName},\n\nA fuel transaction invoice has been generated.\n\nInvoice Number: ${invoice.invoice_number}\nInvoice Date: ${invDate}\nTransaction Date: ${txDate}\nVehicle: ${invoice.vehicle_registration || 'N/A'}\nDriver: ${invoice.driver_name || 'N/A'}\nOdometer: ${invoice.odometer_reading || 'N/A'} km\nFuel Station: ${invoice.garage_name || 'N/A'}\n\nFuel: ${Number(invoice.liters||0).toFixed(2)}L @ R ${Number(invoice.price_per_liter||0).toFixed(2)} = R ${fuelAmount.toFixed(2)}\n${oilQuantity > 0 ? `Oil: ${oilQuantity} units @ R ${oilUnitPrice.toFixed(2)} = R ${oilTotalInclVat.toFixed(2)}\n` : ''}\nTotal Amount: R ${totalAmount.toFixed(2)}\n\nThis invoice is for accounting and tax compliance purposes.`;
+Invoice Date: ${new Date(invoice.invoice_date).toLocaleDateString("en-ZA")}
+Transaction Date: ${new Date(invoice.transaction_date).toLocaleDateString("en-ZA")}
+Vehicle: ${invoice.vehicle_registration || "N/A"}
+Driver: ${invoice.driver_name || "N/A"}
+Fuel Station: ${invoice.garage_name || "N/A"}
+Total Amount: R ${totalAmount.toFixed(2)}
+
+This invoice is for accounting and tax compliance purposes. Please retain for your records.
+
+Kind regards,
+MyFuelApp Management`;
 
       const fromAddresses = [
         "MyFuelApp <noreply@myfuelapp.net>",
@@ -191,9 +519,14 @@ Deno.serve(async (req: Request) => {
           body: JSON.stringify({
             from: fromAddr,
             to: [toEmail],
-            subject: `Fuel Invoice ${invoice.invoice_number} — ${invoice.vehicle_registration || ''}`,
-            html,
-            text,
+            subject,
+            text: textBody,
+            attachments: [
+              {
+                filename,
+                content: pdfBase64,
+              },
+            ],
           }),
         });
 
