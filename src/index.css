@@ -23,4 +23,17 @@
   main {
     overflow: visible !important;
   }
+
+  /* Give printed table rows breathing room so divider lines don't crowd text */
+  table tbody > tr > td,
+  table tbody > tr > th {
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
+    border-bottom: 1px solid #e5e7eb !important;
+  }
+
+  /* Force the divider lines to render with proper spacing in print */
+  table tbody > tr {
+    border-bottom: 1px solid #e5e7eb !important;
+  }
 }
