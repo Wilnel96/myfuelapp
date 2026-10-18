@@ -760,25 +760,25 @@ export default function GarageStatementsPayments({
                           <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="divide-y divide-gray-200">
                         {statementInvoices.map((inv) => {
                           const fuelAmt = Number(inv.liters) * Number(inv.price_per_liter);
                           return (
                             <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                              <td className="px-4 py-4 whitespace-nowrap text-gray-700">
                                 {new Date(inv.transaction_date).toLocaleDateString('en-ZA')}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">
+                              <td className="px-4 py-4 whitespace-nowrap font-medium text-gray-900">
                                 {inv.invoice_number}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-4">
                                 <div className="font-medium text-gray-900">{inv.driver_name || '—'}</div>
                                 <div className="text-xs text-gray-500 mt-0.5">{inv.vehicle_registration}</div>
                                 {inv.odometer_reading != null && (
                                   <div className="text-xs text-gray-400">{Number(inv.odometer_reading).toLocaleString()} km</div>
                                 )}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-4">
                                 <div className="font-medium text-gray-900">
                                   {inv.fuel_type}: {Number(inv.liters).toFixed(2)} L
                                 </div>
@@ -786,7 +786,7 @@ export default function GarageStatementsPayments({
                                   @ R{Number(inv.price_per_liter).toFixed(2)}/L = <span className="font-semibold text-gray-700">R{fuelAmt.toFixed(2)}</span>
                                 </div>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-4">
                                 {inv.oil_type && inv.oil_quantity ? (
                                   <div>
                                     <div className="font-medium text-gray-900">
@@ -800,7 +800,7 @@ export default function GarageStatementsPayments({
                                   <span className="text-gray-300">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-3 text-right">
+                              <td className="px-4 py-4 text-right">
                                 <span className="font-bold text-gray-900">R {Number(inv.total_amount).toFixed(2)}</span>
                               </td>
                             </tr>
@@ -848,26 +848,26 @@ export default function GarageStatementsPayments({
                           <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="divide-y divide-gray-200">
                         {statementPayments.map((pmt) => (
                           <tr key={pmt.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                            <td className="px-4 py-4 whitespace-nowrap text-gray-700">
                               {new Date(pmt.payment_date).toLocaleDateString('en-ZA')}
                             </td>
-                            <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
+                            <td className="px-4 py-4 font-medium text-gray-900 whitespace-nowrap">
                               {pmt.payment_number}
                             </td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-4">
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 uppercase">
                                 {pmt.payment_method}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-gray-600">
+                            <td className="px-4 py-4 text-gray-600">
                               {pmt.reference && <div className="font-medium">{pmt.reference}</div>}
                               {pmt.notes && <div className="text-xs text-gray-400 mt-0.5">{pmt.notes}</div>}
                               {!pmt.reference && !pmt.notes && <span className="text-gray-300">—</span>}
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-4 py-4 text-right">
                               <span className="font-bold text-green-600">R {Number(pmt.amount).toFixed(2)}</span>
                             </td>
                           </tr>
