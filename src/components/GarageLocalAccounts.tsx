@@ -687,6 +687,12 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         card_last_four_digits: invoice.card_last_four_digits || undefined,
       }));
 
+      transformedData.sort((a: any, b: any) => {
+        const dateA = new Date(a.transaction_date || a.invoice_date).getTime();
+        const dateB = new Date(b.transaction_date || b.invoice_date).getTime();
+        return dateB - dateA;
+      });
+
       setFinancialInvoices(transformedData);
     } catch (err: any) {
       console.error('Error loading financial invoices:', err.message);
