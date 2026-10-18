@@ -440,6 +440,9 @@ function OrgPrintableForm({ garageName }: { garageName?: string }) {
           <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
             I, the undersigned, confirm that the information provided on this form is accurate and complete. I authorise {garageName || 'the garage'} to open a garage fuel account on behalf of the organisation named above and to process fuel transactions for the vehicles and drivers listed. I understand that vehicle and driver information can only be updated via the Client Portal and that account number changes require written authorisation from the primary contact.
           </div>
+          <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
+            The organisation hereby acknowledges and accepts that all fuel, oil, lubricants and any other goods or services purchased through the MyFuelApp driver mobile application by any authorised driver linked to this account are duly authorised by and on behalf of the organisation. The organisation undertakes and accepts full liability for the payment of all such purchases, irrespective of which driver initiated the transaction, and agrees that all amounts so incurred shall be settled in accordance with the account payment terms agreed with {garageName || 'the garage'}.
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
             <SigBlock label="Signature — Authorised Signatory (Client)" />
             <SigBlock label="Signature — Garage Representative" />
@@ -570,6 +573,9 @@ function IndividualPrintableForm({ garageName }: { garageName?: string }) {
         <Section number="3" title="Declaration &amp; Signature">
           <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
             I, the undersigned, confirm that the information provided on this form is accurate and complete. I authorise {garageName || 'the garage'} to open a personal garage fuel account in my name and to process fuel transactions for the vehicles listed overleaf. I understand that my account details can be managed via the Client Portal and that account changes may require written authorisation.
+          </div>
+          <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
+            I hereby acknowledge and accept that all fuel, oil, lubricants and any other goods or services purchased through the MyFuelApp driver mobile application by any authorised driver linked to this account are duly authorised by me. I undertake and accept full liability for the payment of all such purchases, irrespective of which driver initiated the transaction, and agree that all amounts so incurred shall be settled in accordance with the account payment terms agreed with {garageName || 'the garage'}.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
             <SigBlock label="Signature — Account Holder" />
@@ -733,6 +739,9 @@ function IndividualCardPrintableForm({ garageName }: { garageName?: string }) {
           <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
             I, the undersigned, confirm that the information provided is accurate and complete. I authorise Fuel Empowerment Systems (Pty) Ltd to raise a monthly debit order against my registered bank account for vehicle and driver management fees. I understand that my card details and account information can be managed via the Client Portal and that I am designated as the Main User and Billing User by default, which I may change via Client User Management.
           </div>
+          <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
+            I hereby acknowledge and accept that all fuel, oil, lubricants and any other goods or services purchased through the MyFuelApp driver mobile application by any authorised driver linked to this account are duly authorised by me. I undertake and accept full liability for the payment of all such purchases, irrespective of which driver initiated the transaction, and agree that all amounts so incurred shall be settled in accordance with the applicable payment terms.
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
             <SigBlock label="Signature — Account Holder" />
             <SigBlock label="Date" />
@@ -886,6 +895,9 @@ function OrgCardPrintableForm({ garageName }: { garageName?: string }) {
         <Section number="4" title="Declaration &amp; Signature">
           <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
             I, the undersigned, on behalf of the organisation named above, confirm that the information provided is accurate and complete. I authorise Fuel Empowerment Systems (Pty) Ltd to raise a monthly debit order against the registered bank account for vehicle and driver management fees. I understand that card details and account information can be managed via the Client Portal and that I am designated as the Main User and Billing User by default, which may be changed via Client User Management.
+          </div>
+          <div style={{ fontSize: '8pt', color: '#374151', marginBottom: '7px', lineHeight: '1.5' }}>
+            The organisation hereby acknowledges and accepts that all fuel, oil, lubricants and any other goods or services purchased through the MyFuelApp driver mobile application by any authorised driver linked to this account are duly authorised by and on behalf of the organisation. The organisation undertakes and accepts full liability for the payment of all such purchases, irrespective of which driver initiated the transaction, and agrees that all amounts so incurred shall be settled in accordance with the applicable payment terms.
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
             <SigBlock label="Signature — Authorised Signatory" />
