@@ -164,6 +164,14 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
   });
   const [viewingStatementsOrgId, setViewingStatementsOrgId] = useState<string | null>(null);
   const [viewingStatementsOrgName, setViewingStatementsOrgName] = useState<string>('');
+  const [statementsMode, setStatementsMode] = useState<'single' | 'bulk'>('single');
+  const [bulkSelectedOrgIds, setBulkSelectedOrgIds] = useState<string[]>([]);
+  const [bulkPeriodStart, setBulkPeriodStart] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().split('T')[0];
+  });
+  const [bulkPeriodEnd, setBulkPeriodEnd] = useState(() => new Date().toISOString().split('T')[0]);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
   const [capturingPaymentOrgId, setCapturingPaymentOrgId] = useState<string | null>(null);
   const [capturingPaymentOrgName, setCapturingPaymentOrgName] = useState<string>('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
@@ -2153,33 +2161,271 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                 {/* Client Selection for Statements */}
                 {!viewingStatementsOrgId ? (
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
-                      Select Client to Create/View Statements
-                    </label>
-                    <select
-                      onChange={(e) => {
-                        const orgId = e.target.value;
-                        if (orgId) {
-                          const org = organizations.find(o => o.id === orgId);
-                          if (org) {
-                            setViewingStatementsOrgId(orgId);
-                            setViewingStatementsOrgName(org.name);
-                          }
-                        }
-                      }}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      <option value="">-- Select a local account client --</option>
-                      {activeAccounts.map((account) => {
-                        const org = organizations.find(o => o.id === account.organization_id);
-                        if (!org) return null;
-                        return (
-                          <option key={account.id} value={org.id}>
-                            {org.name} {account.account_number ? `(Acc: ${account.account_number})` : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
+                    {/* Mode toggle */}
+                    <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
+                      <button
+                        onClick={() => {
+                          setStatementsMode('single');
+                          setBulkResult(null);
+                        }}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                          statementsMode === 'single'
+                            ? 'bg-white text-green-700 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Single Client
+                      </button>
+                      <button
+                        onClick={() => {
+                          setStatementsMode('bulk');
+                          setBulkResult(null);
+                        }}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                          statementsMode === 'bulk'
+                            ? 'bg-white text-blue-700 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        Multiple Clients
+                      </button>
+                    </div>
+
+                    {statementsMode === 'single' ? (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-2">
+                          Select Client to Create/View Statements
+                        </label>
+                        <select
+                          onChange={(e) => {
+                            const orgId = e.target.value;
+                            if (orgId) {
+                              const org = organizations.find(o => o.id === orgId);
+                              if (org) {
+                                setViewingStatementsOrgId(orgId);
+                                setViewingStatementsOrgName(org.name);
+                              }
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        >
+                          <option value="">-- Select a local account client --</option>
+                          {activeAccounts.map((account) => {
+                            const org = organizations.find(o => o.id === account.organization_id);
+                            if (!org) return null;
+                            return (
+                              <option key={account.id} value={org.id}>
+                                {org.name} {account.account_number ? `(Acc: ${account.account_number})` : ''}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {bulkResult && (
+                          <div className={`rounded-lg p-3 text-sm ${bulkResult.errors.length > 0 ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-green-50 border border-green-200 text-green-800'}`}>
+                            <p className="font-medium">
+                              {bulkResult.created} statement(s) created, {bulkResult.skipped} skipped (already existed for this period).
+                            </p>
+                            {bulkResult.errors.length > 0 && (
+                              <ul className="mt-2 text-xs list-disc list-inside space-y-0.5">
+                                {bulkResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Period selection */}
+                        <div className="grid md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Period Start</label>
+                            <input
+                              type="date"
+                              value={bulkPeriodStart}
+                              onChange={(e) => setBulkPeriodStart(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Period End</label>
+                            <input
+                              type="date"
+                              value={bulkPeriodEnd}
+                              onChange={(e) => setBulkPeriodEnd(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Select All / Deselect All */}
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-medium text-gray-700">
+                            Select Clients ({bulkSelectedOrgIds.length} of {activeAccounts.length} selected)
+                          </label>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setBulkSelectedOrgIds(activeAccounts.map(a => a.organization_id))}
+                              className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                            >
+                              Select All
+                            </button>
+                            <button
+                              onClick={() => setBulkSelectedOrgIds([])}
+                              className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                            >
+                              Deselect All
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Client checkbox list */}
+                        <div className="border border-gray-200 rounded-lg max-h-60 overflow-y-auto divide-y divide-gray-100">
+                          {activeAccounts.length === 0 ? (
+                            <div className="p-4 text-center text-sm text-gray-400">No active client accounts found</div>
+                          ) : (
+                            activeAccounts.map((account) => {
+                              const org = organizations.find(o => o.id === account.organization_id);
+                              if (!org) return null;
+                              const checked = bulkSelectedOrgIds.includes(org.id);
+                              return (
+                                <label
+                                  key={account.id}
+                                  className="flex items-center gap-3 p-2.5 hover:bg-gray-50 cursor-pointer transition-colors"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {
+                                      setBulkSelectedOrgIds(prev =>
+                                        prev.includes(org.id) ? prev.filter(id => id !== org.id) : [...prev, org.id]
+                                      );
+                                    }}
+                                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <Building2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                      <span className="text-sm font-medium text-gray-900 truncate">{org.name}</span>
+                                      {account.account_number && (
+                                        <span className="text-xs text-gray-500">Acc: {account.account_number}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Generate button */}
+                        <div className="flex justify-end">
+                          <button
+                            onClick={async () => {
+                              if (!bulkPeriodStart || !bulkPeriodEnd) {
+                                setError('Please set both period start and end dates.');
+                                return;
+                              }
+                              if (bulkPeriodStart > bulkPeriodEnd) {
+                                setError('Period start date cannot be after the period end date.');
+                                return;
+                              }
+                              if (bulkSelectedOrgIds.length === 0) {
+                                setError('Please select at least one client.');
+                                return;
+                              }
+                              setError('');
+                              setBulkGenerating(true);
+                              setBulkResult(null);
+                              let created = 0;
+                              let skipped = 0;
+                              const errs: string[] = [];
+                              try {
+                                for (const orgId of bulkSelectedOrgIds) {
+                                  const org = organizations.find(o => o.id === orgId);
+                                  try {
+                                    // Check if a statement already exists for this org + period
+                                    const { data: existing } = await supabase
+                                      .from('garage_statements')
+                                      .select('id')
+                                      .eq('garage_id', garageId)
+                                      .eq('organization_id', orgId)
+                                      .eq('period_start', bulkPeriodStart)
+                                      .eq('period_end', bulkPeriodEnd)
+                                      .maybeSingle();
+                                    if (existing) { skipped++; continue; }
+
+                                    // Get previous closing balance as opening balance
+                                    const { data: prevStmt } = await supabase
+                                      .from('garage_statements')
+                                      .select('closing_balance')
+                                      .eq('garage_id', garageId)
+                                      .eq('organization_id', orgId)
+                                      .order('statement_date', { ascending: false })
+                                      .limit(1)
+                                      .maybeSingle();
+
+                                    // Get account opening balance as fallback
+                                    const { data: acct } = await supabase
+                                      .from('organization_garage_accounts')
+                                      .select('opening_balance')
+                                      .eq('garage_id', garageId)
+                                      .eq('organization_id', orgId)
+                                      .maybeSingle();
+
+                                    const openingBalance = prevStmt?.closing_balance ?? Number(acct?.opening_balance || 0);
+
+                                    const { data: stmtNumber } = await supabase
+                                      .rpc('generate_garage_statement_number', { p_garage_id: garageId });
+                                    if (!stmtNumber) throw new Error('Failed to generate statement number');
+
+                                    const { data: newStmt, error: insertError } = await supabase
+                                      .from('garage_statements')
+                                      .insert({
+                                        garage_id: garageId,
+                                        organization_id: orgId,
+                                        statement_number: stmtNumber,
+                                        statement_date: bulkPeriodEnd,
+                                        period_start: bulkPeriodStart,
+                                        period_end: bulkPeriodEnd,
+                                        opening_balance: openingBalance,
+                                        total_invoices: 0,
+                                        total_payments: 0,
+                                        closing_balance: openingBalance,
+                                      })
+                                      .select()
+                                      .single();
+                                    if (insertError) throw insertError;
+
+                                    const { error: calcError } = await supabase
+                                      .rpc('calculate_statement_totals', { p_statement_id: newStmt.id });
+                                    if (calcError) throw calcError;
+
+                                    created++;
+                                  } catch (err: any) {
+                                    errs.push(`${org?.name || orgId}: ${err.message}`);
+                                  }
+                                }
+                                setBulkResult({ created, skipped, errors: errs });
+                                setBulkSelectedOrgIds([]);
+                              } catch (err: any) {
+                                setError(err.message || 'Bulk statement generation failed');
+                              } finally {
+                                setBulkGenerating(false);
+                              }
+                            }}
+                            disabled={bulkGenerating || bulkSelectedOrgIds.length === 0 || !bulkPeriodStart || !bulkPeriodEnd}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                          >
+                            {bulkGenerating ? (
+                              <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+                            ) : (
+                              <><FileText className="w-4 h-4" /> Generate {bulkSelectedOrgIds.length} Statement{bulkSelectedOrgIds.length !== 1 ? 's' : ''}</>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <GarageStatementsPayments
