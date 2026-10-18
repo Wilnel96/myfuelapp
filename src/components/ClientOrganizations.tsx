@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, Plus, CreditCard as Edit2, Save, X, AlertCircle, CheckCircle, Search, Trash2, Store } from 'lucide-react';
+import { Building2, Plus, CreditCard as Edit2, Save, X, AlertCircle, CheckCircle, Search, Store } from 'lucide-react';
 
 interface ClientOrganization {
   id: string;
@@ -98,8 +98,10 @@ interface FormData {
 
 interface ExistingUser {
   id: string;
+  user_id: string | null;
   email: string;
   name: string;
+  first_name: string;
   surname: string;
   title: string;
   phone_office: string | null;
@@ -129,7 +131,6 @@ export default function ClientOrganizations() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [managementOrgId, setManagementOrgId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [existingUsers, setExistingUsers] = useState<ExistingUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -243,8 +244,6 @@ export default function ClientOrganizations() {
       console.log('Profile:', profile);
 
       if (profile) {
-        setManagementOrgId(profile.organization_id);
-
         // Management users see ALL client organizations (no parent link needed)
         const { data, error } = await supabase
           .from('organizations')
@@ -690,9 +689,97 @@ export default function ClientOrganizations() {
     }
   };
 
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editUserForm, setEditUserForm] = useState<{
+    first_name: string;
+    surname: string;
+    email: string;
+    phone_office: string;
+    phone_mobile: string;
+    new_password: string;
+  }>({ first_name: '', surname: '', email: '', phone_office: '', phone_mobile: '', new_password: '' });
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [userEditError, setUserEditError] = useState('');
+  const [userEditSuccess, setUserEditSuccess] = useState('');
+
+  const startEditUser = (user: ExistingUser) => {
+    setEditingUserId(user.id);
+    setEditUserForm({
+      first_name: user.first_name || '',
+      surname: user.surname || '',
+      email: user.email || '',
+      phone_office: user.phone_office || '',
+      phone_mobile: user.phone_mobile || '',
+      new_password: '',
+    });
+    setUserEditError('');
+    setUserEditSuccess('');
+  };
+
+  const cancelEditUser = () => {
+    setEditingUserId(null);
+    setEditUserForm({ first_name: '', surname: '', email: '', phone_office: '', phone_mobile: '', new_password: '' });
+    setUserEditError('');
+    setUserEditSuccess('');
+  };
+
+  const saveExistingUser = async (user: ExistingUser) => {
+    setUserEditError('');
+    setUserEditSuccess('');
+    setSavingUserId(user.id);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const emailChanged = editUserForm.email.trim().toLowerCase() !== (user.email || '').toLowerCase();
+
+      if (emailChanged) {
+        const confirmMsg = `Are you sure you want to change this user's email from "${user.email}" to "${editUserForm.email}"?\n\nFor security, a temporary password will be sent to the new email address. The user will need to sign in with the new email and temporary password, then choose a new password.`;
+        if (!confirm(confirmMsg)) {
+          setSavingUserId(null);
+          return;
+        }
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-organization-user`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: user.user_id,
+          first_name: editUserForm.first_name,
+          surname: editUserForm.surname,
+          new_email: emailChanged ? editUserForm.email.trim() : undefined,
+          new_password: editUserForm.new_password ? editUserForm.new_password.trim() : undefined,
+          phone_office: editUserForm.phone_office,
+          phone_mobile: editUserForm.phone_mobile,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update user');
+      }
+
+      setUserEditSuccess(result.message || 'User updated successfully');
+      setEditingUserId(null);
+      await loadExistingUsers(editingId!);
+      setTimeout(() => setUserEditSuccess(''), 6000);
+    } catch (err: any) {
+      setUserEditError(err.message || 'Failed to update user');
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
+      entity_type: '',
+      entity_type_other: '',
       company_registration_number: '',
       vat_number: '',
       contact_person: '',
@@ -1055,8 +1142,7 @@ export default function ClientOrganizations() {
               </h3>
               {editingId ? (
                 <div className="space-y-2 mb-4">
-                  <p className="text-sm text-gray-600">View existing users below. Clients can manage their own users (add, edit, delete, set permissions) through their User Management section in the Back Office.</p>
-                  <p className="text-sm text-blue-600 font-medium">Note: To add users with custom permissions, the client organization should use their User Management interface.</p>
+                  <p className="text-sm text-gray-600">Edit existing users below — change names, email addresses, phone numbers, or reset passwords. Permissions are managed by the client through their own User Management section.</p>
                 </div>
               ) : (
                 <p className="text-sm text-gray-600 mb-4">Create user accounts for managing this organization. At least one user is required.</p>
@@ -1122,71 +1208,188 @@ export default function ClientOrganizations() {
                         {viewingUserId === user.id && (
                           <div className="border-t border-gray-200 p-6">
                             <div className="space-y-4">
-                              <div className="grid md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                  <input
-                                    type="email"
-                                    value={user.email}
-                                    disabled
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
-                                  />
+                              {userEditError && editingUserId === user.id && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+                                  <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                  <span className="text-sm text-red-800">{userEditError}</span>
                                 </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                  <input
-                                    type="text"
-                                    value="••••••••"
-                                    disabled
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
-                                    placeholder="••••••••"
-                                  />
+                              )}
+                              {userEditSuccess && (
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                                  <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                  <span className="text-sm text-green-800">{userEditSuccess}</span>
                                 </div>
-                              </div>
+                              )}
 
-                              <div className="grid md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                  <input
-                                    type="text"
-                                    value={user.first_name}
-                                    disabled
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Surname</label>
-                                  <input
-                                    type="text"
-                                    value={user.surname}
-                                    disabled
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
-                                  />
-                                </div>
-                              </div>
+                              {editingUserId === user.id ? (
+                                <>
+                                  <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                                      <input
+                                        type="email"
+                                        value={editUserForm.email}
+                                        onChange={(e) => setEditUserForm({ ...editUserForm, email: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                      />
+                                      <p className="text-xs text-gray-500 mt-1">Changing the email sends a temporary password to the new address.</p>
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                                      <input
+                                        type="password"
+                                        minLength={6}
+                                        value={editUserForm.new_password}
+                                        onChange={(e) => setEditUserForm({ ...editUserForm, new_password: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Leave blank to keep current password"
+                                      />
+                                    </div>
+                                  </div>
 
-                              <div className="grid md:grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Tel No-Office</label>
-                                  <input
-                                    type="tel"
-                                    value={user.phone_office || ''}
-                                    disabled
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
-                                    placeholder="e.g., 021 123 4567"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">Tel No-Mobile</label>
-                                  <input
-                                    type="tel"
-                                    value={user.phone_mobile || ''}
-                                    disabled
-                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
-                                    placeholder="e.g., 082 123 4567"
-                                  />
-                                </div>
-                              </div>
+                                  <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                      <input
+                                        type="text"
+                                        value={editUserForm.first_name}
+                                        onChange={(e) => setEditUserForm({ ...editUserForm, first_name: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Surname</label>
+                                      <input
+                                        type="text"
+                                        value={editUserForm.surname}
+                                        onChange={(e) => setEditUserForm({ ...editUserForm, surname: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Tel No-Office</label>
+                                      <input
+                                        type="tel"
+                                        value={editUserForm.phone_office}
+                                        onChange={(e) => setEditUserForm({ ...editUserForm, phone_office: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                        placeholder="e.g., 021 123 4567"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Tel No-Mobile</label>
+                                      <input
+                                        type="tel"
+                                        value={editUserForm.phone_mobile}
+                                        onChange={(e) => setEditUserForm({ ...editUserForm, phone_mobile: e.target.value })}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                        placeholder="e.g., 082 123 4567"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-3 pt-2">
+                                    <button
+                                      type="button"
+                                      disabled={savingUserId === user.id}
+                                      onClick={() => saveExistingUser(user)}
+                                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                    >
+                                      <Save className="w-4 h-4" />
+                                      {savingUserId === user.id ? 'Saving...' : 'Save Changes'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditUser}
+                                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                      <input
+                                        type="email"
+                                        value={user.email}
+                                        disabled
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                      <input
+                                        type="text"
+                                        value="••••••••"
+                                        disabled
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                        placeholder="••••••••"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                      <input
+                                        type="text"
+                                        value={user.first_name}
+                                        disabled
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Surname</label>
+                                      <input
+                                        type="text"
+                                        value={user.surname}
+                                        disabled
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Tel No-Office</label>
+                                      <input
+                                        type="tel"
+                                        value={user.phone_office || ''}
+                                        disabled
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                        placeholder="e.g., 021 123 4567"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">Tel No-Mobile</label>
+                                      <input
+                                        type="tel"
+                                        value={user.phone_mobile || ''}
+                                        disabled
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500 cursor-not-allowed"
+                                        placeholder="e.g., 082 123 4567"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-3 pt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditUser(user)}
+                                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                      Edit User
+                                    </button>
+                                  </div>
+                                </>
+                              )}
 
                               <div className="pt-4 border-t border-gray-200">
                                 <button

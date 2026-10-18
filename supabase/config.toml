@@ -76,6 +76,9 @@ verify_jwt = true
 [functions.setup-test-users]
 verify_jwt = true
 
+[functions.update-organization-user]
+verify_jwt = true
+
 [functions.update-user-email]
 verify_jwt = true
 
