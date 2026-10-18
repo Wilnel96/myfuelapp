@@ -87,10 +87,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const [orgResult, vehicleResult, driverResult, garageResult, billingUserResult] = await Promise.all([
+    const [orgResult, vehicleResult, driverResult, garageResult, billingUserResult, mainUserResult] = await Promise.all([
       supabase
         .from("organizations")
-        .select("name, address_line_1, address_line_2, city, province, postal_code, payment_option, fuel_payment_terms, fuel_payment_interest_rate")
+        .select("name, address_line_1, address_line_2, city, province, postal_code, payment_option, fuel_payment_terms, fuel_payment_interest_rate, fuel_invoice_email_frequency")
         .eq("id", transaction.organization_id)
         .maybeSingle(),
       supabase
@@ -112,9 +112,16 @@ Deno.serve(async (req: Request) => {
         .from("organization_users")
         .select("email")
         .eq("organization_id", transaction.organization_id)
+        .eq("title", "Billing User")
+        .maybeSingle(),
+      supabase
+        .from("organization_users")
+        .select("email")
+        .eq("organization_id", transaction.organization_id)
         .eq("is_main_user", true)
         .maybeSingle(),
     ]);
+
 
     if (orgResult.error || !orgResult.data) {
       return new Response(
@@ -160,7 +167,7 @@ Deno.serve(async (req: Request) => {
     const vehicle = vehicleResult.data;
     const driver = driverResult.data;
     const garage = garageResult.data;
-    const billingEmail = billingUserResult.data?.email || null;
+    const billingEmail = billingUserResult.data?.email || mainUserResult?.data?.email || null;
 
     let additionalItems: any[] = [];
     if (transaction.has_additional_items) {
@@ -354,9 +361,28 @@ MyFuelApp Management
 `;
 
     console.log("Invoice generated:", invoice.id);
-    console.log("Email would be sent to:", invoice.email_recipient);
-    console.log("Email subject:", emailSubject);
-    console.log("Email body:", emailBody);
+
+    const emailFrequency = organization.fuel_invoice_email_frequency;
+    let emailSent = false;
+
+    if (emailFrequency === "instant" && billingEmail) {
+      try {
+        const sendResponse = await fetch(`${supabaseUrl}/functions/v1/send-fuel-invoice-email`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ invoiceId: invoice.id }),
+        });
+        emailSent = sendResponse.ok;
+        if (!sendResponse.ok) {
+          console.error("Failed to send instant fuel invoice email:", await sendResponse.text());
+        }
+      } catch (emailError) {
+        console.error("Error sending instant fuel invoice email:", emailError);
+      }
+    }
 
     return new Response(
       JSON.stringify({
@@ -365,6 +391,8 @@ MyFuelApp Management
           ...invoice,
           additional_items: additionalItems,
         },
+        emailSent,
+        emailFrequency,
         message: "Invoice generated successfully",
       }),
       {

@@ -61,6 +61,12 @@ verify_jwt = false
 [functions.send-email]
 verify_jwt = false
 
+[functions.send-fuel-invoice-email]
+verify_jwt = false
+
+[functions.digest-fuel-invoices]
+verify_jwt = false
+
 [functions.send-service-exception-email]
 verify_jwt = true
 

@@ -34,6 +34,7 @@ interface ClientOrganization {
   billing_user_email?: string | null;
   billing_user_phone_office?: string | null;
   billing_user_phone_mobile?: string | null;
+  fuel_invoice_email_frequency?: string | null;
 }
 
 interface ClientOrgInfoProps {
@@ -240,6 +241,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
           monthly_fee_per_vehicle: clientSelfMode ? undefined : (editForm.monthly_fee_per_vehicle === undefined ? null : (editForm.monthly_fee_per_vehicle === '' ? null : Number(editForm.monthly_fee_per_vehicle))),
           monthly_fee_per_driver: clientSelfMode ? undefined : (editForm.monthly_fee_per_driver === undefined ? null : (editForm.monthly_fee_per_driver === '' ? null : Number(editForm.monthly_fee_per_driver))),
           use_driver_cost_to_company: editForm.use_driver_cost_to_company || false,
+          fuel_invoice_email_frequency: editForm.fuel_invoice_email_frequency || null,
         })
         .eq('id', editingId)
         .select();
@@ -873,6 +875,43 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                     )}
                   </div>
                 </div>
+
+                <div className="border-t pt-2 mt-2">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Fuel Invoice Email Frequency</h4>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">How often should the billing user receive fuel invoice emails?</label>
+                      <select
+                        value={editForm.fuel_invoice_email_frequency || ''}
+                        onChange={(e) => setEditForm({
+                          ...editForm,
+                          fuel_invoice_email_frequency: e.target.value || null,
+                        })}
+                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                      >
+                        <option value="">-- No emails --</option>
+                        <option value="instant">Instant (send immediately after each fuel-up)</option>
+                        <option value="daily">Daily summary</option>
+                        <option value="weekly">Weekly summary</option>
+                        <option value="monthly">Monthly summary</option>
+                      </select>
+                    </div>
+                    {editForm.fuel_invoice_email_frequency === 'instant' && (
+                      <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                        <p className="text-xs text-blue-900 font-medium">
+                          The billing user will receive an email immediately each time a driver fuels up.
+                        </p>
+                      </div>
+                    )}
+                    {(editForm.fuel_invoice_email_frequency === 'daily' || editForm.fuel_invoice_email_frequency === 'weekly' || editForm.fuel_invoice_email_frequency === 'monthly') && (
+                      <div className="bg-teal-50 border border-teal-200 rounded p-2">
+                        <p className="text-xs text-teal-900 font-medium">
+                          The billing user will receive a batch of all fuel invoices from the past {editForm.fuel_invoice_email_frequency === 'daily' ? 'day' : editForm.fuel_invoice_email_frequency === 'weekly' ? 'week' : 'month'}.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : (
               <div>
@@ -1128,6 +1167,28 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                               <p className="text-red-600 text-sm font-medium">Not configured</p>
                             )}
                           </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-span-2 border-t pt-3 mt-3">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">Fuel Invoice Email Frequency</h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-0.5">Email Frequency</label>
+                          <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
+                            org.fuel_invoice_email_frequency === 'instant' ? 'bg-blue-100 text-blue-800' :
+                            org.fuel_invoice_email_frequency === 'daily' ? 'bg-teal-100 text-teal-800' :
+                            org.fuel_invoice_email_frequency === 'weekly' ? 'bg-teal-100 text-teal-800' :
+                            org.fuel_invoice_email_frequency === 'monthly' ? 'bg-teal-100 text-teal-800' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {org.fuel_invoice_email_frequency === 'instant' ? 'Instant — sent immediately after each fuel-up' :
+                             org.fuel_invoice_email_frequency === 'daily' ? 'Daily summary' :
+                             org.fuel_invoice_email_frequency === 'weekly' ? 'Weekly summary' :
+                             org.fuel_invoice_email_frequency === 'monthly' ? 'Monthly summary' :
+                             'Not configured — no emails sent'}
+                          </span>
                         </div>
                       </div>
                     </div>
