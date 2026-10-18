@@ -496,7 +496,9 @@ export default function GarageStatementsPayments({
 
         pdf.setDrawColor(229, 231, 235);
         pdf.setLineWidth(0.2);
-        pdf.line(margin, yPosition - 2, pageWidth - margin, yPosition - 2);
+        pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+
+        yPosition += 5;
 
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'bold');
@@ -544,7 +546,9 @@ export default function GarageStatementsPayments({
 
         pdf.setDrawColor(229, 231, 235);
         pdf.setLineWidth(0.2);
-        pdf.line(margin, yPosition - 2, pageWidth - margin, yPosition - 2);
+        pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+
+        yPosition += 5;
 
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'bold');
