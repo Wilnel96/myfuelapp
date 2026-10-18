@@ -498,74 +498,73 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    try {
-      const invoiceApiUrl = `${supabaseUrl}/functions/v1/generate-fuel-transaction-invoice`;
-      const invoiceResponse = await fetch(invoiceApiUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${supabaseServiceKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fuelTransactionId: transaction.id,
-        }),
-      });
+    // The database trigger (auto_generate_fuel_transaction_invoice) creates
+    // the invoice automatically on insert. Re-fetch the transaction to get
+    // the invoice_id set by the trigger. If the trigger didn't fire or failed,
+    // fall back to calling the invoice generation function.
+    let generatedInvoice: any = null;
+    const { data: refreshedTx } = await supabase
+      .from("fuel_transactions")
+      .select("id, invoice_id")
+      .eq("id", transaction.id)
+      .maybeSingle();
 
-      const invoiceResult = await invoiceResponse.json();
-
-      if (invoiceResult.success) {
-        console.log("Invoice generated successfully:", invoiceResult.invoice.invoice_number);
-
-        const responseData: any = {
-          success: true,
-          transaction,
-          invoice: invoiceResult.invoice,
-          message: "Fuel transaction recorded and invoice generated"
-        };
-
-        if (tankCapacityWarning && vehicle.tank_capacity) {
-          const tankCapacity = Number(vehicle.tank_capacity);
-          responseData.warning = `WARNING: Refuel amount (${transactionData.liters}L) is at or near tank capacity (${tankCapacity}L). An exception has been logged for review.`;
-          responseData.warningType = "tank_capacity";
+    if (refreshedTx?.invoice_id) {
+      const { data: inv } = await supabase
+        .from("fuel_transaction_invoices")
+        .select("*")
+        .eq("id", refreshedTx.invoice_id)
+        .maybeSingle();
+      generatedInvoice = inv;
+    } else {
+      // Trigger didn't create an invoice — call the generation function as fallback
+      try {
+        const invoiceApiUrl = `${supabaseUrl}/functions/v1/generate-fuel-transaction-invoice`;
+        const invoiceResponse = await fetch(invoiceApiUrl, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ fuelTransactionId: transaction.id }),
+        });
+        const invoiceResult = await invoiceResponse.json();
+        if (invoiceResult.success) {
+          generatedInvoice = invoiceResult.invoice;
+        } else {
+          console.error("Fallback invoice generation failed:", invoiceResult.error);
         }
-
-        return new Response(
-          JSON.stringify(responseData),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      } else {
-        console.error("Failed to generate invoice:", invoiceResult.error);
-        return new Response(
-          JSON.stringify({
-            success: true,
-            transaction,
-            warning: "Transaction recorded but invoice generation failed",
-            invoiceError: invoiceResult.error
-          }),
-          {
-            status: 200,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
+      } catch (invoiceError) {
+        console.error("Error in fallback invoice generation:", invoiceError);
       }
-    } catch (invoiceError) {
-      console.error("Error generating invoice:", invoiceError);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          transaction,
-          warning: "Transaction recorded but invoice generation failed",
-          invoiceError: invoiceError.message
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
     }
+
+    const responseData: any = {
+      success: true,
+      transaction: { ...transaction, invoice_id: refreshedTx?.invoice_id || transaction.invoice_id },
+      invoice: generatedInvoice,
+      message: generatedInvoice
+        ? "Fuel transaction recorded and invoice generated"
+        : "Fuel transaction recorded but invoice generation failed"
+    };
+
+    if (!generatedInvoice) {
+      responseData.warning = "Transaction recorded but invoice generation failed";
+    }
+
+    if (tankCapacityWarning && vehicle.tank_capacity) {
+      const tankCapacity = Number(vehicle.tank_capacity);
+      responseData.warning = `WARNING: Refuel amount (${transactionData.liters}L) is at or near tank capacity (${tankCapacity}L). An exception has been logged for review.`;
+      responseData.warningType = "tank_capacity";
+    }
+
+    return new Response(
+      JSON.stringify(responseData),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
     console.error("Error:", error);
     return new Response(
