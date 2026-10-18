@@ -307,7 +307,7 @@ function App() {
             // Block login for deactivated (removed) org users — but allow super_admin
             if (orgUser && orgUser.is_active === false && profile?.role !== 'super_admin') {
               console.warn('Auth state - User is deactivated, blocking login');
-              pendingPortalErrorRef.current = 'Login denied — your account has been deactivated. Please contact your organization administrator.';
+              pendingPortalErrorRef.current = 'Login denied — Incorrect login credentials or unauthorized portal access.';
               await supabase.auth.signOut();
               setSession(null);
               setUserMode(null);
@@ -356,7 +356,7 @@ function App() {
 
               // Block garage users from signing in via the Client Portal.
               if (_event === 'SIGNED_IN' && currentLoginPortal === 'client') {
-                pendingPortalErrorRef.current = 'Login denied — these credentials belong to a Garage account. Please use the Garage Portal.';
+                pendingPortalErrorRef.current = 'Login denied — Incorrect login credentials or unauthorized portal access.';
                 await supabase.auth.signOut();
                 setSession(null);
                 setUserMode('admin');
@@ -462,9 +462,7 @@ function App() {
 
               if (currentLoginPortal === 'client' && !isClientRole) {
                 // Wrong portal — sign out and show error
-                pendingPortalErrorRef.current = effectiveRole === 'garage_user'
-                  ? 'Login denied — these credentials belong to a Garage account. Please use the Garage Portal.'
-                  : 'Login denied — these credentials belong to a System Admin account. Please use the System Admin portal.';
+                pendingPortalErrorRef.current = 'Login denied — Incorrect login credentials or unauthorized portal access.';
                 await supabase.auth.signOut();
                 setSession(null);
                 setUserMode('admin');
@@ -475,7 +473,7 @@ function App() {
               }
 
               if (currentLoginPortal === 'system_admin' && !isAdminRole) {
-                pendingPortalErrorRef.current = 'Login denied — this account does not have System Admin access. Please use the Client Portal.';
+                pendingPortalErrorRef.current = 'Login denied — Incorrect login credentials or unauthorized portal access.';
                 await supabase.auth.signOut();
                 setSession(null);
                 setUserMode('admin');
