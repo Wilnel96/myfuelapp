@@ -322,9 +322,14 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
           const oldBillingEmail = existingBilling?.email || '';
           const newBillingEmail = billingEmail;
           const billingEmailChanged = newBillingEmail.toLowerCase() !== oldBillingEmail.toLowerCase();
+          const mainUserEmail = (editForm.main_user_email || '').trim();
+          const matchesMainUser = mainUserEmail && newBillingEmail.toLowerCase() === mainUserEmail.toLowerCase();
 
-          // If the billing user has a linked auth account and the email changed, update it via the edge function
-          if (billingEmailChanged && existingBilling?.user_id) {
+          // Only call the edge function to update the auth account when the email
+          // actually changed AND the new billing email does NOT match the main user
+          // (the main user already owns that auth account, so the edge function
+          // would reject it as a duplicate).
+          if (billingEmailChanged && existingBilling?.user_id && !matchesMainUser) {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Not authenticated');
 
@@ -364,7 +369,7 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
             .eq('organization_id', editingId)
             .eq('title', 'Billing User');
           if (billingUserError) throw billingUserError;
-        } else if (billingEmail !== editForm.main_user_email) {
+        } else if (billingEmail.toLowerCase() !== (editForm.main_user_email || '').toLowerCase()) {
           // Only insert a separate billing row if it's a different person
           const { error: billingUserError } = await supabase
             .from('organization_users')
