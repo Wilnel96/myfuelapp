@@ -124,6 +124,7 @@ function App() {
     setLoginPortal(portal);
   };
   const [portalError, setPortalError] = useState<string>('');
+  const pendingPortalErrorRef = useRef<string>('');
   const [paymentOption, setPaymentOption] = useState<string | null>(null);
   const [organizationId, setOrganizationId] = useState<string>('');
   const [organizationName, setOrganizationName] = useState<string>('');
@@ -306,8 +307,8 @@ function App() {
             // Block login for deactivated (removed) org users — but allow super_admin
             if (orgUser && orgUser.is_active === false && profile?.role !== 'super_admin') {
               console.warn('Auth state - User is deactivated, blocking login');
+              pendingPortalErrorRef.current = 'Login denied — your account has been deactivated. Please contact your organization administrator.';
               await supabase.auth.signOut();
-              setPortalError('Your account has been deactivated. Please contact your organization administrator.');
               setSession(null);
               setUserMode(null);
               setShowModeSelection(true);
@@ -355,11 +356,12 @@ function App() {
 
               // Block garage users from signing in via the Client Portal.
               if (_event === 'SIGNED_IN' && currentLoginPortal === 'client') {
-                supabase.auth.signOut();
-                setPortalError('Garage accounts must sign in via the Garage Portal.');
+                pendingPortalErrorRef.current = 'Login denied — these credentials belong to a Garage account. Please use the Garage Portal.';
+                await supabase.auth.signOut();
                 setSession(null);
                 setUserMode('admin');
                 setShowModeSelection(false);
+                setLoginPortalWithRef('client');
                 setLoading(false);
                 return;
               }
@@ -460,24 +462,25 @@ function App() {
 
               if (currentLoginPortal === 'client' && !isClientRole) {
                 // Wrong portal — sign out and show error
-                const msg = effectiveRole === 'garage_user'
-                  ? 'Garage accounts must sign in via the Garage Portal.'
-                  : 'System administrators must sign in via the System Admin portal.';
-                supabase.auth.signOut();
-                setPortalError(msg);
+                pendingPortalErrorRef.current = effectiveRole === 'garage_user'
+                  ? 'Login denied — these credentials belong to a Garage account. Please use the Garage Portal.'
+                  : 'Login denied — these credentials belong to a System Admin account. Please use the System Admin portal.';
+                await supabase.auth.signOut();
                 setSession(null);
                 setUserMode('admin');
                 setShowModeSelection(false);
+                setLoginPortalWithRef('client');
                 setLoading(false);
                 return;
               }
 
               if (currentLoginPortal === 'system_admin' && !isAdminRole) {
-                supabase.auth.signOut();
-                setPortalError('This account does not have System Admin access. Please use the Client Portal.');
+                pendingPortalErrorRef.current = 'Login denied — this account does not have System Admin access. Please use the Client Portal.';
+                await supabase.auth.signOut();
                 setSession(null);
                 setUserMode('admin');
                 setShowModeSelection(false);
+                setLoginPortalWithRef('system_admin');
                 setLoading(false);
                 return;
               }
@@ -540,7 +543,15 @@ function App() {
         setShowModeSelection(true);
         setShowPortalSelection(false);
         setShowSignup(false);
-        setPortalError('');
+        // Preserve a portal error set during sign-out (e.g. wrong-portal login)
+        // so it stays visible on the login screen instead of being cleared.
+        const preservedError = pendingPortalErrorRef.current;
+        pendingPortalErrorRef.current = '';
+        if (preservedError) {
+          setPortalError(preservedError);
+        } else {
+          setPortalError('');
+        }
         setLoading(false);
       } else if (_event === 'INITIAL_SESSION' && !session) {
         console.log('Initial session check - no session found');
