@@ -42,7 +42,7 @@ import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3,
 import { DriverData } from './components/DriverAuth';
 
 type UserMode = 'admin' | 'driver' | 'garage' | null;
-type ClientPortalType = 'card' | 'account' | 'both' | null;
+type ClientPortalType = 'card' | 'account' | null;
 
 function SuperAdminReportsMenu({ onNavigate }: { onNavigate: (view: string) => void }) {
   return (
@@ -502,7 +502,6 @@ function App() {
               if (!isManagementUser) {
                 if (po === 'Card Payment') setClientPortalType('card');
                 else if (po === 'Local Account') setClientPortalType('account');
-                else if (po === 'Both') setClientPortalType('both');
               }
             }
 
@@ -728,7 +727,6 @@ function App() {
               if (!isManagementUser) {
                 if (po === 'Card Payment') setClientPortalType('card');
                 else if (po === 'Local Account') setClientPortalType('account');
-                else if (po === 'Both') setClientPortalType('both');
               }
             }
 
@@ -1345,16 +1343,10 @@ function App() {
         ) : currentView === 'garages' ? (
           isRealSuperAdmin ? (
             <GarageManagement key="garages" onNavigate={setCurrentView} />
-          ) : paymentOption === 'Local Account' || paymentOption === 'Both' ? (
+          ) : paymentOption === 'Local Account' ? (
             <div className="space-y-6">
               {organizationId && organizationName && (
                 <ClientGarageAccounts organizationId={organizationId} organizationName={organizationName} />
-              )}
-              {paymentOption === 'Both' && (
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900 mb-3">Garage Directory</h2>
-                  <ClientGaragesView key="garages-dir" onNavigate={setCurrentView} />
-                </div>
               )}
             </div>
           ) : (

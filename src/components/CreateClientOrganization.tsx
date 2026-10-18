@@ -8,7 +8,7 @@ interface CreateClientOrganizationProps {
   /** When true: no login required, calls the public client-self-signup edge function */
   publicMode?: boolean;
   /** When set, pre-locks the payment option to this value and hides the selector */
-  lockedPaymentOption?: 'Card Payment' | 'Local Account' | 'Both';
+  lockedPaymentOption?: 'Card Payment' | 'Local Account';
   /** When set, the new organization is linked to this garage as a managed client */
   managingGarageId?: string | null;
 }
@@ -103,7 +103,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
     year_end_day: 28,
     daily_spending_limit: null as number | null,
     monthly_spending_limit: null as number | null,
-    payment_option: null as 'Card Payment' | 'Local Account' | 'Both' | null,
+    payment_option: null as 'Card Payment' | 'Local Account' | null,
     fuel_payment_terms: null as 'Same Day' | 'Next Day' | '30-Days' | null,
     fuel_payment_interest_rate: null as number | null,
   });
@@ -1828,7 +1828,6 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                   <option value="">-- Select Payment Option --</option>
                   <option value="Card Payment">Credit/Debit Card Payment</option>
                   <option value="Local Account">Garage Account</option>
-                  <option value="Both">Both Credit/Debit Cards & Garage Account</option>
                 </select>
               )}
             </div>
@@ -1898,13 +1897,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
               </div>
             )}
 
-            {formData.payment_option === 'Both' && !(publicMode && accountType === 'individual') && (
-              <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
-                <p className="text-xs text-teal-900 font-medium">
-                  Client uses a credit/debit card at garages where they don't have a garage account, and uses garage accounts at their usual garages. Ideal for clients who travel to other areas of the country where they don't have a local garage account. MyFuelApp manages both card and garage account transactions. Client pays MyFuelApp for management fees only.
-                </p>
-              </div>
-            )}
+
 
             {!publicMode && (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
@@ -1916,9 +1909,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
                   <div>
                     <span className="font-medium text-amber-700">Garage Account:</span> Client has existing accounts with garages. MyFuelApp tracks transactions. Client pays MyFuelApp for management fees only. Best for established garage relationships.
                   </div>
-                  <div>
-                    <span className="font-medium text-teal-700">Both Credit/Debit Cards & Garage Account:</span> Use the card at garages without a garage account, and a garage account at your usual garages. Ideal for clients who travel to other areas where they don't have a local garage account.
-                  </div>
+
                 </div>
               </div>
             )}

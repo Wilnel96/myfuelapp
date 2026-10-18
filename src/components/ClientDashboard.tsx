@@ -143,8 +143,8 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
   );
 
   // Label and description for garages item depends on payment option
-  const hasLocalAccount = paymentOption === 'Local Account' || paymentOption === 'Both';
-  const hasCard = paymentOption === 'Card Payment' || paymentOption === 'Both';
+  const hasLocalAccount = paymentOption === 'Local Account';
+  const hasCard = paymentOption === 'Card Payment';
   const garageTitle = hasLocalAccount ? 'Garage Accounts' : 'Garages';
   const garageDescription = hasLocalAccount
     ? 'Manage garage accounts and spending limits'
@@ -282,15 +282,7 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
 
   return (
     <div className="space-y-4">
-      {paymentOption === 'Both' && (
-        <div className="flex items-center gap-2 px-1 py-2">
-          <CreditCard className="w-4 h-4 text-blue-600" />
-          <span className="text-sm text-blue-700 font-medium">Card Payment</span>
-          <span className="text-gray-400 mx-1">+</span>
-          <Store className="w-4 h-4 text-amber-600" />
-          <span className="text-sm text-amber-700 font-medium">Garage Accounts</span>
-        </div>
-      )}
+
 
       <div className="grid md:grid-cols-2 gap-3">
         {canAccessVehicles && (

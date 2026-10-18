@@ -378,14 +378,7 @@ export default function ClientInvoices({ onNavigate }: ClientInvoicesProps = {})
                     <div className="mb-2 pb-2 border-b">
                       <p className="font-semibold text-gray-900">Payment Option:</p>
                       <p className="text-gray-600">{selectedInvoice.payment_option}</p>
-                      {selectedInvoice.payment_option === 'EFT Payment' && selectedInvoice.fuel_payment_terms && (
-                        <>
-                          <p className="text-xs text-gray-500 mt-1">Fuel Terms: {selectedInvoice.fuel_payment_terms}</p>
-                          {selectedInvoice.fuel_payment_interest_rate && selectedInvoice.fuel_payment_terms !== 'Same Day' && (
-                            <p className="text-xs text-gray-500">Interest Rate: {selectedInvoice.fuel_payment_interest_rate}%</p>
-                          )}
-                        </>
-                      )}
+
                     </div>
                   )}
                   <p className="font-semibold text-gray-900">Payment Terms:</p>
@@ -591,7 +584,6 @@ export default function ClientInvoices({ onNavigate }: ClientInvoicesProps = {})
                     <td className="px-4 py-3 text-sm">
                       {invoice.payment_option ? (
                         <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                          invoice.payment_option === 'EFT Payment' ? 'bg-green-100 text-green-800' :
                           invoice.payment_option === 'Card Payment' ? 'bg-blue-100 text-blue-800' :
                           'bg-amber-100 text-amber-800'
                         }`}>

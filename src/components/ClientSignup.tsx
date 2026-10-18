@@ -149,7 +149,7 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
           province: accountType === 'individual' ? (userData.province || null) : (orgData.province || null),
           postal_code: accountType === 'individual' ? (userData.postal_code || null) : (orgData.postal_code || null),
           account_type: accountType,
-          payment_option: portalType === 'card' ? 'Card Payment' : portalType === 'account' ? 'Local Account' : 'Both',
+          payment_option: portalType === 'card' ? 'Card Payment' : 'Local Account',
           is_management_org: false,
           organization_type: 'client',
           monthly_fee_per_vehicle: defaultMonthlyFee,

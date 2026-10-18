@@ -280,7 +280,7 @@ Deno.serve(async (req: Request) => {
     let resolvedFuelCardId: string | null = null;
     let resolvedPaymentMethod = "card";
 
-    if (organization?.payment_option === "Card Payment" || organization?.payment_option === "Both") {
+    if (organization?.payment_option === "Card Payment") {
       const { data: defaultCard } = await supabase
         .from("organization_payment_cards")
         .select("id")
