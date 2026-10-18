@@ -353,6 +353,17 @@ function App() {
             if (isGarageUser) {
               console.log('Auth state - Garage user detected, loading garage details');
 
+              // Block garage users from signing in via the Client Portal.
+              if (_event === 'SIGNED_IN' && currentLoginPortal === 'client') {
+                supabase.auth.signOut();
+                setPortalError('Garage accounts must sign in via the Garage Portal.');
+                setSession(null);
+                setUserMode('admin');
+                setShowModeSelection(false);
+                setLoading(false);
+                return;
+              }
+
               const garageOrgId = orgUser?.organization_id || profile.organization_id;
 
               // Fetch garage details from organization
