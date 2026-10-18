@@ -325,50 +325,60 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
           const mainUserEmail = (editForm.main_user_email || '').trim();
           const matchesMainUser = mainUserEmail && newBillingEmail.toLowerCase() === mainUserEmail.toLowerCase();
 
-          // Only call the edge function to update the auth account when the email
-          // actually changed AND the new billing email does NOT match the main user
-          // (the main user already owns that auth account, so the edge function
-          // would reject it as a duplicate).
-          if (billingEmailChanged && existingBilling?.user_id && !matchesMainUser) {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error('Not authenticated');
+          if (matchesMainUser) {
+            // Billing user is now the same person as the main user. Delete the
+            // dedicated billing row to avoid violating the (organization_id,
+            // email) unique constraint — the main user row already holds that email.
+            const { error: deleteError } = await supabase
+              .from('organization_users')
+              .delete()
+              .eq('organization_id', editingId)
+              .eq('title', 'Billing User');
+            if (deleteError) throw deleteError;
+          } else {
+            // Only call the edge function to update the auth account when the email
+            // actually changed AND the billing user has a linked auth account.
+            if (billingEmailChanged && existingBilling?.user_id) {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) throw new Error('Not authenticated');
 
-            const billingEmailResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-email`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${session.access_token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                user_id: existingBilling.user_id,
-                new_email: newBillingEmail,
-              }),
-            });
+              const billingEmailResponse = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-email`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  user_id: existingBilling.user_id,
+                  new_email: newBillingEmail,
+                }),
+              });
 
-            if (!billingEmailResponse.ok) {
-              const errBody = await billingEmailResponse.json().catch(() => ({}));
-              throw new Error(errBody.error || `Failed to update billing user email (status ${billingEmailResponse.status})`);
+              if (!billingEmailResponse.ok) {
+                const errBody = await billingEmailResponse.json().catch(() => ({}));
+                throw new Error(errBody.error || `Failed to update billing user email (status ${billingEmailResponse.status})`);
+              }
+
+              const billingEmailResult = await billingEmailResponse.json();
+              if (!billingEmailResult.success) {
+                throw new Error(billingEmailResult.error || 'Failed to update billing user email address');
+              }
             }
 
-            const billingEmailResult = await billingEmailResponse.json();
-            if (!billingEmailResult.success) {
-              throw new Error(billingEmailResult.error || 'Failed to update billing user email address');
-            }
+            // Update the dedicated billing user row
+            const { error: billingUserError } = await supabase
+              .from('organization_users')
+              .update({
+                first_name: editForm.billing_user_name,
+                surname: editForm.billing_user_surname,
+                email: billingEmailChanged ? newBillingEmail : undefined,
+                phone_office: editForm.billing_user_phone_office || null,
+                phone_mobile: editForm.billing_user_phone_mobile || null,
+              })
+              .eq('organization_id', editingId)
+              .eq('title', 'Billing User');
+            if (billingUserError) throw billingUserError;
           }
-
-          // Update the dedicated billing user row
-          const { error: billingUserError } = await supabase
-            .from('organization_users')
-            .update({
-              first_name: editForm.billing_user_name,
-              surname: editForm.billing_user_surname,
-              email: billingEmailChanged ? newBillingEmail : undefined,
-              phone_office: editForm.billing_user_phone_office || null,
-              phone_mobile: editForm.billing_user_phone_mobile || null,
-            })
-            .eq('organization_id', editingId)
-            .eq('title', 'Billing User');
-          if (billingUserError) throw billingUserError;
         } else if (billingEmail.toLowerCase() !== (editForm.main_user_email || '').toLowerCase()) {
           // Only insert a separate billing row if it's a different person
           const { error: billingUserError } = await supabase
