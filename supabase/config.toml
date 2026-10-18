@@ -1,0 +1,89 @@
+[functions.change-password]
+verify_jwt = false
+
+[functions.check-invoice-integrity]
+verify_jwt = true
+
+[functions.client-self-signup]
+verify_jwt = false
+
+[functions.create-fuel-transaction]
+verify_jwt = false
+
+[functions.create-garage-contact-user]
+verify_jwt = true
+
+[functions.create-organization-users]
+verify_jwt = true
+
+[functions.create-user]
+verify_jwt = true
+
+[functions.database-backup]
+verify_jwt = true
+
+[functions.driver-auth]
+verify_jwt = false
+
+[functions.encrypt-card-data]
+verify_jwt = true
+
+[functions.garage-local-accounts]
+verify_jwt = false
+
+[functions.garage-managed-client-setup]
+verify_jwt = false
+
+[functions.garage-update]
+verify_jwt = false
+
+[functions.generate-client-statements]
+verify_jwt = true
+
+[functions.generate-fuel-transaction-invoice]
+verify_jwt = true
+
+[functions.generate-garage-fee-invoices]
+verify_jwt = false
+
+[functions.generate-monthly-invoices]
+verify_jwt = true
+
+[functions.nightly-reports]
+verify_jwt = true
+
+[functions.password-reset]
+verify_jwt = false
+
+[functions.prepare-nfc-payment]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
+
+[functions.send-service-exception-email]
+verify_jwt = true
+
+[functions.send-statement-email]
+verify_jwt = true
+
+[functions.set-driver-pin]
+verify_jwt = false
+
+[functions.setup-shell-robertson]
+verify_jwt = true
+
+[functions.setup-test-users]
+verify_jwt = true
+
+[functions.update-user-email]
+verify_jwt = true
+
+[functions.update-user-password]
+verify_jwt = false
+
+[functions.validate-driver-session]
+verify_jwt = false
+
+[functions.verify-driver-pin]
+verify_jwt = true

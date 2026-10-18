@@ -101,9 +101,11 @@ export default function GarageStatementsPayments({
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [recalcSuccess, setRecalcSuccess] = useState('');
+  const [accountOpeningBalance, setAccountOpeningBalance] = useState(0);
 
   useEffect(() => {
     loadData();
+    loadAccountOpeningBalance();
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
         supabase
@@ -180,6 +182,18 @@ export default function GarageStatementsPayments({
     setStatements(data || []);
   };
 
+  const loadAccountOpeningBalance = async () => {
+    const { data, error } = await supabase
+      .from('organization_garage_accounts')
+      .select('opening_balance')
+      .eq('garage_id', garageId)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+    if (!error && data) {
+      setAccountOpeningBalance(Number(data.opening_balance) || 0);
+    }
+  };
+
   const loadPayments = async () => {
     const { data, error: paymentsError } = await supabase
       .from('garage_debtor_payments')
@@ -219,7 +233,7 @@ export default function GarageStatementsPayments({
         .limit(1)
         .maybeSingle();
 
-      const openingBalance = previousStatement?.closing_balance || 0;
+      const openingBalance = previousStatement?.closing_balance ?? accountOpeningBalance;
 
       const { data: newStatement, error: insertError } = await supabase
         .from('garage_statements')
@@ -964,6 +978,17 @@ export default function GarageStatementsPayments({
             {showCreateStatement && (
               <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h4 className="font-semibold mb-4">Create New Statement</h4>
+                {statements.length === 0 && accountOpeningBalance !== 0 && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800">
+                      <span className="font-semibold">Opening Balance from previous system:</span>{' '}
+                      R {accountOpeningBalance.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-amber-600 mt-1">
+                      This balance was carried over when the client was onboarded. It will be used as the opening balance for the first statement.
+                    </p>
+                  </div>
+                )}
                 <div className="grid md:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Period Start</label>

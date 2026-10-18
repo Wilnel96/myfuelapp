@@ -42,6 +42,7 @@ interface LocalAccount {
   account_number: string | null;
   monthly_spend_limit: number | null;
   deposit_amount: number | null;
+  opening_balance: number | null;
 }
 
 interface FuelInvoice {
@@ -135,6 +136,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
   const [accountNumberInput, setAccountNumberInput] = useState('');
   const [accountLimitInput, setAccountLimitInput] = useState('');
   const [depositInput, setDepositInput] = useState('');
+  const [openingBalanceInput, setOpeningBalanceInput] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showGarageClientSignup, setShowGarageClientSignup] = useState(false);
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
@@ -474,6 +476,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
 
       const monthlySpendLimit = accountLimitInput.trim() ? parseFloat(accountLimitInput) : null;
       const depositAmount = depositInput.trim() ? parseFloat(depositInput) : null;
+      const openingBalance = openingBalanceInput.trim() ? parseFloat(openingBalanceInput) : 0;
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/garage-local-accounts`;
       const response = await fetch(apiUrl, {
@@ -491,6 +494,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
             account_number: accountNumberInput || null,
             monthly_spend_limit: monthlySpendLimit,
             deposit_amount: depositAmount,
+            opening_balance: openingBalance,
           },
         }),
       });
@@ -518,6 +522,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
     setAccountNumberInput('');
     setAccountLimitInput('');
     setDepositInput('');
+    setOpeningBalanceInput('');
   };
 
   // Derive current user's permissions from contact_persons
@@ -556,6 +561,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
     setAccountNumberInput(account.account_number || '');
     setAccountLimitInput(account.monthly_spend_limit ? account.monthly_spend_limit.toString() : '');
     setDepositInput(account.deposit_amount ? account.deposit_amount.toString() : '');
+    setOpeningBalanceInput(account.opening_balance ? account.opening_balance.toString() : '');
     setOrgEditFields({
       name: org.name || '',
       vat_number: org.vat_number || '',
@@ -1617,6 +1623,19 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                                     />
                                   </div>
                                 </div>
+                                <div className="flex items-center gap-2">
+                                  <label className="text-xs font-medium text-gray-700 w-32 flex-shrink-0">Opening Balance</label>
+                                  <div className="flex-1 relative">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">R</span>
+                                    <input
+                                      type="number" step="0.01"
+                                      value={openingBalanceInput}
+                                      onChange={(e) => setOpeningBalanceInput(e.target.value)}
+                                      placeholder="0.00"
+                                      className="w-full pl-6 pr-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                </div>
                                 <div className="flex items-center gap-2 pt-1">
                                   <button
                                     onClick={() => handleSaveAccount(account.id)}
@@ -1764,6 +1783,12 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                                     <span className="text-gray-500 italic">No deposit</span>
                                   )}
                                 </p>
+                                {account.opening_balance !== null && Number(account.opening_balance) !== 0 && (
+                                  <p className="text-xs text-gray-700">
+                                    <span className="font-medium">Opening Balance: </span>
+                                    <span className="text-gray-900 font-bold">R {Number(account.opening_balance).toFixed(2)}</span>
+                                  </p>
+                                )}
                                 {account.notes && (
                                   <p className="text-xs text-gray-600">
                                     <span className="font-medium">Notes: </span>
