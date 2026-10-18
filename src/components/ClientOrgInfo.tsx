@@ -237,8 +237,8 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
           fuel_payment_terms: null,
           fuel_payment_interest_rate: null,
           phone_number: editForm.phone_number,
-          monthly_fee_per_vehicle: editForm.monthly_fee_per_vehicle === undefined ? null : (editForm.monthly_fee_per_vehicle === '' ? null : Number(editForm.monthly_fee_per_vehicle)),
-          monthly_fee_per_driver: editForm.monthly_fee_per_driver === undefined ? null : (editForm.monthly_fee_per_driver === '' ? null : Number(editForm.monthly_fee_per_driver)),
+          monthly_fee_per_vehicle: clientSelfMode ? undefined : (editForm.monthly_fee_per_vehicle === undefined ? null : (editForm.monthly_fee_per_vehicle === '' ? null : Number(editForm.monthly_fee_per_vehicle))),
+          monthly_fee_per_driver: clientSelfMode ? undefined : (editForm.monthly_fee_per_driver === undefined ? null : (editForm.monthly_fee_per_driver === '' ? null : Number(editForm.monthly_fee_per_driver))),
           use_driver_cost_to_company: editForm.use_driver_cost_to_company || false,
         })
         .eq('id', editingId)
@@ -736,26 +736,34 @@ export default function ClientOrgInfo({ onNavigate, clientSelfMode = false, back
                   <h4 className="text-sm font-semibold text-gray-900 mb-2">Monthly Fees</h4>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Fee Per Vehicle (R/month, excl. VAT)</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Fee Per Vehicle (R/month, excl. VAT)
+                        {clientSelfMode && <span className="ml-1 text-[10px] font-normal text-gray-400">(set by Management)</span>}
+                      </label>
                       <input
                         type="number"
                         step="0.01"
                         min="0"
                         value={editForm.monthly_fee_per_vehicle ?? ''}
+                        readOnly={clientSelfMode}
                         onChange={(e) => setEditForm({ ...editForm, monthly_fee_per_vehicle: e.target.value === '' ? null : parseFloat(e.target.value) })}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        className={`w-full px-2 py-1.5 text-sm border border-gray-300 rounded ${clientSelfMode ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
                         placeholder="e.g. 50.00"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Fee Per Driver (R/month, excl. VAT)</label>
+                      <label className="block text-xs font-medium text-gray-700 mb-0.5">
+                        Fee Per Driver (R/month, excl. VAT)
+                        {clientSelfMode && <span className="ml-1 text-[10px] font-normal text-gray-400">(set by Management)</span>}
+                      </label>
                       <input
                         type="number"
                         step="0.01"
                         min="0"
                         value={editForm.monthly_fee_per_driver ?? ''}
+                        readOnly={clientSelfMode}
                         onChange={(e) => setEditForm({ ...editForm, monthly_fee_per_driver: e.target.value === '' ? null : parseFloat(e.target.value) })}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
+                        className={`w-full px-2 py-1.5 text-sm border border-gray-300 rounded ${clientSelfMode ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''}`}
                         placeholder="e.g. 30.00"
                       />
                     </div>
