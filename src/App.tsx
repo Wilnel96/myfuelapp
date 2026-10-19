@@ -198,52 +198,8 @@ function App() {
     const storedDriverData = localStorage.getItem('driverData');
     const storedGarageData = localStorage.getItem('garageData');
 
-    if (storedDriverToken && storedDriverData) {
-      // Validate the stored token before restoring session
-      validateDriverSession(storedDriverToken).then(valid => {
-        if (!mounted) return;
-        if (!valid) {
-          localStorage.removeItem('driverToken');
-          localStorage.removeItem('driverData');
-          setLoading(false);
-          return;
-        }
-        try {
-          const driver = JSON.parse(storedDriverData);
-          setDriverData({ ...driver, token: storedDriverToken });
-          setUserMode('driver');
-          setShowModeSelection(false);
-          startDriverSessionPoll(storedDriverToken);
-          setLoading(false);
-          console.log('Driver session restored from localStorage');
-        } catch (e) {
-          console.error('Failed to restore driver session:', e);
-          localStorage.removeItem('driverToken');
-          localStorage.removeItem('driverData');
-          setLoading(false);
-        }
-      });
-      return;
-    }
-
-    if (storedGarageData) {
-      try {
-        const garage = JSON.parse(storedGarageData);
-        setGarageId(garage.id);
-        setGarageName(garage.name);
-        setGarageEmail(garage.email);
-        setGaragePassword(garage.password);
-        setUserMode('garage');
-        setShowModeSelection(false);
-        setLoading(false);
-        console.log('Garage session restored from localStorage');
-        return;
-      } catch (e) {
-        console.error('Failed to restore garage session:', e);
-        localStorage.removeItem('garageData');
-      }
-    }
-
+    // Always register the auth state listener first so SIGNED_IN events are
+    // handled even when a stale driver/garage session is restored below.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -753,6 +709,49 @@ function App() {
         setLoading(false);
       }
     });
+
+    // Restore a stored driver or garage session. This runs after the auth
+    // listener and getSession are registered so SIGNED_IN events are never missed.
+    if (storedDriverToken && storedDriverData) {
+      validateDriverSession(storedDriverToken).then(valid => {
+        if (!mounted) return;
+        if (!valid) {
+          localStorage.removeItem('driverToken');
+          localStorage.removeItem('driverData');
+          setLoading(false);
+          return;
+        }
+        try {
+          const driver = JSON.parse(storedDriverData);
+          setDriverData({ ...driver, token: storedDriverToken });
+          setUserMode('driver');
+          setShowModeSelection(false);
+          startDriverSessionPoll(storedDriverToken);
+          setLoading(false);
+          console.log('Driver session restored from localStorage');
+        } catch (e) {
+          console.error('Failed to restore driver session:', e);
+          localStorage.removeItem('driverToken');
+          localStorage.removeItem('driverData');
+          setLoading(false);
+        }
+      });
+    } else if (storedGarageData) {
+      try {
+        const garage = JSON.parse(storedGarageData);
+        setGarageId(garage.id);
+        setGarageName(garage.name);
+        setGarageEmail(garage.email);
+        setGaragePassword(garage.password);
+        setUserMode('garage');
+        setShowModeSelection(false);
+        setLoading(false);
+        console.log('Garage session restored from localStorage');
+      } catch (e) {
+        console.error('Failed to restore garage session:', e);
+        localStorage.removeItem('garageData');
+      }
+    }
 
     timeoutRef.current = setTimeout(() => {
       if (mounted && loading) {
