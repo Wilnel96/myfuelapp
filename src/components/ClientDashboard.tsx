@@ -168,20 +168,6 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
         </div>
         <div className="space-y-2">
           <button
-            onClick={() => onNavigate('fee-invoices')}
-            className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <DollarSign className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Fee Invoices</h3>
-                <p className="text-sm text-gray-600">Monthly subscription and service fees</p>
-              </div>
-            </div>
-          </button>
-          <button
             onClick={() => onNavigate('fuel-invoices')}
             className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors"
           >
@@ -206,6 +192,20 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
               <div>
                 <h3 className="font-semibold text-gray-900">Garage Statements & Payments</h3>
                 <p className="text-sm text-gray-600">View statements from garages and record payments for reconciliation</p>
+              </div>
+            </div>
+          </button>
+          <button
+            onClick={() => onNavigate('fee-invoices')}
+            className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <DollarSign className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Fee Invoices</h3>
+                <p className="text-sm text-gray-600">Monthly subscription and service fees</p>
               </div>
             </div>
           </button>
