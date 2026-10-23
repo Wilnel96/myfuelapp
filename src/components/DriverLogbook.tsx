@@ -552,7 +552,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         vehicle_model: selectedTrip.vehicleModel,
       };
 
-      setEntries(prev => [...prev, newEntry]);
+      setEntries(prev => [newEntry, ...prev]);
       setSuccessMsg('Logbook entry saved. Add closing kilometers later when the trip is complete.');
       setVoiceStep('idle');
       setVoiceOpenKm('');
@@ -695,7 +695,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         vehicle_model: selectedTrip.vehicleModel,
       };
 
-      setEntries(prev => [...prev, newEntry]);
+      setEntries(prev => [newEntry, ...prev]);
       setSuccessMsg('Logbook entry saved successfully');
       setManualOpenKm('');
       setManualFrom('');
