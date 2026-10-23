@@ -787,7 +787,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const exportCSV = () => {
     if (!entries.length || !selectedTrip) return;
 
-    let csv = `SARS Logbook - ${selectedTrip.vehicleRegistration}\nDriver: ${driverName}\nDate: ${new Date().toLocaleDateString('en-ZA')}\n\n`;
+    let csv = `Detail Logbook (SARS) - ${selectedTrip.vehicleRegistration}\nDriver: ${driverName}\nDate: ${new Date().toLocaleDateString('en-ZA')}\n\n`;
     csv += 'Date,Open km,From,Reason,Closing km,KM Travelled\n';
 
     let totalKm = 0;
@@ -871,7 +871,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       // Header rows
       const excelRows: any[] = [
-        { A: `SARS Logbook — ${driverName}`, B: '', C: '', D: '', E: '', F: '', G: '' },
+        { A: `Detail Logbook (SARS) — ${driverName}`, B: '', C: '', D: '', E: '', F: '', G: '' },
         { A: `Period: ${dlStartDate} to ${dlEndDate}`, B: '', C: '', D: '', E: '', F: '', G: '' },
         { A: `Generated: ${new Date().toLocaleString('en-GB')}`, B: '', C: '', D: '', E: '', F: '', G: '' },
         {},
@@ -961,7 +961,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
               <ArrowLeft className="w-6 h-6" />
             </button>
             <div className="flex-1">
-              <h1 className="text-xl font-bold">SARS Logbook</h1>
+              <h1 className="text-xl font-bold">Detail Logbook (SARS)</h1>
               <p className="text-sm text-blue-100">Select an open trip to add logbook entries</p>
             </div>
             <button

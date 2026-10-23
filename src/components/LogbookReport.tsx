@@ -226,7 +226,7 @@ export default function LogbookReport() {
   const exportCSV = () => {
     if (!rows.length) return;
 
-    let csv = `MyFuelApp.net - SARS Logbook Report\nFrom: ${formatDate(startDate)}  To: ${formatDate(endDate)}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\n`;
+    let csv = `MyFuelApp.net - Detail Logbook (SARS) Report\nFrom: ${formatDate(startDate)}  To: ${formatDate(endDate)}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\n`;
     csv += 'Date,Vehicle,Driver,Open km,From,Reason,Closing km,KM Travelled\n';
 
     const safe = (s: string) => `"${(s || '').replace(/"/g, '""')}"`;
@@ -256,7 +256,7 @@ export default function LogbookReport() {
       <div className="border-b border-gray-200 pb-3">
         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <BookOpen className="w-5 h-5 text-blue-600" />
-          MyFuelApp.net — SARS Logbook Report
+          MyFuelApp.net — Detail Logbook (SARS) Report
         </h2>
         <p className="text-sm text-gray-500 mt-1">
           From: {formatDate(startDate)} &nbsp; To: {formatDate(endDate)}

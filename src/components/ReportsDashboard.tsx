@@ -24,7 +24,7 @@ const regularReportTypes: ReportType[] = [
     { id: 'daily-trip-report', name: 'Daily Trip Report', description: 'View daily vehicle usage, KM travelled, and trip descriptions', icon: TruckIcon },
     { id: 'unreturned-vehicles', name: 'Vehicles Not Returned', description: 'Vehicles drawn on a specific day that were never returned', icon: AlertTriangle },
     { id: 'return-notes', name: 'Vehicle Return Notes', description: 'Driver notes submitted at vehicle return — conditions, issues, trip feedback', icon: MessageSquare },
-    { id: 'sars-logbook', name: 'SARS Logbook', description: 'Logbook entries with open km, reason, close km for expense claims', icon: BookOpen },
+    { id: 'sars-logbook', name: 'Detail Logbook (SARS)', description: 'Logbook entries with open km, reason, close km for expense claims', icon: BookOpen },
     { id: 'overview', name: 'Fuel Transactions', description: 'General fuel purchase statistics', icon: BarChart3 },
     { id: 'driver', name: 'Driver Reports', description: 'Performance and usage by driver', icon: FileText },
     { id: 'vehicle', name: 'Vehicle Reports', description: 'Efficiency and usage by vehicle', icon: TrendingUp },

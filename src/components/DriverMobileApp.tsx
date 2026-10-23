@@ -367,7 +367,7 @@ export default function DriverMobileApp({ driver, onLogout, onDriverUpdate }: Dr
                 <BookOpen className="w-8 h-8 text-indigo-600" />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900 mb-1">SARS Logbook</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Detail Logbook (SARS)</h3>
                 <p className="text-sm text-gray-600">Record trip legs with open km, reason, and close km — guided by voice</p>
                 {drawnVehicles.length === 1 && (
                   <p className="text-xs text-indigo-600 font-medium mt-1">

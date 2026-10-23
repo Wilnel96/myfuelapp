@@ -255,7 +255,7 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
               className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors flex items-center gap-3"
             >
               <BookOpen className="w-5 h-5 flex-shrink-0 text-blue-600" />
-              <span className="font-medium text-gray-900">SARS Logbook</span>
+              <span className="font-medium text-gray-900">Detail Logbook (SARS)</span>
             </button>
           )}
           {(perms?.can_create_reports || perms?.can_view_custom_reports) && (
