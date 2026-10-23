@@ -293,8 +293,8 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         .select('*')
         .eq('driver_id', driverId)
         .eq('vehicle_transaction_id', trip.id)
-        .order('entry_date', { ascending: true })
-        .order('sequence_number', { ascending: true });
+        .order('entry_date', { ascending: false })
+        .order('sequence_number', { ascending: false });
 
       if (entriesError) throw entriesError;
 
@@ -470,7 +470,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     setVoiceReason('');
     confirmingRef.current = false;
 
-    const lastEntry = entries.length > 0 ? entries[entries.length - 1] : null;
+    const lastEntry = entries.length > 0 ? entries[0] : null;
     const suggestedOpenKm = lastEntry?.closing_km != null ? lastEntry.closing_km : selectedTrip.odometerReading;
 
     setVoiceOpenKm(String(suggestedOpenKm));
