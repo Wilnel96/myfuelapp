@@ -15,6 +15,7 @@ interface LogbookRow {
   trip_reason: string;
   closing_km: number | null;
   km_travelled: number | null;
+  trip_type: string | null;
   sequence_number: number;
 }
 
@@ -108,6 +109,7 @@ export default function LogbookReport() {
           trip_reason,
           closing_km,
           km_travelled,
+          trip_type,
           sequence_number,
           vehicle_id,
           driver_id,
@@ -143,6 +145,7 @@ export default function LogbookReport() {
         trip_reason: r.trip_reason,
         closing_km: r.closing_km,
         km_travelled: r.km_travelled,
+        trip_type: r.trip_type,
         sequence_number: r.sequence_number,
       }));
 
@@ -199,6 +202,7 @@ export default function LogbookReport() {
         'Reason': row.trip_reason,
         'Closing km': row.closing_km ?? '',
         'KM Travelled': row.km_travelled ?? '',
+        'Type': row.trip_type === 'private' ? 'Private' : 'Business',
       });
       prevClosingKm = row.closing_km ?? null;
       prevVehicle = row.vehicle_registration;
@@ -212,11 +216,11 @@ export default function LogbookReport() {
     });
 
     const ws = XLSX.utils.json_to_sheet(excelRows, {
-      header: ['Date', 'Vehicle', 'Driver', 'Open km', 'From', 'Reason', 'Closing km', 'KM Travelled'],
+      header: ['Date', 'Vehicle', 'Driver', 'Open km', 'From', 'Reason', 'Closing km', 'KM Travelled', 'Type'],
     });
 
     ws['!cols'] = [
-      { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 14 },
+      { wch: 12 }, { wch: 14 }, { wch: 22 }, { wch: 12 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 14 }, { wch: 10 },
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'SARS Logbook');
@@ -227,7 +231,7 @@ export default function LogbookReport() {
     if (!rows.length) return;
 
     let csv = `MyFuelApp.net - Detail Logbook (SARS) Report\nFrom: ${formatDate(startDate)}  To: ${formatDate(endDate)}\nGenerated: ${new Date().toLocaleString('en-GB')}\n\n`;
-    csv += 'Date,Vehicle,Driver,Open km,From,Reason,Closing km,KM Travelled\n';
+    csv += 'Date,Vehicle,Driver,Open km,From,Reason,Closing km,KM Travelled,Type\n';
 
     const safe = (s: string) => `"${(s || '').replace(/"/g, '""')}"`;
 
@@ -236,7 +240,7 @@ export default function LogbookReport() {
       if (prevVehicle && prevVehicle !== row.vehicle_registration) {
         csv += '\n';
       }
-      csv += `${row.entry_date},${safe(row.vehicle_registration)},${safe(row.driver_name)},${row.opening_km},${safe(row.from_location || '')},${safe(row.trip_reason)},${row.closing_km ?? ''},${row.km_travelled ?? ''}\n`;
+      csv += `${row.entry_date},${safe(row.vehicle_registration)},${safe(row.driver_name)},${row.opening_km},${safe(row.from_location || '')},${safe(row.trip_reason)},${row.closing_km ?? ''},${row.km_travelled ?? ''},${row.trip_type === 'private' ? 'Private' : 'Business'}\n`;
       prevVehicle = row.vehicle_registration;
     }
     csv += `\n,,,,"TOTAL KM",,,${totalKm}\n`;
@@ -413,6 +417,7 @@ export default function LogbookReport() {
                               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
                               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Closing km</th>
                               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">KM Travelled</th>
+                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-200 bg-white">
@@ -428,6 +433,17 @@ export default function LogbookReport() {
                                 <td className="px-4 py-3 text-sm text-gray-800">{row.trip_reason}</td>
                                 <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono">{row.closing_km != null ? row.closing_km.toLocaleString() : <span className="text-gray-400 italic">—</span>}</td>
                                 <td className="px-4 py-3 text-sm text-blue-700 text-right font-medium">{row.km_travelled != null ? row.km_travelled.toLocaleString() : <span className="text-gray-400 italic">—</span>}</td>
+                                <td className="px-4 py-3 text-sm">
+                                  {row.trip_type ? (
+                                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
+                                      row.trip_type === 'business' ? 'text-blue-700 bg-blue-50' : 'text-teal-700 bg-teal-50'
+                                    }`}>
+                                      {row.trip_type === 'business' ? 'Business' : 'Private'}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-400 italic">—</span>
+                                  )}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -435,6 +451,7 @@ export default function LogbookReport() {
                             <tr className="bg-gray-50 font-semibold">
                               <td colSpan={6} className="px-4 py-3 text-sm text-gray-900 text-right">Total KM:</td>
                               <td className="px-4 py-3 text-sm text-blue-700 text-right">{group.totalKm.toLocaleString()}</td>
+                              <td className="px-4 py-3"></td>
                             </tr>
                           </tfoot>
                         </table>

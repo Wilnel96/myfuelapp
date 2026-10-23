@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ArrowLeft, Mic, Square, Plus, Trash2, Edit2, Check, X, Download, AlertCircle, CheckCircle, BookOpen, Car, Calendar } from 'lucide-react';
+import { ArrowLeft, Mic, Square, Plus, Trash2, Edit2, Check, X, Download, AlertCircle, CheckCircle, BookOpen, Car, Calendar, Briefcase, Home } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 
@@ -32,6 +32,7 @@ interface LogbookEntry {
   trip_reason: string;
   closing_km: number | null;
   km_travelled: number | null;
+  trip_type: string | null;
   entry_date: string;
   created_at: string;
   vehicle_registration?: string;
@@ -160,6 +161,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [manualFrom, setManualFrom] = useState('');
   const [manualReason, setManualReason] = useState('');
   const [manualCloseKm, setManualCloseKm] = useState('');
+  const [manualTripType, setManualTripType] = useState<'business' | 'private'>('business');
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
   const [saving, setSaving] = useState(false);
 
@@ -183,6 +185,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [editFrom, setEditFrom] = useState('');
   const [editReason, setEditReason] = useState('');
   const [editCloseKm, setEditCloseKm] = useState('');
+  const [editTripType, setEditTripType] = useState<'business' | 'private'>('business');
 
   // Date-range Excel download state
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -580,6 +583,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [closingKmEntryId, setClosingKmEntryIdState] = useState<string | null>(null);
   const [closingKmValue, setClosingKmValue] = useState('');
   const [closingKmSaving, setClosingKmSaving] = useState(false);
+  const [closingKmTripType, setClosingKmTripType] = useState<'business' | 'private'>('business');
 
   const setClosingKmEntryId = (id: string | null) => {
     closingKmEntryIdRef.current = id;
@@ -608,6 +612,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         .update({
           closing_km: closeKm,
           km_travelled: closeKm - (entry?.opening_km || 0),
+          trip_type: closingKmTripType,
           updated_at: new Date().toISOString(),
         })
         .eq('id', closingKmEntryId);
@@ -616,11 +621,12 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       setEntries(prev => prev.map(e =>
         e.id === closingKmEntryId
-          ? { ...e, closing_km: closeKm, km_travelled: closeKm - e.opening_km }
+          ? { ...e, closing_km: closeKm, km_travelled: closeKm - e.opening_km, trip_type: closingKmTripType }
           : e
       ));
       setClosingKmEntryId(null);
       setClosingKmValue('');
+      setClosingKmTripType('business');
       setSuccessMsg('Closing kilometers added');
     } catch (err: any) {
       setError(err.message || 'Failed to update closing km');
@@ -674,6 +680,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           trip_reason: manualReason.trim(),
           closing_km: closeKm,
           km_travelled: closeKm !== null ? closeKm - openKm : null,
+          trip_type: manualTripType,
           entry_date: manualDate || new Date().toISOString().split('T')[0],
         })
         .select()
@@ -711,6 +718,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     setEditFrom(entry.from_location || '');
     setEditReason(entry.trip_reason);
     setEditCloseKm(entry.closing_km != null ? String(entry.closing_km) : '');
+    setEditTripType(entry.trip_type === 'private' ? 'private' : 'business');
   };
 
   const handleEditSave = async () => {
@@ -744,6 +752,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           trip_reason: editReason.trim(),
           closing_km: closeKm,
           km_travelled: closeKm !== null ? closeKm - openKm : null,
+          trip_type: editTripType,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingId);
@@ -752,7 +761,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       setEntries(prev => prev.map(e =>
         e.id === editingId
-          ? { ...e, opening_km: openKm, from_location: editFrom.trim() || null, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm !== null ? closeKm - openKm : null }
+          ? { ...e, opening_km: openKm, from_location: editFrom.trim() || null, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm !== null ? closeKm - openKm : null, trip_type: editTripType }
           : e
       ));
       setEditingId(null);
@@ -788,12 +797,12 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     if (!entries.length || !selectedTrip) return;
 
     let csv = `Detail Logbook (SARS) - ${selectedTrip.vehicleRegistration}\nDriver: ${driverName}\nDate: ${new Date().toLocaleDateString('en-ZA')}\n\n`;
-    csv += 'Date,Open km,From,Reason,Closing km,KM Travelled\n';
+    csv += 'Date,Open km,From,Reason,Closing km,KM Travelled,Trip Type\n';
 
     let totalKm = 0;
     for (const e of entries) {
       const safe = (s: string) => `"${(s || '').replace(/"/g, '""')}"`;
-      csv += `${e.entry_date},${e.opening_km},${safe(e.from_location || '')},${safe(e.trip_reason)},${e.closing_km ?? ''},${e.km_travelled ?? ''}\n`;
+      csv += `${e.entry_date},${e.opening_km},${safe(e.from_location || '')},${safe(e.trip_reason)},${e.closing_km ?? ''},${e.km_travelled ?? ''},${e.trip_type === 'private' ? 'Private' : 'Business'}\n`;
       totalKm += e.km_travelled || 0;
     }
     csv += `\n,,,Total,${totalKm}\n`;
@@ -835,6 +844,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           trip_reason,
           closing_km,
           km_travelled,
+          trip_type,
           sequence_number,
           vehicle_id,
           vehicles!inner(registration_number, make, model)
@@ -861,6 +871,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         opening_km: r.opening_km,
         from_location: r.from_location || '',
         trip_reason: r.trip_reason,
+        trip_type: r.trip_type,
         closing_km: r.closing_km,
         km_travelled: r.km_travelled,
       }));
@@ -879,7 +890,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       // Column headers
       excelRows.push({
-        A: 'Date', B: 'Vehicle', C: 'Open km', D: 'From', E: 'Reason', F: 'Closing km', G: 'KM Travelled',
+        A: 'Date', B: 'Vehicle', C: 'Open km', D: 'From', E: 'Reason', F: 'Closing km', G: 'KM Travelled', H: 'Type',
       });
 
       let prevVehicle = '';
@@ -895,6 +906,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           E: row.trip_reason,
           F: row.closing_km ?? '',
           G: row.km_travelled ?? '',
+          H: row.trip_type === 'private' ? 'Private' : 'Business',
         });
         prevVehicle = row.vehicle_registration;
       }
@@ -903,12 +915,12 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       excelRows.push({ E: 'TOTAL KM', G: totalKm });
 
       const ws = XLSX.utils.json_to_sheet(excelRows, {
-        header: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+        header: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
         skipHeader: true,
       });
 
       ws['!cols'] = [
-        { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 14 },
+        { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 14 }, { wch: 10 },
       ];
 
       XLSX.utils.book_append_sheet(wb, ws, 'SARS Logbook');
@@ -1407,6 +1419,35 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                   </p>
                 )}
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Trip Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setManualTripType('business')}
+                    className={`py-3 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                      manualTripType === 'business'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Briefcase className="w-4 h-4" />
+                    Business
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setManualTripType('private')}
+                    className={`py-3 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                      manualTripType === 'private'
+                        ? 'bg-teal-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Home className="w-4 h-4" />
+                    Private
+                  </button>
+                </div>
+              </div>
               <div className="flex gap-3">
                 <button
                   onClick={handleManualSubmit}
@@ -1416,7 +1457,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                   {saving ? 'Saving...' : 'Save Entry'}
                 </button>
                 <button
-                  onClick={() => { setShowManualForm(false); setManualOpenKm(''); setManualFrom(''); setManualReason(''); setManualCloseKm(''); }}
+                  onClick={() => { setShowManualForm(false); setManualOpenKm(''); setManualFrom(''); setManualReason(''); setManualCloseKm(''); setManualTripType('business'); }}
                   className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                 >
                   Cancel
@@ -1495,6 +1536,35 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                           Distance: {Math.max(0, parseInt(editCloseKm || '0', 10) - parseInt(editOpenKm || '0', 10)).toLocaleString()} km
                         </p>
                       )}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Trip Type</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditTripType('business')}
+                            className={`py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                              editTripType === 'business'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            <Briefcase className="w-4 h-4" />
+                            Business
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditTripType('private')}
+                            className={`py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                              editTripType === 'private'
+                                ? 'bg-teal-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            <Home className="w-4 h-4" />
+                            Private
+                          </button>
+                        </div>
+                      </div>
                       <div className="flex gap-2">
                         <button
                           onClick={handleEditSave}
@@ -1560,6 +1630,35 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                         )}
                         {voiceError && <p className="text-xs text-red-500 mt-1">{voiceError}</p>}
                       </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Trip Type</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setClosingKmTripType('business')}
+                            className={`py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                              closingKmTripType === 'business'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            <Briefcase className="w-4 h-4" />
+                            Business
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setClosingKmTripType('private')}
+                            className={`py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-1.5 ${
+                              closingKmTripType === 'private'
+                                ? 'bg-teal-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            <Home className="w-4 h-4" />
+                            Private
+                          </button>
+                        </div>
+                      </div>
                       <div className="flex gap-2">
                         <button
                           onClick={handleAddClosingKm}
@@ -1570,7 +1669,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                           {closingKmSaving ? 'Saving...' : 'Save Closing km'}
                         </button>
                         <button
-                          onClick={() => { setClosingKmEntryId(null); setClosingKmValue(''); stopRecognition(); }}
+                          onClick={() => { setClosingKmEntryId(null); setClosingKmValue(''); setClosingKmTripType('business'); stopRecognition(); }}
                           className="px-6 bg-gray-100 text-gray-700 py-2.5 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                         >
                           Cancel
@@ -1588,6 +1687,14 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                             {entry.closing_km == null && (
                               <span className="text-xs font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
                                 Pending
+                              </span>
+                            )}
+                            {entry.trip_type && (
+                              <span className={`text-xs font-medium px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                                entry.trip_type === 'business' ? 'text-blue-700 bg-blue-50' : 'text-teal-700 bg-teal-50'
+                              }`}>
+                                {entry.trip_type === 'business' ? <Briefcase className="w-3 h-3" /> : <Home className="w-3 h-3" />}
+                                {entry.trip_type === 'business' ? 'Business' : 'Private'}
                               </span>
                             )}
                           </div>
@@ -1624,7 +1731,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                       <div className="flex gap-2 mt-3">
                         {entry.closing_km == null && (
                           <button
-                            onClick={() => { setClosingKmEntryId(entry.id); setClosingKmValue(''); }}
+                            onClick={() => { setClosingKmEntryId(entry.id); setClosingKmValue(''); setClosingKmTripType(entry.trip_type === 'private' ? 'private' : 'business'); }}
                             className="flex-1 bg-teal-600 text-white py-2.5 rounded-lg font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-1.5 text-sm"
                           >
                             <Plus className="w-4 h-4" />
