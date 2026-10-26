@@ -290,20 +290,37 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   };
 
   const loadExpectedOdometer = async (vehicleId: string) => {
-    const { data: lastReturn } = await supabase
-      .from('vehicle_transactions')
-      .select('odometer_reading')
-      .eq('vehicle_id', vehicleId)
-      .eq('transaction_type', 'return')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [{ data: lastReturn }, { data: lastLogbook }] = await Promise.all([
+      supabase
+        .from('vehicle_transactions')
+        .select('odometer_reading')
+        .eq('vehicle_id', vehicleId)
+        .eq('transaction_type', 'return')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('trip_logbook_entries')
+        .select('closing_km')
+        .eq('vehicle_id', vehicleId)
+        .order('entry_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-    if (lastReturn?.odometer_reading) {
-      setExpectedOdometer(lastReturn.odometer_reading);
+    const returnOdo = lastReturn?.odometer_reading ?? null;
+    const logbookOdo = lastLogbook?.closing_km ?? null;
+
+    // Use whichever is higher — the logbook may have a more recent closing km
+    // than the return transaction (e.g. when a return was auto-closed with the
+    // opening odometer instead of the actual closing reading).
+    const bestOdo = [returnOdo, logbookOdo].filter(v => v != null).sort((a, b) => b! - a!)[0] as number | undefined;
+
+    if (bestOdo != null) {
+      setExpectedOdometer(bestOdo);
       setIsFirstDraw(false);
     } else {
-      // No previous return - this is the first draw, use initial odometer reading
       const { data: vehicle } = await supabase
         .from('vehicles')
         .select('initial_odometer_reading')
@@ -422,20 +439,34 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
     if (!nextServiceKm || nextServiceKm <= 0) return false;
 
-    // Get the current odometer reading: latest return transaction or initial odometer
+    // Get the current odometer reading: latest return transaction, logbook closing_km, or initial odometer
     let currentOdometer = vehicle.initial_odometer_reading ?? 0;
 
-    const { data: lastReturn } = await supabase
-      .from('vehicle_transactions')
-      .select('odometer_reading')
-      .eq('vehicle_id', vehicle.id)
-      .eq('transaction_type', 'return')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [{ data: lastReturn }, { data: lastLogbook }] = await Promise.all([
+      supabase
+        .from('vehicle_transactions')
+        .select('odometer_reading')
+        .eq('vehicle_id', vehicle.id)
+        .eq('transaction_type', 'return')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('trip_logbook_entries')
+        .select('closing_km')
+        .eq('vehicle_id', vehicle.id)
+        .order('entry_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-    if (lastReturn?.odometer_reading) {
-      currentOdometer = lastReturn.odometer_reading;
+    const returnOdo = lastReturn?.odometer_reading ?? null;
+    const logbookOdo = lastLogbook?.closing_km ?? null;
+    const bestOdo = [returnOdo, logbookOdo].filter(v => v != null).sort((a, b) => b! - a!)[0] as number | undefined;
+
+    if (bestOdo != null) {
+      currentOdometer = bestOdo;
     }
 
     if (currentOdometer >= nextServiceKm) {
