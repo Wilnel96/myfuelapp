@@ -374,7 +374,7 @@ export function renderInvoiceToPDF(
     pdf.setFontSize(compact ? 7 : 9);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(107, 114, 128);
-    pdf.text('PREVIOUS FILLINGS', margin, y);
+    pdf.text('PREVIOUS FILLING', margin, y);
 
     y += gap - 1;
 
@@ -460,7 +460,7 @@ export async function fetchPreviousFillings(
   vehicleRegistration: string,
   organizationId: string,
   beforeDate: string,
-  limit: number = 10
+  limit: number = 1
 ): Promise<PreviousFilling[]> {
   try {
     const { data, error } = await supabaseClient
