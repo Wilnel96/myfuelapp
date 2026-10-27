@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FileText, Search, Calendar, DollarSign, Fuel, Download, Eye, AlertCircle, Printer, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { generateFuelInvoicePDF, renderInvoiceToPDF, downloadPDFBlob, type InvoiceData } from '../lib/invoicePdfGenerator';
+import { generateFuelInvoicePDF, renderInvoiceToPDF, downloadPDFBlob, fetchPreviousFillings, type InvoiceData } from '../lib/invoicePdfGenerator';
 import jsPDF from 'jspdf';
 
 interface FuelInvoice {
@@ -47,6 +47,7 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [orgId, setOrgId] = useState<string>('');
 
   useEffect(() => {
     loadInvoices();
@@ -71,6 +72,7 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
         .single();
 
       if (!profile?.organization_id) throw new Error('No organization found');
+      setOrgId(profile.organization_id);
 
       const { data, error: invoicesError } = await supabase
         .from('fuel_transaction_invoices')
@@ -132,7 +134,12 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
     }
 
     try {
+      const previousFillings = orgId
+        ? await fetchPreviousFillings(supabase, invoice.vehicle_registration, orgId, invoice.transaction_date)
+        : [];
+
       const invoiceData: InvoiceData = {
+        previous_fillings: previousFillings,
         invoice_number: invoice.invoice_number,
         invoice_date: invoice.invoice_date,
         transaction_date: invoice.transaction_date,
@@ -259,7 +266,12 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
     }
 
     try {
+      const previousFillings = orgId
+        ? await fetchPreviousFillings(supabase, invoice.vehicle_registration, orgId, invoice.transaction_date)
+        : [];
+
       const pdfBlob = await generateFuelInvoicePDF({
+        previous_fillings: previousFillings,
         invoice_number: invoice.invoice_number,
         invoice_date: invoice.invoice_date,
         transaction_date: invoice.transaction_date,

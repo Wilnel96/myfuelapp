@@ -24,6 +24,15 @@ export interface InvoiceData {
   oil_total_amount?: number | string;
   payment_option?: string;
   card_last_four_digits?: string;
+  previous_fillings?: PreviousFilling[];
+}
+
+export interface PreviousFilling {
+  transaction_date: string;
+  liters: number | string;
+  price_per_liter: number | string;
+  total_amount: number | string;
+  odometer_reading: number;
 }
 
 export function renderInvoiceToPDF(
@@ -357,6 +366,84 @@ export function renderInvoiceToPDF(
   pdf.text('This invoice is for accounting and tax compliance purposes.', pageWidth / 2, y, { align: 'center' });
   y += compact ? 4 : 5;
   pdf.text('Thank you for your business.', pageWidth / 2, y, { align: 'center' });
+
+  // ── PREVIOUS FILLINGS ───────────────────────────────────────────────────────
+  if (invoice.previous_fillings && invoice.previous_fillings.length > 0) {
+    y += compact ? 8 : 10;
+
+    pdf.setFontSize(compact ? 7 : 9);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(107, 114, 128);
+    pdf.text('PREVIOUS FILLINGS', margin, y);
+
+    y += gap - 1;
+
+    const fillings = invoice.previous_fillings;
+    const rowH = compact ? 4 : 5;
+    const headerH = compact ? 5 : 6;
+    const tableH = headerH + fillings.length * rowH + 2;
+
+    pdf.setFillColor(249, 250, 251);
+    pdf.rect(margin, y, contentWidth, tableH, 'F');
+
+    // Column positions (fractions of contentWidth)
+    const colDate = margin + 2;
+    const colLiters = margin + contentWidth * 0.28;
+    const colPrice = margin + contentWidth * 0.45;
+    const colTotal = margin + contentWidth * 0.62;
+    const colKm = margin + contentWidth * 0.80;
+    const colKmPerL = margin + contentWidth - 2;
+
+    // Header row
+    y += headerH;
+    pdf.setFontSize(compact ? 6 : 7);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(75, 85, 99);
+    pdf.text('Date', colDate, y - 1.5);
+    pdf.text('Liters', colLiters, y - 1.5);
+    pdf.text('Price/L', colPrice, y - 1.5);
+    pdf.text('Total', colTotal, y - 1.5);
+    pdf.text('Km', colKm, y - 1.5);
+    pdf.text('Km/L', colKmPerL, y - 1.5, { align: 'right' });
+
+    pdf.setDrawColor(229, 231, 235);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin + 2, y - 0.5, margin + contentWidth - 2, y - 0.5);
+
+    // Data rows
+    for (let i = 0; i < fillings.length; i++) {
+      y += rowH;
+      const f = fillings[i];
+      pdf.setFontSize(compact ? 6 : 7);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(55, 65, 81);
+
+      const dateStr = new Date(f.transaction_date).toLocaleDateString('en-ZA');
+      const litersVal = parseFloat(f.liters.toString());
+      const priceVal = parseFloat(f.price_per_liter.toString());
+      const totalVal = parseFloat(f.total_amount.toString());
+      const odoVal = f.odometer_reading;
+
+      // Km/L: difference from previous filling's odometer / liters
+      let kmPerL = '';
+      if (i > 0) {
+        const prevOdo = fillings[i - 1].odometer_reading;
+        const kmDiff = odoVal - prevOdo;
+        if (kmDiff > 0 && litersVal > 0) {
+          kmPerL = (kmDiff / litersVal).toFixed(2);
+        }
+      }
+
+      pdf.text(dateStr, colDate, y - 1.5);
+      pdf.text(litersVal.toFixed(2), colLiters, y - 1.5);
+      pdf.text(`R${priceVal.toFixed(2)}`, colPrice, y - 1.5);
+      pdf.text(`R${totalVal.toFixed(2)}`, colTotal, y - 1.5);
+      pdf.text(odoVal.toLocaleString(), colKm, y - 1.5);
+      pdf.text(kmPerL || '-', colKmPerL, y - 1.5, { align: 'right' });
+    }
+
+    y += compact ? 4 : 6;
+  }
 }
 
 export async function generateFuelInvoicePDF(invoice: InvoiceData): Promise<Blob> {
@@ -366,6 +453,30 @@ export async function generateFuelInvoicePDF(invoice: InvoiceData): Promise<Blob
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   renderInvoiceToPDF(pdf, invoice, 15);
   return pdf.output('blob');
+}
+
+export async function fetchPreviousFillings(
+  supabaseClient: any,
+  vehicleRegistration: string,
+  organizationId: string,
+  beforeDate: string,
+  limit: number = 10
+): Promise<PreviousFilling[]> {
+  try {
+    const { data, error } = await supabaseClient
+      .from('fuel_transaction_invoices')
+      .select('transaction_date, liters, price_per_liter, total_amount, odometer_reading')
+      .eq('organization_id', organizationId)
+      .eq('vehicle_registration', vehicleRegistration)
+      .lt('transaction_date', beforeDate)
+      .order('transaction_date', { ascending: false })
+      .limit(limit);
+
+    if (error || !data) return [];
+    return data.reverse() as PreviousFilling[];
+  } catch {
+    return [];
+  }
 }
 
 export function downloadPDFBlob(blob: Blob, filename: string): void {

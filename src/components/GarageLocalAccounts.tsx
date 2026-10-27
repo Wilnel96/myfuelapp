@@ -741,7 +741,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
     }
 
     try {
-      const { generateFuelInvoicePDF, downloadPDFBlob } = await import('../lib/invoicePdfGenerator');
+      const { generateFuelInvoicePDF, downloadPDFBlob, fetchPreviousFillings } = await import('../lib/invoicePdfGenerator');
 
       const { data: garageData, error: fetchError } = await supabase
         .from('garages')
@@ -790,7 +790,12 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         }
       }
 
+      const previousFillings = invoice.organization_id
+        ? await fetchPreviousFillings(supabase, invoice.vehicle_registration, invoice.organization_id, invoice.transaction_date)
+        : [];
+
       const pdfBlob = await generateFuelInvoicePDF({
+        previous_fillings: previousFillings,
         invoice_number: invoice.invoice_number,
         invoice_date: invoice.invoice_date,
         transaction_date: invoice.transaction_date,
