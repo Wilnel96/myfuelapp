@@ -68,80 +68,89 @@ export function renderInvoiceToPDF(
 
   y += compact ? 5 : 8;
 
-  // ── FUEL INVOICE FROM ───────────────────────────────────────────────────────
+  // ── FUEL INVOICE FROM + CLIENT (side by side) ───────────────────────────────
+  const colGap = 3;
+  const colW = (contentWidth - colGap) / 2;
+  const leftX = margin;
+  const rightX = margin + colW + colGap;
+
+  const addressLines = invoice.garage_address ? invoice.garage_address.split('\n').filter(Boolean) : [];
+  const garageLineCount = 1 + addressLines.length + (invoice.garage_vat_number ? 1 : 0);
+  const garageBoxHeight = (compact ? 5 : 6) + garageLineCount * (compact ? 4 : 5) + 3;
+
+  const clientLines = invoice.client_address ? invoice.client_address.split('\n').filter(Boolean) : [];
+  const hasClientVat = !!invoice.client_vat_number;
+  const hasClient = !!invoice.client_name;
+  const clientLineCount = hasClient ? (1 + clientLines.length + (hasClientVat ? 1 : 0)) : 0;
+  const clientBoxHeight = hasClient ? ((compact ? 5 : 6) + clientLineCount * (compact ? 4 : 5) + 3) : 0;
+
+  const bothBoxHeight = Math.max(garageBoxHeight, clientBoxHeight);
+
   pdf.setFontSize(compact ? 7 : 9);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(107, 114, 128);
-  pdf.text('FUEL INVOICE FROM', margin, y);
+  pdf.text('FUEL INVOICE FROM', leftX, y);
+  if (hasClient) {
+    pdf.text('CLIENT', rightX, y);
+  }
 
   y += gap - 1;
-  const addressLines = invoice.garage_address ? invoice.garage_address.split('\n').filter(Boolean) : [];
-  const fromBoxHeight = (compact ? 5 : 6) + addressLines.length * (compact ? 4 : 5) + (invoice.garage_vat_number ? (compact ? 4 : 5) : 0) + 3;
-  pdf.setFillColor(249, 250, 251);
-  pdf.rect(margin, y, contentWidth, fromBoxHeight, 'F');
 
-  y += compact ? 4 : 5;
+  // Garage box (left column)
+  pdf.setFillColor(249, 250, 251);
+  pdf.rect(leftX, y, colW, bothBoxHeight, 'F');
+
+  let garageY = y + (compact ? 4 : 5);
   pdf.setFontSize(compact ? 8 : 10);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(17, 24, 39);
-  pdf.text(invoice.garage_name, margin + 3, y);
+  pdf.text(invoice.garage_name, leftX + 3, garageY);
 
   for (const line of addressLines) {
-    y += compact ? 4 : 5;
+    garageY += compact ? 4 : 5;
     pdf.setFontSize(compact ? 7 : 9);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(75, 85, 99);
-    pdf.text(line, margin + 3, y);
+    pdf.text(line, leftX + 3, garageY);
   }
 
   if (invoice.garage_vat_number) {
-    y += compact ? 4 : 5;
+    garageY += compact ? 4 : 5;
     pdf.setFontSize(compact ? 7 : 9);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(75, 85, 99);
-    pdf.text(`VAT No: ${invoice.garage_vat_number}`, margin + 3, y);
+    pdf.text(`VAT No: ${invoice.garage_vat_number}`, leftX + 3, garageY);
   }
 
-  y += compact ? 6 : 8;
-
-  // ── CLIENT ──────────────────────────────────────────────────────────────────
-  if (invoice.client_name) {
-    pdf.setFontSize(compact ? 7 : 9);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(107, 114, 128);
-    pdf.text('CLIENT', margin, y);
-
-    y += gap - 1;
-    const clientLines = invoice.client_address ? invoice.client_address.split('\n').filter(Boolean) : [];
-    const hasClientVat = !!invoice.client_vat_number;
-    const clientBoxHeight = (compact ? 5 : 6) + clientLines.length * (compact ? 4 : 5) + (hasClientVat ? (compact ? 4 : 5) : 0) + 3;
+  // Client box (right column)
+  if (hasClient) {
     pdf.setFillColor(249, 250, 251);
-    pdf.rect(margin, y, contentWidth, clientBoxHeight, 'F');
+    pdf.rect(rightX, y, colW, bothBoxHeight, 'F');
 
-    y += compact ? 4 : 5;
+    let clientY = y + (compact ? 4 : 5);
     pdf.setFontSize(compact ? 8 : 10);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(17, 24, 39);
-    pdf.text(invoice.client_name, margin + 3, y);
+    pdf.text(invoice.client_name!, rightX + 3, clientY);
 
     for (const line of clientLines) {
-      y += compact ? 4 : 5;
+      clientY += compact ? 4 : 5;
       pdf.setFontSize(compact ? 7 : 9);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(75, 85, 99);
-      pdf.text(line, margin + 3, y);
+      pdf.text(line, rightX + 3, clientY);
     }
 
     if (hasClientVat) {
-      y += compact ? 4 : 5;
+      clientY += compact ? 4 : 5;
       pdf.setFontSize(compact ? 7 : 9);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(75, 85, 99);
-      pdf.text(`VAT No: ${invoice.client_vat_number}`, margin + 3, y);
+      pdf.text(`VAT No: ${invoice.client_vat_number}`, rightX + 3, clientY);
     }
-
-    y += compact ? 6 : 8;
   }
+
+  y += bothBoxHeight + (compact ? 6 : 8);
 
   // ── VEHICLE & DRIVER ────────────────────────────────────────────────────────
   pdf.setFontSize(compact ? 7 : 9);
