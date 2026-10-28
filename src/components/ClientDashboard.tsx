@@ -156,7 +156,7 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <DollarSign className="w-6 h-6 text-gray-700" />
-            <h1 className="text-xl font-bold text-gray-900">Invoices, Statements & Payments</h1>
+            <h1 className="text-xl font-bold text-gray-900">Orders, Invoices, Statements & Payments</h1>
           </div>
           <button
             onClick={() => setShowInvoicesMenu(false)}
@@ -167,6 +167,20 @@ export default function ClientDashboard({ onNavigate, onSignOut, paymentOption, 
           </button>
         </div>
         <div className="space-y-2">
+          <button
+            onClick={() => onNavigate('fuel-orders')}
+            className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-50 rounded-lg">
+                <FileText className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Fuel Orders</h3>
+                <p className="text-sm text-gray-600">Create purchase orders before refuelling and track their status</p>
+              </div>
+            </div>
+          </button>
           <button
             onClick={() => onNavigate('fuel-invoices')}
             className="w-full bg-white hover:bg-gray-50 border border-gray-200 rounded-lg p-4 text-left transition-colors"

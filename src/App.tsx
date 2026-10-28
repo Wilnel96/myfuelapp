@@ -33,6 +33,7 @@ import CustomReportBuilder from './components/CustomReportBuilder';
 import BackupManagement from './components/BackupManagement';
 import ClientInvoices from './components/ClientInvoices';
 import ClientFuelInvoices from './components/ClientFuelInvoices';
+import FuelOrders from './components/FuelOrders';
 import ClientGarageStatements from './components/ClientGarageStatements';
 import FuelInvoicesPage from './components/FuelInvoicesPage';
 import AdminPasswordReset from './components/AdminPasswordReset';
@@ -1363,6 +1364,8 @@ function App() {
           isRealSuperAdmin || (isManagementUser && (mgmtPermissions?.can_view_invoice_management || mgmtPermissions?.is_main_user))
             ? <FuelInvoicesPage key="fuel-invoices-admin" onBack={() => setCurrentView(null)} />
             : <ClientFuelInvoices key="fuel-invoices" onNavigate={setCurrentView} />
+        ) : currentView === 'fuel-orders' ? (
+          <FuelOrders key="fuel-orders" onNavigate={setCurrentView} />
         ) : currentView === 'garage-statements' ? (
           <ClientGarageStatements key="garage-statements" onNavigate={setCurrentView} />
         ) : currentView === 'reports-menu' ? (

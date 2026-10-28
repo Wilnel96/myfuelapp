@@ -1,0 +1,137 @@
+{
+  "projectId": "61447064",
+  "functions": {
+    "change-password": {
+      "hasChanged": false,
+      "hash": "c2995b2568e813ece17ce7ea6b01dcb4494096887c789672c63423ae09a990b4"
+    },
+    "check-invoice-integrity": {
+      "hasChanged": false,
+      "hash": "c79002ca70b9eb379acf326aa951096d1b052d891def3528573b2d858bc9bb37"
+    },
+    "client-self-signup": {
+      "hasChanged": false,
+      "hash": "31df8e4d86e2a636e672efb333b739b645df1abe48ca29b85a965bd8acd1178c"
+    },
+    "create-fuel-transaction": {
+      "hasChanged": false,
+      "hash": "ce6c467c78bceaa4ce195c1b0a9212ecc6034e3260ec81b453fec7c60ff9e4d1"
+    },
+    "create-garage-contact-user": {
+      "hasChanged": false,
+      "hash": "1b5bbfaa7fad91a1ac523e8df7964036dfe6d88e2b7264be53769c7ce9a2e382"
+    },
+    "create-organization-users": {
+      "hasChanged": false,
+      "hash": "0ba31733e2d186045f4b1d04f486a8c1dacd626754e986d09ad2ca97232f789c"
+    },
+    "create-user": {
+      "hasChanged": false,
+      "hash": "b8a7b25c6ea9d058d0401cab8988473731a870de2b76c2e4ff12c41f3c537146"
+    },
+    "database-backup": {
+      "hasChanged": false,
+      "hash": "cb3a40155712fdaebc4f4c26e274f9ffea3ee957d82a22afb1eba1744d8777e5"
+    },
+    "digest-fuel-invoices": {
+      "hasChanged": false,
+      "hash": "505d74dcc70f26f3c3678797d6ecee34e98113715886070656edcc77b3335aad"
+    },
+    "driver-auth": {
+      "hasChanged": false,
+      "hash": "8bedc970efe5717ba340629c212bf99a0f7dc31b2d2184aeb3d74956594807db"
+    },
+    "encrypt-card-data": {
+      "hasChanged": false,
+      "hash": "688473248ead3334ab13ab057d6394eb1b0626bb80e76fe9ecbe547f3c989695"
+    },
+    "garage-local-accounts": {
+      "hasChanged": false,
+      "hash": "e40ec4db83f0add134f9d03360865fde74f6e722e30d49d4be1d324df9f926e2"
+    },
+    "garage-managed-client-setup": {
+      "hasChanged": false,
+      "hash": "98a3c12b3c5e965a80df7f746053c782ce6f839657a810750a476159ac9e6640"
+    },
+    "garage-update": {
+      "hasChanged": false,
+      "hash": "a5879f29501addbd981a2b8b8a48417b3e17b5f9c40ba101f7cc21c2e9a2c74a"
+    },
+    "generate-client-statements": {
+      "hasChanged": false,
+      "hash": "8cb7a54269b874e58f434e90c22edd0d1e2689cb94e8acfe6b1070908dcf6450"
+    },
+    "generate-fuel-transaction-invoice": {
+      "hasChanged": false,
+      "hash": "2e158f7ddaba514d50db2156a28252b914d781c281c81ea81dfa803c25af3668"
+    },
+    "generate-garage-fee-invoices": {
+      "hasChanged": false,
+      "hash": "299a575e1cd5b1b3c66d0b53358561710d7d5d2dcf97418d42c418161d9e7c94"
+    },
+    "generate-monthly-invoices": {
+      "hasChanged": false,
+      "hash": "58286b22f60a95968dde4313d41d92acb311d84020814898c7127d63627cf48d"
+    },
+    "nightly-reports": {
+      "hasChanged": false,
+      "hash": "905ba63734610811d9a72c556436365a3218186a2a0654a97e631c0cc1b5beb8"
+    },
+    "password-reset": {
+      "hasChanged": false,
+      "hash": "c585003c7a2314f6d4a03cd810df8634dd8fb0a622d4ce136734782f8aab6173"
+    },
+    "prepare-nfc-payment": {
+      "hasChanged": false,
+      "hash": "57aa59f0bb8689536f6bbe484ee935b4edd469d49c7c7a45eec7e914975fe931"
+    },
+    "send-email": {
+      "hasChanged": false,
+      "hash": "4bc9007ce12e34aa07ed55566ed25c60b5001df30fd919055360e8d6b1229817"
+    },
+    "send-fuel-invoice-email": {
+      "hasChanged": false,
+      "hash": "05569ddb5838fc4783c7ca1b9f82bc880c79bb7b8d6ff9e65e3e417e24c5cb08"
+    },
+    "send-service-exception-email": {
+      "hasChanged": false,
+      "hash": "6e82e11a051ce49c63f140bb17bc0477d8405a184b06d0f11185f233ed8e0b12"
+    },
+    "send-statement-email": {
+      "hasChanged": false,
+      "hash": "42f48badfe632041f584584023912f63259554f5f021c1ef366a5bc3a50bd90a"
+    },
+    "set-driver-pin": {
+      "hasChanged": false,
+      "hash": "17e5cddb5e0dfcc2bdc58bd1e6e305c2a317c781c6831453e37fad7807f60dc0"
+    },
+    "setup-shell-robertson": {
+      "hasChanged": false,
+      "hash": "d51b2372399f409ee43e1a409d84303e12c05271d79dcf487dbfb35cf892bdd7"
+    },
+    "setup-test-users": {
+      "hasChanged": false,
+      "hash": "6e4df718544cc85939ca4648c700fab63633876b993fdfacb5125bb600ee636c"
+    },
+    "update-organization-user": {
+      "hasChanged": false,
+      "hash": "4dc4ac139918277210eda0bdc990c44793b1a2c3db300cde8a7a5a85852968ac"
+    },
+    "update-user-email": {
+      "hasChanged": false,
+      "hash": "9e8282f44105942be304684b3685d076edaac1eccfd406f9b241602a64377ead"
+    },
+    "update-user-password": {
+      "hasChanged": false,
+      "hash": "2fd83b676dff77b68374e626609a94f3cfb7c12109152e209bd2c4efa4c6b7a9"
+    },
+    "validate-driver-session": {
+      "hasChanged": false,
+      "hash": "da6977ecfc3fb802087c79260e9d5f86a29f7fa5cc29a85cd4367cd23b2dcf0a"
+    },
+    "verify-driver-pin": {
+      "hasChanged": false,
+      "hash": "90d81ed1c1023240bb34dbddab02b8850f90408b4a3b420a0ee306f70c45e822"
+    }
+  }
+}

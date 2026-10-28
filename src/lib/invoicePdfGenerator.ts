@@ -2,6 +2,7 @@ import type { jsPDF as JsPDFType } from 'jspdf';
 
 export interface InvoiceData {
   invoice_number: string;
+  order_number?: string | null;
   invoice_date: string;
   transaction_date: string;
   vehicle_registration: string;
@@ -214,6 +215,16 @@ export function renderInvoiceToPDF(
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(17, 24, 39);
   pdf.text(` ${invoice.invoice_number}`, margin + 3 + pdf.getTextWidth('Number:'), y);
+
+  if (invoice.order_number) {
+    const oLabelX = margin + 3 + pdf.getTextWidth('Number:') + pdf.getTextWidth(` ${invoice.invoice_number}`) + 8;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(75, 85, 99);
+    pdf.text('Order No:', oLabelX, y);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(` ${invoice.order_number}`, oLabelX + pdf.getTextWidth('Order No:'), y);
+  }
 
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(75, 85, 99);

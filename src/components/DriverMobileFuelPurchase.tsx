@@ -43,6 +43,16 @@ interface DriverMobileFuelPurchaseProps {
   onComplete?: () => void;
 }
 
+interface FuelOrder {
+  id: string;
+  system_order_number: string;
+  client_order_number: string | null;
+  garage_id: string;
+  order_type: 'single' | 'partial';
+  liters_ordered: number;
+  price_per_liter: number;
+}
+
 export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete }: DriverMobileFuelPurchaseProps) {
   // ==========================================
   const SKIP_LICENSE_SCAN_FOR_TESTING = false;
@@ -103,6 +113,35 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
   const [encryptedCardData, setEncryptedCardData] = useState<any>(null);
   const [nearestGarage, setNearestGarage] = useState<Garage | null>(null);
   const [detectingGarage, setDetectingGarage] = useState(false);
+  const [openOrders, setOpenOrders] = useState<FuelOrder[]>([]);
+  const [selectedOrderId, setSelectedOrderId] = useState('');
+  const selectedOrder = openOrders.find(o => o.id === selectedOrderId) || null;
+
+  useEffect(() => {
+    if (!drawnVehicle) {
+      setOpenOrders([]);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('fuel_orders')
+      .select('id, system_order_number, client_order_number, garage_id, order_type, liters_ordered, price_per_liter')
+      .eq('vehicle_id', drawnVehicle.id)
+      .eq('status', 'open')
+      .order('created_at', { ascending: true })
+      .then(({ data, error: ordersError }) => {
+        if (cancelled) return;
+        if (ordersError) {
+          console.error('[FuelPurchase] Failed to load fuel orders:', ordersError);
+          setError('Could not load fuel orders for this vehicle. Please try again.');
+          return;
+        }
+        setOpenOrders((data || []) as FuelOrder[]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [drawnVehicle?.id]);
   const [paymentCheckError, setPaymentCheckError] = useState<string>('');
 
   useEffect(() => {
@@ -1020,6 +1059,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         body: JSON.stringify({
           vehicleId: drawnVehicle.id,
           garageId: selectedGarageId,
+          fuelOrderId: selectedOrderId || null,
           liters: parseFloat(formData.liters),
           pricePerLiter: parseFloat(formData.pricePerLiter),
           totalAmount,
@@ -1075,8 +1115,12 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
 
       console.log('[FuelPurchase] Transaction created successfully:', result.transaction?.id);
 
+      if (selectedOrderId) {
+        setOpenOrders(prev => prev.filter(o => o.id !== selectedOrderId));
+      }
+
       // Check for warnings in the response
-      if (result.warning && result.warningType === 'tank_capacity') {
+      if (result.warning && (result.warningType === 'tank_capacity' || result.warningType === 'order_exceeded')) {
         setTransactionWarning(result.warning);
         console.log('[FuelPurchase] ⚠️ Tank capacity warning received:', result.warning);
       }
@@ -1177,6 +1221,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
     });
     setPurchasingOil(false);
     setSelectedGarageId('');
+    setSelectedOrderId('');
     setSuccess(false);
     setFuelEfficiency(null);
     setError('');
@@ -2140,7 +2185,69 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
               </div>
             )}
 
-            {currentStep === 'garage_selection' && (
+            {currentStep === 'garage_selection' && openOrders.length > 0 && (
+              <div className="space-y-4">
+                <p className="text-sm font-medium text-gray-500">Fuel order for this vehicle</p>
+                <p className="text-xs text-gray-500">You must refuel at the garage named on the order.</p>
+                {openOrders.map((order) => {
+                  const orderGarage = garages.find(g => g.id === order.garage_id);
+                  const isSelected = selectedOrderId === order.id;
+                  return (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedOrderId(order.id);
+                        setSelectedGarageId(order.garage_id);
+                        setPaymentCheckError('');
+                        if (orderGarage) {
+                          setNearestGarage(orderGarage);
+                          if (location && orderGarage.latitude && orderGarage.longitude) {
+                            const d = calculateDistance(location.lat, location.lng, orderGarage.latitude, orderGarage.longitude);
+                            setDistanceFromGarage(d);
+                            setLocationMismatch(d > 0.5);
+                          } else {
+                            setDistanceFromGarage(null);
+                            setLocationMismatch(false);
+                          }
+                        }
+                      }}
+                      className={`w-full text-left rounded-xl border-2 p-4 transition-colors ${
+                        isSelected ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      <p className="text-sm font-bold text-gray-900">{order.client_order_number || order.system_order_number}</p>
+                      <p className="text-base font-semibold text-gray-900 mt-1">{orderGarage?.name || 'Garage not found'}</p>
+                      {orderGarage?.city && <p className="text-sm text-gray-600">{orderGarage.city}</p>}
+                      <p className="text-sm text-gray-700 mt-2">
+                        {order.order_type === 'single' ? 'Single refuel' : 'Partial refuel'} - {Number(order.liters_ordered).toFixed(2)} L at R {Number(order.price_per_liter).toFixed(2)}/L
+                      </p>
+                    </button>
+                  );
+                })}
+
+                {paymentCheckError && (
+                  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800">{paymentCheckError}</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleGarageSelection}
+                  disabled={loading || !selectedOrderId || !!paymentCheckError}
+                  className="w-full bg-blue-600 text-white py-4 rounded-xl font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 text-base"
+                >
+                  {loading ? (
+                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Verifying...</>
+                  ) : (
+                    <><CheckCircle className="w-5 h-5" /> Continue at {garages.find(g => g.id === selectedGarageId)?.name || 'this garage'}</>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {currentStep === 'garage_selection' && openOrders.length === 0 && (
               <div className="space-y-4">
                 {/* Nearest garage auto-detected card */}
                 {detectingGarage || (garages.length > 0 && !nearestGarage && location) ? (
@@ -2322,6 +2429,21 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
 
             {currentStep === 'fuel_details' && (
               <>
+                {selectedOrder && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm font-bold text-blue-900">Fuel order {selectedOrder.client_order_number || selectedOrder.system_order_number}</p>
+                    <p className="text-xs text-blue-800 mt-1">
+                      {Number(selectedOrder.liters_ordered).toFixed(2)} L ordered at R {Number(selectedOrder.price_per_liter).toFixed(2)}/L. This order can only be used once.
+                    </p>
+                    {parseFloat(formData.liters || '0') > Number(selectedOrder.liters_ordered) && (
+                      <div className="mt-3 bg-amber-50 border border-amber-400 rounded-lg p-3">
+                        <p className="text-xs font-bold text-amber-900">
+                          This fill-up is more than the order allows. It will be recorded and the order flagged as exceeded.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {spendingLimitInfo && !spendingLimitInfo.isBlocked && (
                   <div className="bg-amber-50 border-2 border-amber-400 rounded-lg p-4 mb-4">
                     <div className="flex items-start gap-2 mb-3">

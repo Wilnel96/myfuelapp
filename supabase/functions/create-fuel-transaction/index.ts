@@ -29,6 +29,7 @@ interface FuelTransactionRequest {
   isMockLocation?: boolean;
   locationAccuracy?: number;
   locationProvider?: string;
+  fuelOrderId?: string | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -372,6 +373,81 @@ Deno.serve(async (req: Request) => {
       .eq("id", transactionData.garageId)
       .maybeSingle();
 
+    let claimedOrder: { id: string; orderNumber: string; litersOrdered: number; exceeded: boolean } | null = null;
+    const orderUnavailableResponse = () =>
+      new Response(
+        JSON.stringify({ error: "This fuel order has already been used or cancelled" }),
+        {
+          status: 409,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+
+    if (transactionData.fuelOrderId) {
+      const { data: order, error: orderError } = await supabase
+        .from("fuel_orders")
+        .select("id, organization_id, vehicle_id, garage_id, status, liters_ordered, system_order_number, client_order_number")
+        .eq("id", transactionData.fuelOrderId)
+        .maybeSingle();
+
+      if (orderError || !order) {
+        return new Response(
+          JSON.stringify({ error: "Fuel order not found" }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      if (
+        order.organization_id !== driver.organization_id ||
+        order.vehicle_id !== transactionData.vehicleId ||
+        order.garage_id !== transactionData.garageId
+      ) {
+        return new Response(
+          JSON.stringify({ error: "This fuel order does not match the selected vehicle or garage" }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      if (order.status !== "open") {
+        return orderUnavailableResponse();
+      }
+
+      const litersOrdered = Number(order.liters_ordered);
+      const exceeded = transactionData.liters > litersOrdered;
+      const nowIso = new Date().toISOString();
+
+      const { data: claimed, error: claimError } = await supabase
+        .from("fuel_orders")
+        .update({
+          status: "fulfilled",
+          liters_used: transactionData.liters,
+          exceeded,
+          fulfilled_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq("id", order.id)
+        .eq("status", "open")
+        .select("id")
+        .maybeSingle();
+
+      if (claimError || !claimed) {
+        return orderUnavailableResponse();
+      }
+
+      claimedOrder = {
+        id: order.id,
+        orderNumber: order.client_order_number?.trim() || order.system_order_number,
+        litersOrdered,
+        exceeded,
+      };
+    }
+
     const { data: transaction, error: insertError } = await supabase
       .from("fuel_transactions")
       .insert({
@@ -403,11 +479,18 @@ Deno.serve(async (req: Request) => {
         location_provider: transactionData.locationProvider || null,
         payment_method: resolvedPaymentMethod,
         fuel_card_id: resolvedFuelCardId,
+        fuel_order_id: claimedOrder?.id ?? null,
       })
       .select()
       .single();
 
     if (insertError) {
+      if (claimedOrder) {
+        await supabase
+          .from("fuel_orders")
+          .update({ status: "open", liters_used: 0, exceeded: false, fulfilled_at: null, updated_at: new Date().toISOString() })
+          .eq("id", claimedOrder.id);
+      }
       console.error("Insert error:", insertError);
       return new Response(
         JSON.stringify({ error: insertError.message }),
@@ -556,6 +639,12 @@ Deno.serve(async (req: Request) => {
       const tankCapacity = Number(vehicle.tank_capacity);
       responseData.warning = `WARNING: Refuel amount (${transactionData.liters}L) is at or near tank capacity (${tankCapacity}L). An exception has been logged for review.`;
       responseData.warningType = "tank_capacity";
+    }
+
+    if (claimedOrder?.exceeded) {
+      const excessLiters = (transactionData.liters - claimedOrder.litersOrdered).toFixed(2);
+      responseData.warning = `WARNING: This fill-up is ${excessLiters}L more than the fuel order ${claimedOrder.orderNumber} allowed (${claimedOrder.litersOrdered}L). The fill-up has been recorded and the order is flagged as exceeded.`;
+      responseData.warningType = "order_exceeded";
     }
 
     return new Response(

@@ -7,6 +7,7 @@ import jsPDF from 'jspdf';
 interface FuelInvoice {
   id: string;
   invoice_number: string;
+  order_number?: string | null;
   invoice_date: string;
   transaction_date: string;
   vehicle_registration: string;
@@ -141,6 +142,7 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
       const invoiceData: InvoiceData = {
         previous_fillings: previousFillings,
         invoice_number: invoice.invoice_number,
+        order_number: invoice.order_number,
         invoice_date: invoice.invoice_date,
         transaction_date: invoice.transaction_date,
         vehicle_registration: invoice.vehicle_registration,
@@ -273,6 +275,7 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
       const pdfBlob = await generateFuelInvoicePDF({
         previous_fillings: previousFillings,
         invoice_number: invoice.invoice_number,
+        order_number: invoice.order_number,
         invoice_date: invoice.invoice_date,
         transaction_date: invoice.transaction_date,
         vehicle_registration: invoice.vehicle_registration,
@@ -322,6 +325,7 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
       if (index > 0) pdf.addPage();
       renderInvoiceToPDF(pdf, {
         invoice_number: invoice.invoice_number,
+        order_number: invoice.order_number,
         invoice_date: invoice.invoice_date,
         transaction_date: invoice.transaction_date,
         vehicle_registration: invoice.vehicle_registration,
@@ -381,6 +385,7 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
       if (index > 0) pdf.addPage();
       renderInvoiceToPDF(pdf, {
         invoice_number: invoice.invoice_number,
+        order_number: invoice.order_number,
         invoice_date: invoice.invoice_date,
         transaction_date: invoice.transaction_date,
         vehicle_registration: invoice.vehicle_registration,

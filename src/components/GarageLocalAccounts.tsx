@@ -797,6 +797,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
       const pdfBlob = await generateFuelInvoicePDF({
         previous_fillings: previousFillings,
         invoice_number: invoice.invoice_number,
+        order_number: invoice.order_number,
         invoice_date: invoice.invoice_date,
         transaction_date: invoice.transaction_date,
         vehicle_registration: invoice.vehicle_registration,
