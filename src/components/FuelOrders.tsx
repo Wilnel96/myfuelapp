@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { FileText, Plus, X, AlertCircle, CheckCircle, Ban, Fuel, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import GarageSearchSelect from './GarageSearchSelect';
 
 interface Vehicle {
   id: string;
@@ -375,12 +376,7 @@ function CreateFuelOrderForm({ organizationId, vehicles, garages, onCancel, onCr
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Garage</label>
-          <select value={garageId} onChange={(e) => setGarageId(e.target.value)} className={inputClass} required>
-            <option value="">Select a garage</option>
-            {garages.map(g => (
-              <option key={g.id} value={g.id}>{g.city ? `${g.name} - ${g.city}` : g.name}</option>
-            ))}
-          </select>
+          <GarageSearchSelect garages={garages} value={garageId} onChange={setGarageId} inputClassName={inputClass} />
           <p className="text-xs text-gray-500 mt-1">The driver must refuel at this garage for the order to apply.</p>
         </div>
 
