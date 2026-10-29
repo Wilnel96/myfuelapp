@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { FileText, Plus, X, AlertCircle, CheckCircle, Ban, Fuel, ArrowLeft, Mail, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { buildFuelOrderHtml, fuelOrderDocumentTitle, type FuelOrderDocumentData } from '../lib/fuelOrderDocument';
+import { buildFuelOrderPdf, type FuelOrderPdfData } from '../lib/fuelOrderPdf';
 import GarageSearchSelect from './GarageSearchSelect';
 import EmailFuelOrderModal from './EmailFuelOrderModal';
 
@@ -62,7 +62,7 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [organizationName, setOrganizationName] = useState('');
-  const [emailTarget, setEmailTarget] = useState<{ subject: string; html: string } | null>(null);
+  const [emailTarget, setEmailTarget] = useState<FuelOrderPdfData | null>(null);
 
   useEffect(() => {
     loadData();
@@ -139,35 +139,33 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
     return g.city ? `${g.name} - ${g.city}` : g.name;
   };
 
-  const buildOrderDocument = (order: FuelOrder) => {
-    const data: FuelOrderDocumentData = {
-      systemOrderNumber: order.system_order_number,
-      clientOrderNumber: order.client_order_number,
-      organizationName,
-      vehicleLabel: vehicleLabel(order.vehicle_id),
-      garageLabel: garageLabel(order.garage_id),
-      fuelType: order.fuel_type,
-      orderType: order.order_type,
-      litersOrdered: Number(order.liters_ordered),
-      litersUsed: Number(order.liters_used),
-      pricePerLiter: Number(order.price_per_liter),
-      status: order.status,
-      createdAt: order.created_at,
-    };
-    return { subject: fuelOrderDocumentTitle(data), html: buildFuelOrderHtml(data) };
-  };
+  const buildOrderData = (order: FuelOrder): FuelOrderPdfData => ({
+    systemOrderNumber: order.system_order_number,
+    clientOrderNumber: order.client_order_number,
+    organizationName,
+    vehicleLabel: vehicleLabel(order.vehicle_id),
+    garageLabel: garageLabel(order.garage_id),
+    fuelType: order.fuel_type,
+    orderType: order.order_type,
+    litersOrdered: Number(order.liters_ordered),
+    litersUsed: Number(order.liters_used),
+    pricePerLiter: Number(order.price_per_liter),
+    status: order.status,
+    createdAt: order.created_at,
+  });
 
   const handlePrint = (order: FuelOrder) => {
-    const { html } = buildOrderDocument(order);
-    const printWindow = window.open('', '_blank');
+    const pdfUrl = URL.createObjectURL(buildFuelOrderPdf(buildOrderData(order)).output('blob'));
+    const printWindow = window.open(pdfUrl, '_blank');
     if (!printWindow) {
+      URL.revokeObjectURL(pdfUrl);
       setError('Your browser blocked the print window. Allow pop-ups for this site and try again.');
       return;
     }
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 250);
+    printWindow.onload = () => {
+      setTimeout(() => printWindow.print(), 500);
+    };
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
   };
 
   const handleCancel = async (order: FuelOrder) => {
@@ -317,7 +315,7 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
                       Print
                     </button>
                     <button
-                      onClick={() => setEmailTarget(buildOrderDocument(order))}
+                      onClick={() => setEmailTarget(buildOrderData(order))}
                       className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
                     >
                       <Mail className="w-4 h-4" />
@@ -343,8 +341,7 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
 
       {emailTarget && (
         <EmailFuelOrderModal
-          subject={emailTarget.subject}
-          html={emailTarget.html}
+          order={emailTarget}
           onClose={() => setEmailTarget(null)}
           onSent={setSuccessMessage}
         />

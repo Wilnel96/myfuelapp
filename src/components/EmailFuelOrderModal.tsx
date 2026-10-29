@@ -1,17 +1,24 @@
 import { useState } from 'react';
 import { X, Mail, Send, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import {
+  buildFuelOrderPdf,
+  fuelOrderFilename,
+  fuelOrderNumber,
+  fuelOrderPdfBase64,
+  fuelOrderSubject,
+  type FuelOrderPdfData,
+} from '../lib/fuelOrderPdf';
 
 interface EmailFuelOrderModalProps {
-  subject: string;
-  html: string;
+  order: FuelOrderPdfData;
   onClose: () => void;
   onSent: (message: string) => void;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export default function EmailFuelOrderModal({ subject, html, onClose, onSent }: EmailFuelOrderModalProps) {
+export default function EmailFuelOrderModal({ order, onClose, onSent }: EmailFuelOrderModalProps) {
   const [to, setTo] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -30,8 +37,15 @@ export default function EmailFuelOrderModal({ subject, html, onClose, onSent }: 
     try {
       setSending(true);
       setError('');
+      const pdfContent = fuelOrderPdfBase64(buildFuelOrderPdf(order));
+      const text = `Please find fuel order ${fuelOrderNumber(order)} attached as a PDF.\n\nPresent the order at the garage when refuelling.\n\nSent from MyFuelApp.net`;
       const { data, error: invokeError } = await supabase.functions.invoke('send-email', {
-        body: { to: recipients, subject, html },
+        body: {
+          to: recipients,
+          subject: fuelOrderSubject(order),
+          text,
+          attachments: [{ filename: fuelOrderFilename(order), content: pdfContent }],
+        },
       });
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
@@ -60,8 +74,9 @@ export default function EmailFuelOrderModal({ subject, html, onClose, onSent }: 
 
         <div className="p-6 space-y-4">
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-1">Subject</p>
-            <p className="text-sm text-gray-900">{subject}</p>
+            <p className="text-sm font-medium text-gray-700 mb-1">Attachment</p>
+            <p className="text-sm text-gray-900">{fuelOrderFilename(order)}</p>
+            <p className="text-xs text-gray-500 mt-0.5">Order {fuelOrderNumber(order)} as a PDF</p>
           </div>
 
           <div>
@@ -74,7 +89,6 @@ export default function EmailFuelOrderModal({ subject, html, onClose, onSent }: 
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               onKeyDown={(e) => e.key === 'Enter' && !sending && handleSend()}
             />
-            <p className="text-xs text-gray-500 mt-1">The order is sent in the body of the email, so it can be read on any device.</p>
           </div>
 
           {error && (
@@ -94,7 +108,7 @@ export default function EmailFuelOrderModal({ subject, html, onClose, onSent }: 
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
               {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              {sending ? 'Sending...' : 'Send Order'}
+              {sending ? 'Sending...' : 'Send PDF'}
             </button>
           </div>
         </div>
