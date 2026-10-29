@@ -25,7 +25,7 @@ interface FuelOrder {
   vehicle_id: string;
   garage_id: string;
   fuel_type: string;
-  order_type: 'single' | 'partial';
+  order_type: 'single' | 'multiple';
   liters_ordered: number;
   liters_used: number;
   price_per_liter: number;
@@ -46,7 +46,7 @@ const STATUS_STYLES: Record<FuelOrder['status'], { label: string; className: str
 
 const ORDER_TYPE_LABELS: Record<FuelOrder['order_type'], string> = {
   single: 'Single refuel',
-  partial: 'Partial refuel',
+  multiple: 'Multiple refuel',
 };
 
 export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
@@ -296,7 +296,7 @@ interface CreateFuelOrderFormProps {
 function CreateFuelOrderForm({ organizationId, vehicles, garages, onCancel, onCreated }: CreateFuelOrderFormProps) {
   const [vehicleId, setVehicleId] = useState('');
   const [garageId, setGarageId] = useState('');
-  const [orderType, setOrderType] = useState<'single' | 'partial'>('single');
+  const [orderType, setOrderType] = useState<'single' | 'multiple'>('single');
   const [liters, setLiters] = useState('');
   const [clientOrderNumber, setClientOrderNumber] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -383,7 +383,7 @@ function CreateFuelOrderForm({ organizationId, vehicles, garages, onCancel, onCr
         <div>
           <p className="block text-sm font-medium text-gray-700 mb-2">Order type</p>
           <div className="grid grid-cols-2 gap-3">
-            {(['single', 'partial'] as const).map(type => (
+            {(['single', 'multiple'] as const).map(type => (
               <button
                 key={type}
                 type="button"
@@ -394,7 +394,7 @@ function CreateFuelOrderForm({ organizationId, vehicles, garages, onCancel, onCr
               >
                 <p className="font-semibold text-sm">{ORDER_TYPE_LABELS[type]}</p>
                 <p className="text-xs mt-0.5 opacity-80">
-                  {type === 'single' ? 'One fill-up, then the order closes.' : 'One partial fill-up, then the order expires.'}
+                  {type === 'single' ? 'One fill-up, then the order closes.' : 'Fill-ups until the ordered litres are used, then the order closes.'}
                 </p>
               </button>
             ))}

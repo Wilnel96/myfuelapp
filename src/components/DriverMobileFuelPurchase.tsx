@@ -48,8 +48,9 @@ interface FuelOrder {
   system_order_number: string;
   client_order_number: string | null;
   garage_id: string;
-  order_type: 'single' | 'partial';
+  order_type: 'single' | 'multiple';
   liters_ordered: number;
+  liters_used: number;
   price_per_liter: number;
 }
 
@@ -125,7 +126,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
     let cancelled = false;
     supabase
       .from('fuel_orders')
-      .select('id, system_order_number, client_order_number, garage_id, order_type, liters_ordered, price_per_liter')
+      .select('id, system_order_number, client_order_number, garage_id, order_type, liters_ordered, liters_used, price_per_liter')
       .eq('vehicle_id', drawnVehicle.id)
       .eq('status', 'open')
       .order('created_at', { ascending: true })
@@ -2220,8 +2221,13 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                       <p className="text-base font-semibold text-gray-900 mt-1">{orderGarage?.name || 'Garage not found'}</p>
                       {orderGarage?.city && <p className="text-sm text-gray-600">{orderGarage.city}</p>}
                       <p className="text-sm text-gray-700 mt-2">
-                        {order.order_type === 'single' ? 'Single refuel' : 'Partial refuel'} - {Number(order.liters_ordered).toFixed(2)} L at R {Number(order.price_per_liter).toFixed(2)}/L
+                        {order.order_type === 'single' ? 'Single refuel' : 'Multiple refuel'} - {Number(order.liters_ordered).toFixed(2)} L at R {Number(order.price_per_liter).toFixed(2)}/L
                       </p>
+                      {order.order_type === 'multiple' && (
+                        <p className="text-sm font-semibold text-blue-700 mt-1">
+                          {Math.max(0, Number(order.liters_ordered) - Number(order.liters_used)).toFixed(2)} L remaining
+                        </p>
+                      )}
                     </button>
                   );
                 })}
@@ -2433,9 +2439,11 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                     <p className="text-sm font-bold text-blue-900">Fuel order {selectedOrder.client_order_number || selectedOrder.system_order_number}</p>
                     <p className="text-xs text-blue-800 mt-1">
-                      {Number(selectedOrder.liters_ordered).toFixed(2)} L ordered at R {Number(selectedOrder.price_per_liter).toFixed(2)}/L. This order can only be used once.
+                      {selectedOrder.order_type === 'single'
+                        ? `${Number(selectedOrder.liters_ordered).toFixed(2)} L ordered at R ${Number(selectedOrder.price_per_liter).toFixed(2)}/L. This order can only be used once.`
+                        : `${Math.max(0, Number(selectedOrder.liters_ordered) - Number(selectedOrder.liters_used)).toFixed(2)} L remaining of ${Number(selectedOrder.liters_ordered).toFixed(2)} L at R ${Number(selectedOrder.price_per_liter).toFixed(2)}/L. The order closes once its litres are used.`}
                     </p>
-                    {parseFloat(formData.liters || '0') > Number(selectedOrder.liters_ordered) && (
+                    {parseFloat(formData.liters || '0') > Math.max(0, Number(selectedOrder.liters_ordered) - Number(selectedOrder.liters_used)) && (
                       <div className="mt-3 bg-amber-50 border border-amber-400 rounded-lg p-3">
                         <p className="text-xs font-bold text-amber-900">
                           This fill-up is more than the order allows. It will be recorded and the order flagged as exceeded.
