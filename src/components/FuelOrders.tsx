@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FileText, Plus, X, AlertCircle, CheckCircle, Ban, Fuel, ArrowLeft } from 'lucide-react';
+import { FileText, Plus, X, AlertCircle, CheckCircle, Ban, Fuel, ArrowLeft, Mail, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { buildFuelOrderHtml, fuelOrderDocumentTitle, type FuelOrderDocumentData } from '../lib/fuelOrderDocument';
 import GarageSearchSelect from './GarageSearchSelect';
+import EmailFuelOrderModal from './EmailFuelOrderModal';
 
 interface Vehicle {
   id: string;
@@ -59,6 +61,8 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [organizationName, setOrganizationName] = useState('');
+  const [emailTarget, setEmailTarget] = useState<{ subject: string; html: string } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -81,6 +85,14 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
       if (profileError) throw profileError;
       if (!profile?.organization_id) throw new Error('No organization found');
       setOrgId(profile.organization_id);
+
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('name')
+        .eq('id', profile.organization_id)
+        .maybeSingle();
+      if (orgError) throw orgError;
+      setOrganizationName(org?.name || '');
 
       const [ordersRes, vehiclesRes, garagesRes] = await Promise.all([
         supabase
@@ -125,6 +137,37 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
     const g = garages.find(x => x.id === garageId);
     if (!g) return 'Unknown garage';
     return g.city ? `${g.name} - ${g.city}` : g.name;
+  };
+
+  const buildOrderDocument = (order: FuelOrder) => {
+    const data: FuelOrderDocumentData = {
+      systemOrderNumber: order.system_order_number,
+      clientOrderNumber: order.client_order_number,
+      organizationName,
+      vehicleLabel: vehicleLabel(order.vehicle_id),
+      garageLabel: garageLabel(order.garage_id),
+      fuelType: order.fuel_type,
+      orderType: order.order_type,
+      litersOrdered: Number(order.liters_ordered),
+      litersUsed: Number(order.liters_used),
+      pricePerLiter: Number(order.price_per_liter),
+      status: order.status,
+      createdAt: order.created_at,
+    };
+    return { subject: fuelOrderDocumentTitle(data), html: buildFuelOrderHtml(data) };
+  };
+
+  const handlePrint = (order: FuelOrder) => {
+    const { html } = buildOrderDocument(order);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      setError('Your browser blocked the print window. Allow pop-ups for this site and try again.');
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setTimeout(() => printWindow.print(), 250);
   };
 
   const handleCancel = async (order: FuelOrder) => {
@@ -265,21 +308,46 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
                       <p className="text-xs text-gray-500">Refuelled: {Number(order.liters_used).toFixed(2)} L</p>
                     )}
                   </div>
-                  {order.status === 'open' && (
+                  <div className="flex items-center gap-1 self-start flex-wrap">
                     <button
-                      onClick={() => handleCancel(order)}
-                      disabled={cancellingId === order.id}
-                      className="self-start text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
+                      onClick={() => handlePrint(order)}
+                      className="text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
                     >
-                      <Ban className="w-4 h-4" />
-                      {cancellingId === order.id ? 'Cancelling...' : 'Cancel'}
+                      <Printer className="w-4 h-4" />
+                      Print
                     </button>
-                  )}
+                    <button
+                      onClick={() => setEmailTarget(buildOrderDocument(order))}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Email
+                    </button>
+                    {order.status === 'open' && (
+                      <button
+                        onClick={() => handleCancel(order)}
+                        disabled={cancellingId === order.id}
+                        className="text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
+                      >
+                        <Ban className="w-4 h-4" />
+                        {cancellingId === order.id ? 'Cancelling...' : 'Cancel'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {emailTarget && (
+        <EmailFuelOrderModal
+          subject={emailTarget.subject}
+          html={emailTarget.html}
+          onClose={() => setEmailTarget(null)}
+          onSent={setSuccessMessage}
+        />
       )}
     </div>
   );
