@@ -52,6 +52,7 @@ interface FuelOrder {
   liters_ordered: number;
   liters_used: number;
   price_per_liter: number;
+  item_type: 'fuel' | 'oil' | 'other';
 }
 
 export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete }: DriverMobileFuelPurchaseProps) {
@@ -117,6 +118,8 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
   const [openOrders, setOpenOrders] = useState<FuelOrder[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const selectedOrder = openOrders.find(o => o.id === selectedOrderId) || null;
+  const hasOpenFuelOrderAtGarage = (garageId: string) =>
+    openOrders.some(o => o.garage_id === garageId && o.item_type === 'fuel');
 
   useEffect(() => {
     if (!drawnVehicle) {
@@ -126,7 +129,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
     let cancelled = false;
     supabase
       .from('fuel_orders')
-      .select('id, system_order_number, client_order_number, garage_id, order_type, liters_ordered, liters_used, price_per_liter')
+      .select('id, system_order_number, client_order_number, garage_id, order_type, liters_ordered, liters_used, price_per_liter, item_type')
       .eq('vehicle_id', drawnVehicle.id)
       .eq('status', 'open')
       .order('created_at', { ascending: true })
@@ -457,7 +460,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
       // Always check if this garage has a local account for this organization
       const { data: garageAccount, error: garageAccountError } = await supabase
         .from('organization_garage_accounts')
-        .select('monthly_spend_limit, account_number, deposit_amount')
+        .select('monthly_spend_limit, account_number, deposit_amount, order_required')
         .eq('organization_id', drawnVehicle.organization_id)
         .eq('garage_id', selectedGarage.id)
         .eq('is_active', true)
@@ -471,6 +474,11 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
       // this allows an org to have both card payment (default) and local accounts at
       // specific garages. The garage-specific account always takes precedence.
       if (garageAccount) {
+        if (garageAccount.order_required && !hasOpenFuelOrderAtGarage(selectedGarage.id)) {
+          setError(`A fuel order is required before filling up at ${selectedGarage.name}. Please ask your administrator to create one for this vehicle.`);
+          setCurrentStep('garage_selection');
+          return;
+        }
         setPaymentOption('Local Account');
         setIsLocalAccount(true);
         setGarageAccountNumber(garageAccount.account_number);
@@ -919,7 +927,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           .maybeSingle(),
         supabase
           .from('organization_garage_accounts')
-          .select('account_number, monthly_spend_limit, deposit_amount')
+          .select('account_number, monthly_spend_limit, deposit_amount, order_required')
           .eq('organization_id', drawnVehicle.organization_id)
           .eq('garage_id', selectedGarage.id)
           .eq('is_active', true)
@@ -927,6 +935,11 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
       ]);
 
       if (garageAccount) {
+        if (garageAccount.order_required && !hasOpenFuelOrderAtGarage(selectedGarage.id)) {
+          setPaymentCheckError(`A fuel order is required before filling up at ${selectedGarage.name}. Please ask your administrator to create one for this vehicle.`);
+          setLoading(false);
+          return;
+        }
         // Local account exists for this garage — use it
         setPaymentOption('Local Account');
         setIsLocalAccount(true);

@@ -27,6 +27,8 @@ interface FuelOrder {
   vehicle_id: string;
   garage_id: string;
   fuel_type: string;
+  item_type: 'fuel' | 'oil' | 'other';
+  item_description: string | null;
   order_type: 'single' | 'multiple';
   liters_ordered: number;
   liters_used: number;
@@ -98,7 +100,7 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
       const [ordersRes, vehiclesRes, garagesRes] = await Promise.all([
         supabase
           .from('fuel_orders')
-          .select('id, system_order_number, client_order_number, vehicle_id, garage_id, fuel_type, order_type, liters_ordered, liters_used, price_per_liter, status, exceeded, created_at')
+          .select('id, system_order_number, client_order_number, vehicle_id, garage_id, fuel_type, item_type, item_description, order_type, liters_ordered, liters_used, price_per_liter, status, exceeded, created_at')
           .eq('organization_id', profile.organization_id)
           .order('created_at', { ascending: false }),
         supabase
@@ -303,7 +305,9 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
                     <p className="text-sm text-gray-700">{vehicleLabel(order.vehicle_id)}</p>
                     <p className="text-sm text-gray-600">{garageLabel(order.garage_id)}</p>
                     <p className="text-sm text-gray-600">
-                      {ORDER_TYPE_LABELS[order.order_type]} - {Number(order.liters_ordered).toFixed(2)} L {order.fuel_type} at R {Number(order.price_per_liter).toFixed(2)}/L
+                      {order.item_type === 'fuel'
+                        ? `${ORDER_TYPE_LABELS[order.order_type]} - ${Number(order.liters_ordered).toFixed(2)} L ${order.fuel_type} at R ${Number(order.price_per_liter).toFixed(2)}/L`
+                        : `${order.item_description || (order.item_type === 'oil' ? 'Oil' : 'Other goods')} - ${Number(order.liters_ordered).toFixed(0)} units at R ${Number(order.price_per_liter).toFixed(2)} each`}
                     </p>
                     {order.status === 'fulfilled' && (
                       <p className="text-xs text-gray-500">Refuelled: {Number(order.liters_used).toFixed(2)} L</p>
@@ -362,6 +366,14 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
   );
 }
 
+const GOODS_TYPE_OPTIONS: { value: 'fuel' | 'oil' | 'other'; label: string }[] = [
+  { value: 'fuel', label: 'Fuel' },
+  { value: 'oil', label: 'Oil' },
+  { value: 'other', label: 'Other goods' },
+];
+
+const OIL_TYPE_OPTIONS = ['Engine oil', 'Brake fluid', 'Transmission oil', 'Coolant', 'Other'];
+
 interface FuelOrderFormProps {
   organizationId: string;
   existingOrder: FuelOrder | null;
@@ -376,6 +388,10 @@ function FuelOrderForm({ organizationId, existingOrder, vehicles, garages, onCan
   const [vehicleId, setVehicleId] = useState(existingOrder?.vehicle_id ?? '');
   const [garageId, setGarageId] = useState(existingOrder?.garage_id ?? '');
   const [orderType, setOrderType] = useState<'single' | 'multiple'>(existingOrder?.order_type ?? 'single');
+  const [itemType, setItemType] = useState<'fuel' | 'oil' | 'other'>(existingOrder?.item_type ?? 'fuel');
+  const [itemDescription, setItemDescription] = useState(existingOrder?.item_description ?? '');
+  const [unitPrice, setUnitPrice] = useState(existingOrder && existingOrder.item_type !== 'fuel' ? String(Number(existingOrder.price_per_liter)) : '');
+  const isFuel = itemType === 'fuel';
   const [liters, setLiters] = useState(existingOrder ? String(Number(existingOrder.liters_ordered)) : '');
   const [clientOrderNumber, setClientOrderNumber] = useState(existingOrder?.client_order_number ?? '');
   const [submitting, setSubmitting] = useState(false);
@@ -390,14 +406,18 @@ function FuelOrderForm({ organizationId, existingOrder, vehicles, garages, onCan
     return typeof price === 'number' && price > 0 ? price : null;
   }, [selectedVehicle, selectedGarage]);
 
+  const parsedUnitPrice = parseFloat(unitPrice);
+  const effectivePrice = isFuel ? pricePerLiter : Number.isFinite(parsedUnitPrice) && parsedUnitPrice > 0 ? parsedUnitPrice : null;
+
   const litersValue = parseFloat(liters);
   const validLiters = Number.isFinite(litersValue) && litersValue > 0;
-  const estimatedTotal = pricePerLiter !== null && validLiters ? litersValue * pricePerLiter : null;
-  const canSubmit = !!vehicleId && !!garageId && validLiters && pricePerLiter !== null && !submitting;
+  const estimatedTotal = effectivePrice !== null && validLiters ? litersValue * effectivePrice : null;
+  const hasItemDetails = isFuel || itemDescription.trim() !== '';
+  const canSubmit = !!vehicleId && !!garageId && validLiters && effectivePrice !== null && hasItemDetails && !submitting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit || !selectedVehicle?.fuel_type || pricePerLiter === null) return;
+    if (!canSubmit || !selectedVehicle || effectivePrice === null) return;
 
     try {
       setSubmitting(true);
@@ -406,10 +426,12 @@ function FuelOrderForm({ organizationId, existingOrder, vehicles, garages, onCan
       const details = {
         vehicle_id: selectedVehicle.id,
         garage_id: garageId,
-        fuel_type: selectedVehicle.fuel_type,
-        order_type: orderType,
+        fuel_type: isFuel ? selectedVehicle.fuel_type : itemType,
+        order_type: isFuel ? orderType : 'single',
         liters_ordered: litersValue,
-        price_per_liter: pricePerLiter,
+        price_per_liter: effectivePrice,
+        item_type: itemType,
+        item_description: isFuel ? null : itemDescription.trim(),
         client_order_number: clientOrderNumber.trim() || null,
       };
 
@@ -478,6 +500,25 @@ function FuelOrderForm({ organizationId, existingOrder, vehicles, garages, onCan
         </div>
 
         <div>
+          <p className="block text-sm font-medium text-gray-700 mb-2">What are you ordering?</p>
+          <div className="grid grid-cols-3 gap-3">
+            {GOODS_TYPE_OPTIONS.map(option => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => { setItemType(option.value); setItemDescription(''); }}
+                className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+                  itemType === option.value ? 'border-blue-600 bg-blue-50 text-blue-900' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <p className="font-semibold text-sm">{option.label}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {isFuel && (
+        <div>
           <p className="block text-sm font-medium text-gray-700 mb-2">Order type</p>
           <div className="grid grid-cols-2 gap-3">
             {(['single', 'multiple'] as const).map(type => (
@@ -497,9 +538,10 @@ function FuelOrderForm({ organizationId, existingOrder, vehicles, garages, onCan
             ))}
           </div>
         </div>
+        )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Litres</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{isFuel ? 'Litres' : 'Units'}</label>
           <input
             type="number"
             min="0"
@@ -512,18 +554,62 @@ function FuelOrderForm({ organizationId, existingOrder, vehicles, garages, onCan
           />
         </div>
 
+        {!isFuel && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              {itemType === 'oil' ? (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Oil type</label>
+                  <select value={itemDescription} onChange={(e) => setItemDescription(e.target.value)} className={inputClass} required>
+                    <option value="">Select oil type</option>
+                    {OIL_TYPE_OPTIONS.map(option => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Describe the goods</label>
+                  <input
+                    type="text"
+                    value={itemDescription}
+                    onChange={(e) => setItemDescription(e.target.value)}
+                    maxLength={100}
+                    className={inputClass}
+                    placeholder="e.g. Windscreen washer fluid"
+                    required
+                  />
+                </>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Price per unit (R)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={unitPrice}
+                onChange={(e) => setUnitPrice(e.target.value)}
+                className={inputClass}
+                placeholder="0.00"
+                required
+              />
+            </div>
+          </div>
+        )}
+
         <div className="rounded-lg bg-gray-50 border border-gray-200 p-4 grid grid-cols-2 gap-4">
           <div>
-            <p className="text-xs text-gray-500">Price per litre</p>
+            <p className="text-xs text-gray-500">{isFuel ? 'Price per litre' : 'Price per unit'}</p>
             <p className="text-base font-semibold text-gray-900">
-              {pricePerLiter !== null ? `R ${pricePerLiter.toFixed(2)}` : selectedVehicle && selectedGarage ? 'Not listed' : '-'}
+              {effectivePrice !== null ? `R ${effectivePrice.toFixed(2)}` : isFuel && selectedVehicle && selectedGarage ? 'Not listed' : '-'}
             </p>
           </div>
           <div>
             <p className="text-xs text-gray-500">Estimated total</p>
             <p className="text-base font-semibold text-gray-900">{estimatedTotal !== null ? `R ${estimatedTotal.toFixed(2)}` : '-'}</p>
           </div>
-          {selectedVehicle && selectedGarage && pricePerLiter === null && (
+          {isFuel && selectedVehicle && selectedGarage && pricePerLiter === null && (
             <p className="col-span-2 text-xs text-amber-700">
               This garage has no {selectedVehicle.fuel_type || ''} price listed, so the order cannot be placed here.
             </p>

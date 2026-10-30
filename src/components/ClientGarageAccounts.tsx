@@ -16,6 +16,7 @@ interface GarageAccount {
   notes: string | null;
   account_number: string | null;
   monthly_spend_limit: number | null;
+  order_required: boolean;
 }
 
 interface ClientGarageAccountsProps {
@@ -32,6 +33,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [accountNumberInput, setAccountNumberInput] = useState('');
   const [accountLimitInput, setAccountLimitInput] = useState('');
+  const [accountOrderRequired, setAccountOrderRequired] = useState(false);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [selectedGarageForAccount, setSelectedGarageForAccount] = useState<Garage | null>(null);
   const [garageSearch, setGarageSearch] = useState('');
@@ -52,7 +54,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
           .order('name'),
         supabase
           .from('organization_garage_accounts')
-          .select('id, garage_id, is_active, notes, account_number, monthly_spend_limit')
+          .select('id, garage_id, is_active, notes, account_number, monthly_spend_limit, order_required')
           .eq('organization_id', organizationId),
       ]);
 
@@ -152,6 +154,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
     setEditingAccountId(account.id);
     setAccountNumberInput(account.account_number || '');
     setAccountLimitInput(account.monthly_spend_limit ? account.monthly_spend_limit.toString() : '');
+    setAccountOrderRequired(account.order_required);
   };
 
   const handleSaveAccount = async (accountId: string) => {
@@ -165,7 +168,8 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
         .from('organization_garage_accounts')
         .update({
           account_number: accountNumberInput || null,
-          monthly_spend_limit: monthlySpendLimit
+          monthly_spend_limit: monthlySpendLimit,
+          order_required: accountOrderRequired
         })
         .eq('id', accountId);
 
@@ -428,6 +432,18 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
                                   />
                                 </div>
                               </div>
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs font-medium text-gray-700 w-24">Order Required:</label>
+                                <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={accountOrderRequired}
+                                    onChange={(e) => setAccountOrderRequired(e.target.checked)}
+                                    className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                                  />
+                                  Driver needs an open fuel order before filling up here
+                                </label>
+                              </div>
                               <div className="flex items-center gap-2 justify-end">
                                 <button
                                   onClick={(e) => {
@@ -473,6 +489,14 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
                                       <span className="text-gray-900 font-semibold">R {account.monthly_spend_limit.toFixed(2)}</span>
                                     ) : (
                                       <span className="text-gray-500 italic">No limit set</span>
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-gray-600">
+                                    <span className="font-medium">Order Required: </span>
+                                    {account.order_required ? (
+                                      <span className="text-gray-900 font-semibold">Yes, before filling up</span>
+                                    ) : (
+                                      <span className="text-gray-500 italic">No</span>
                                     )}
                                   </p>
                                 </div>
