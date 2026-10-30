@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, CheckCircle, XCircle, Loader2, CreditCard as Edit2, Save, X, AlertCircle, Ban, Power } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, Loader2, CreditCard as Edit2, Save, X, AlertCircle, Ban, Power, Search } from 'lucide-react';
 
 interface Garage {
   id: string;
@@ -34,6 +34,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
   const [accountLimitInput, setAccountLimitInput] = useState('');
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [selectedGarageForAccount, setSelectedGarageForAccount] = useState<Garage | null>(null);
+  const [garageSearch, setGarageSearch] = useState('');
 
   useEffect(() => {
     loadData();
@@ -187,6 +188,17 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
     setAccountLimitInput('');
   };
 
+  const searchTerm = garageSearch.trim().toLowerCase();
+  const matchesSearch = (garage: Garage | undefined): boolean =>
+    !!garage &&
+    (searchTerm === '' ||
+      [garage.name, garage.city, garage.province].some(value => value?.toLowerCase().includes(searchTerm)));
+
+  const activeAccounts = garageAccounts.filter(a => a.is_active && matchesSearch(garages.find(g => g.id === a.garage_id)));
+  const inactiveAccounts = garageAccounts.filter(a => !a.is_active && matchesSearch(garages.find(g => g.id === a.garage_id)));
+  const unlinkedGarages = garages.filter(g => !garageAccounts.find(a => a.garage_id === g.id));
+  const availableGarages = unlinkedGarages.filter(matchesSearch);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-4">
@@ -306,6 +318,27 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
           </span>
         </div>
 
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={garageSearch}
+            onChange={(e) => setGarageSearch(e.target.value)}
+            placeholder="Search by garage name, city or province"
+            className="w-full pl-8 pr-8 py-2 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+          />
+          {garageSearch && (
+            <button
+              type="button"
+              onClick={() => setGarageSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
         {error && !showAccountModal && (
           <div className="bg-red-50 border border-red-200 rounded p-2">
             <p className="text-xs text-red-800">{error}</p>
@@ -319,11 +352,11 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
           </div>
         ) : (
           <>
-            {garageAccounts.filter(a => a.is_active).length > 0 && (
+            {activeAccounts.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-gray-900 mb-2">Active Garages</h4>
                 <div className="space-y-2 border border-amber-200 rounded-lg divide-y divide-amber-200">
-                  {garageAccounts.filter(a => a.is_active).map((account) => {
+                  {activeAccounts.map((account) => {
                     const garage = garages.find(g => g.id === account.garage_id);
                     if (!garage) return null;
 
@@ -464,11 +497,11 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
               </div>
             )}
 
-            {garageAccounts.filter(a => !a.is_active).length > 0 && (
+            {inactiveAccounts.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-gray-900 mb-2">Inactive Garages</h4>
                 <div className="space-y-2 border border-gray-200 rounded-lg divide-y divide-gray-200">
-                  {garageAccounts.filter(a => !a.is_active).map((account) => {
+                  {inactiveAccounts.map((account) => {
                     const garage = garages.find(g => g.id === account.garage_id);
                     if (!garage) return null;
 
@@ -517,13 +550,17 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
             <div>
               <h4 className="text-xs font-semibold text-gray-900 mb-2">Add New Garage</h4>
               <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg">
-                {garages.filter(g => !garageAccounts.find(a => a.garage_id === g.id)).length === 0 ? (
+                {unlinkedGarages.length === 0 ? (
                   <div className="p-4 text-center text-xs text-gray-500">
                     All garages have been added
                   </div>
+                ) : availableGarages.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-gray-500">
+                    No garages match "{garageSearch.trim()}"
+                  </div>
                 ) : (
                   <div className="divide-y divide-gray-200">
-                    {garages.filter(g => !garageAccounts.find(a => a.garage_id === g.id)).map((garage) => {
+                    {availableGarages.map((garage) => {
                       const isSaving = saving === garage.id;
                       return (
                         <div
