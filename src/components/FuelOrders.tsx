@@ -175,7 +175,7 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
       setError('');
       const { data, error: cancelError } = await supabase
         .from('fuel_orders')
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .update({ status: 'cancelled' })
         .eq('id', order.id)
         .eq('status', 'open')
         .select('id')
