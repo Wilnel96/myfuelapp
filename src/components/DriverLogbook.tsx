@@ -29,6 +29,7 @@ interface LogbookEntry {
   sequence_number: number;
   opening_km: number;
   from_location: string | null;
+  to_location: string | null;
   trip_reason: string;
   closing_km: number | null;
   km_travelled: number | null;
@@ -159,6 +160,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [showManualForm, setShowManualForm] = useState(false);
   const [manualOpenKm, setManualOpenKm] = useState('');
   const [manualFrom, setManualFrom] = useState('');
+  const [manualTo, setManualTo] = useState('');
   const [manualReason, setManualReason] = useState('');
   const [manualCloseKm, setManualCloseKm] = useState('');
   const [manualTripType, setManualTripType] = useState<'business' | 'private'>('business');
@@ -183,6 +185,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editOpenKm, setEditOpenKm] = useState('');
   const [editFrom, setEditFrom] = useState('');
+  const [editTo, setEditTo] = useState('');
   const [editReason, setEditReason] = useState('');
   const [editCloseKm, setEditCloseKm] = useState('');
   const [editTripType, setEditTripType] = useState<'business' | 'private'>('business');
@@ -678,6 +681,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           sequence_number: seqNum,
           opening_km: openKm,
           from_location: manualFrom.trim() || null,
+          to_location: manualTo.trim() || null,
           trip_reason: manualReason.trim(),
           closing_km: closeKm,
           km_travelled: closeKm !== null ? closeKm - openKm : null,
@@ -700,6 +704,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       setSuccessMsg('Logbook entry saved successfully');
       setManualOpenKm('');
       setManualFrom('');
+      setManualTo('');
       setManualReason('');
       setManualCloseKm('');
       setManualDate(new Date().toISOString().split('T')[0]);
@@ -718,6 +723,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     setEditDate(entry.entry_date);
     setEditOpenKm(String(entry.opening_km));
     setEditFrom(entry.from_location || '');
+    setEditTo(entry.to_location || '');
     setEditReason(entry.trip_reason);
     setEditCloseKm(entry.closing_km != null ? String(entry.closing_km) : '');
     setEditTripType(entry.trip_type === 'private' ? 'private' : 'business');
@@ -757,6 +763,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           entry_date: editDate,
           opening_km: openKm,
           from_location: editFrom.trim() || null,
+          to_location: editTo.trim() || null,
           trip_reason: editReason.trim(),
           closing_km: closeKm,
           km_travelled: closeKm !== null ? closeKm - openKm : null,
@@ -769,7 +776,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       setEntries(prev => prev.map(e =>
         e.id === editingId
-          ? { ...e, entry_date: editDate, opening_km: openKm, from_location: editFrom.trim() || null, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm !== null ? closeKm - openKm : null, trip_type: editTripType }
+          ? { ...e, entry_date: editDate, opening_km: openKm, from_location: editFrom.trim() || null, to_location: editTo.trim() || null, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm !== null ? closeKm - openKm : null, trip_type: editTripType }
           : e
       ));
       setEditingId(null);
@@ -805,12 +812,12 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     if (!entries.length || !selectedTrip) return;
 
     let csv = `Detail Logbook (SARS) - ${selectedTrip.vehicleRegistration}\nDriver: ${driverName}\nDate: ${new Date().toLocaleDateString('en-ZA')}\n\n`;
-    csv += 'Date,Open km,From,Reason,Closing km,KM Travelled,Trip Type\n';
+    csv += 'Date,Open km,From,To,Reason,Closing km,KM Travelled,Trip Type\n';
 
     let totalKm = 0;
     for (const e of entries) {
       const safe = (s: string) => `"${(s || '').replace(/"/g, '""')}"`;
-      csv += `${e.entry_date},${e.opening_km},${safe(e.from_location || '')},${safe(e.trip_reason)},${e.closing_km ?? ''},${e.km_travelled ?? ''},${e.trip_type === 'private' ? 'Private' : 'Business'}\n`;
+      csv += `${e.entry_date},${e.opening_km},${safe(e.from_location || '')},${safe(e.to_location || '')},${safe(e.trip_reason)},${e.closing_km ?? ''},${e.km_travelled ?? ''},${e.trip_type === 'private' ? 'Private' : 'Business'}\n`;
       totalKm += e.km_travelled || 0;
     }
     csv += `\n,,,Total,${totalKm}\n`;
@@ -849,6 +856,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           entry_date,
           opening_km,
           from_location,
+          to_location,
           trip_reason,
           closing_km,
           km_travelled,
@@ -878,6 +886,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         vehicle_model: r.vehicles?.model || '',
         opening_km: r.opening_km,
         from_location: r.from_location || '',
+        to_location: r.to_location || '',
         trip_reason: r.trip_reason,
         trip_type: r.trip_type,
         closing_km: r.closing_km,
@@ -898,7 +907,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       // Column headers
       excelRows.push({
-        A: 'Date', B: 'Vehicle', C: 'Open km', D: 'From', E: 'Reason', F: 'Closing km', G: 'KM Travelled', H: 'Type',
+        A: 'Date', B: 'Vehicle', C: 'Open km', D: 'From', E: 'To', F: 'Reason', G: 'Closing km', H: 'KM Travelled', I: 'Type',
       });
 
       let prevVehicle = '';
@@ -911,10 +920,11 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           B: row.vehicle_registration,
           C: row.opening_km,
           D: row.from_location || '',
-          E: row.trip_reason,
-          F: row.closing_km ?? '',
-          G: row.km_travelled ?? '',
-          H: row.trip_type === 'private' ? 'Private' : 'Business',
+          E: row.to_location || '',
+          F: row.trip_reason,
+          G: row.closing_km ?? '',
+          H: row.km_travelled ?? '',
+          I: row.trip_type === 'private' ? 'Private' : 'Business',
         });
         prevVehicle = row.vehicle_registration;
       }
@@ -928,7 +938,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       });
 
       ws['!cols'] = [
-        { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 14 }, { wch: 10 },
+        { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 25 }, { wch: 25 }, { wch: 40 }, { wch: 12 }, { wch: 14 }, { wch: 10 },
       ];
 
       XLSX.utils.book_append_sheet(wb, ws, 'SARS Logbook');
@@ -1432,6 +1442,17 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Travel To <span className="text-gray-400 font-normal">(destination)</span></label>
+                <input
+                  type="text"
+                  value={manualTo}
+                  onChange={(e) => setManualTo(e.target.value)}
+                  className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                  placeholder="e.g. Client warehouse, Stellenbosch"
+                  style={{ fontSize: '16px' }}
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Trip</label>
                 <textarea
                   value={manualReason}
@@ -1496,7 +1517,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                   {saving ? 'Saving...' : 'Save Entry'}
                 </button>
                 <button
-                  onClick={() => { setShowManualForm(false); setManualOpenKm(''); setManualFrom(''); setManualReason(''); setManualCloseKm(''); setManualTripType('business'); }}
+                  onClick={() => { setShowManualForm(false); setManualOpenKm(''); setManualFrom(''); setManualTo(''); setManualReason(''); setManualCloseKm(''); setManualTripType('business'); }}
                   className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
                 >
                   Cancel
@@ -1566,6 +1587,17 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                           onChange={(e) => setEditFrom(e.target.value)}
                           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                           placeholder="e.g. Cape Town depot"
+                          style={{ fontSize: '16px' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Travel To</label>
+                        <input
+                          type="text"
+                          value={editTo}
+                          onChange={(e) => setEditTo(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                          placeholder="e.g. Client warehouse, Stellenbosch"
                           style={{ fontSize: '16px' }}
                         />
                       </div>
@@ -1640,6 +1672,11 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                         {entry.from_location && (
                           <p className="text-sm text-gray-700 mt-0.5">
                             <span className="font-medium">From:</span> {entry.from_location}
+                          </p>
+                        )}
+                        {entry.to_location && (
+                          <p className="text-sm text-gray-700 mt-0.5">
+                            <span className="font-medium">Travel To:</span> {entry.to_location}
                           </p>
                         )}
                         <p className="text-sm text-gray-700 mt-0.5">
@@ -1750,6 +1787,11 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                           {entry.from_location && (
                             <p className="text-xs text-gray-500 mb-2">
                               <span className="font-medium text-gray-600">From:</span> {entry.from_location}
+                            </p>
+                          )}
+                          {entry.to_location && (
+                            <p className="text-xs text-gray-500 mb-2">
+                              <span className="font-medium text-gray-600">To:</span> {entry.to_location}
                             </p>
                           )}
                           <div className="flex items-center gap-4 text-sm">
