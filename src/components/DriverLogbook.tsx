@@ -186,6 +186,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [editReason, setEditReason] = useState('');
   const [editCloseKm, setEditCloseKm] = useState('');
   const [editTripType, setEditTripType] = useState<'business' | 'private'>('business');
+  const [editDate, setEditDate] = useState('');
 
   // Date-range Excel download state
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -714,6 +715,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
   const startEdit = (entry: LogbookEntry) => {
     setEditingId(entry.id);
+    setEditDate(entry.entry_date);
     setEditOpenKm(String(entry.opening_km));
     setEditFrom(entry.from_location || '');
     setEditReason(entry.trip_reason);
@@ -723,6 +725,11 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
   const handleEditSave = async () => {
     if (!editingId) return;
+
+    if (!editDate) {
+      setError('Date is required');
+      return;
+    }
 
     const openKm = parseInt(editOpenKm, 10);
     const closeKm = editCloseKm ? parseInt(editCloseKm, 10) : null;
@@ -747,6 +754,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       const { error: updateError } = await supabase
         .from('trip_logbook_entries')
         .update({
+          entry_date: editDate,
           opening_km: openKm,
           from_location: editFrom.trim() || null,
           trip_reason: editReason.trim(),
@@ -761,7 +769,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
 
       setEntries(prev => prev.map(e =>
         e.id === editingId
-          ? { ...e, opening_km: openKm, from_location: editFrom.trim() || null, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm !== null ? closeKm - openKm : null, trip_type: editTripType }
+          ? { ...e, entry_date: editDate, opening_km: openKm, from_location: editFrom.trim() || null, trip_reason: editReason.trim(), closing_km: closeKm, km_travelled: closeKm !== null ? closeKm - openKm : null, trip_type: editTripType }
           : e
       ));
       setEditingId(null);
@@ -1516,7 +1524,16 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-gray-500">Editing entry #{idx + 1}</span>
-                        <span className="text-xs text-gray-400">{entry.entry_date}</span>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={editDate}
+                          onChange={(e) => setEditDate(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                          style={{ fontSize: '16px' }}
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
