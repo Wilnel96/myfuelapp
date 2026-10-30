@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FileText, Plus, X, AlertCircle, CheckCircle, Ban, Fuel, ArrowLeft, Mail, Printer } from 'lucide-react';
+import { FileText, Plus, X, AlertCircle, CheckCircle, Ban, Fuel, ArrowLeft, Mail, Printer, Pencil } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { buildFuelOrderPdf, type FuelOrderPdfData } from '../lib/fuelOrderPdf';
 import GarageSearchSelect from './GarageSearchSelect';
@@ -59,6 +59,7 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<FuelOrder | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [organizationName, setOrganizationName] = useState('');
@@ -193,20 +194,22 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
     }
   };
 
-  const handleCreated = (systemNumber: string) => {
+  const handleSaved = (message: string) => {
     setShowCreate(false);
-    setSuccessMessage(`Order ${systemNumber} was created.`);
+    setEditingOrder(null);
+    setSuccessMessage(message);
     loadData();
   };
 
-  if (showCreate) {
+  if (showCreate || editingOrder) {
     return (
-      <CreateFuelOrderForm
+      <FuelOrderForm
         organizationId={orgId}
+        existingOrder={editingOrder}
         vehicles={vehicles}
         garages={garages}
-        onCancel={() => setShowCreate(false)}
-        onCreated={handleCreated}
+        onCancel={() => { setShowCreate(false); setEditingOrder(null); }}
+        onSaved={handleSaved}
       />
     );
   }
@@ -323,6 +326,15 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
                     </button>
                     {order.status === 'open' && (
                       <button
+                        onClick={() => setEditingOrder(order)}
+                        className="text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 px-3 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Edit
+                      </button>
+                    )}
+                    {order.status === 'open' && (
+                      <button
                         onClick={() => handleCancel(order)}
                         disabled={cancellingId === order.id}
                         className="text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 transition-colors"
@@ -350,20 +362,22 @@ export default function FuelOrders({ onNavigate }: FuelOrdersProps) {
   );
 }
 
-interface CreateFuelOrderFormProps {
+interface FuelOrderFormProps {
   organizationId: string;
+  existingOrder: FuelOrder | null;
   vehicles: Vehicle[];
   garages: Garage[];
   onCancel: () => void;
-  onCreated: (systemNumber: string) => void;
+  onSaved: (message: string) => void;
 }
 
-function CreateFuelOrderForm({ organizationId, vehicles, garages, onCancel, onCreated }: CreateFuelOrderFormProps) {
-  const [vehicleId, setVehicleId] = useState('');
-  const [garageId, setGarageId] = useState('');
-  const [orderType, setOrderType] = useState<'single' | 'multiple'>('single');
-  const [liters, setLiters] = useState('');
-  const [clientOrderNumber, setClientOrderNumber] = useState('');
+function FuelOrderForm({ organizationId, existingOrder, vehicles, garages, onCancel, onSaved }: FuelOrderFormProps) {
+  const isEdit = existingOrder !== null;
+  const [vehicleId, setVehicleId] = useState(existingOrder?.vehicle_id ?? '');
+  const [garageId, setGarageId] = useState(existingOrder?.garage_id ?? '');
+  const [orderType, setOrderType] = useState<'single' | 'multiple'>(existingOrder?.order_type ?? 'single');
+  const [liters, setLiters] = useState(existingOrder ? String(Number(existingOrder.liters_ordered)) : '');
+  const [clientOrderNumber, setClientOrderNumber] = useState(existingOrder?.client_order_number ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -389,26 +403,42 @@ function CreateFuelOrderForm({ organizationId, vehicles, garages, onCancel, onCr
       setSubmitting(true);
       setError('');
 
+      const details = {
+        vehicle_id: selectedVehicle.id,
+        garage_id: garageId,
+        fuel_type: selectedVehicle.fuel_type,
+        order_type: orderType,
+        liters_ordered: litersValue,
+        price_per_liter: pricePerLiter,
+        client_order_number: clientOrderNumber.trim() || null,
+      };
+
+      if (existingOrder) {
+        const { data, error: updateError } = await supabase
+          .from('fuel_orders')
+          .update(details)
+          .eq('id', existingOrder.id)
+          .eq('status', 'open')
+          .select('id')
+          .maybeSingle();
+
+        if (updateError) throw updateError;
+        if (!data) throw new Error('This order can no longer be edited');
+        onSaved(`Order ${details.client_order_number || existingOrder.system_order_number} was updated.`);
+        return;
+      }
+
       const { data, error: insertError } = await supabase
         .from('fuel_orders')
-        .insert({
-          organization_id: organizationId,
-          vehicle_id: selectedVehicle.id,
-          garage_id: garageId,
-          fuel_type: selectedVehicle.fuel_type,
-          order_type: orderType,
-          liters_ordered: litersValue,
-          price_per_liter: pricePerLiter,
-          client_order_number: clientOrderNumber.trim() || null,
-        })
+        .insert({ ...details, organization_id: organizationId })
         .select('system_order_number')
         .single();
 
       if (insertError) throw insertError;
-      onCreated(data.system_order_number);
+      onSaved(`Order ${data.system_order_number} was created.`);
     } catch (err: any) {
-      console.error('Error creating fuel order:', err);
-      setError(err.message || 'Failed to create order');
+      console.error('Error saving fuel order:', err);
+      setError(err.message || 'Failed to save order');
     } finally {
       setSubmitting(false);
     }
@@ -419,7 +449,9 @@ function CreateFuelOrderForm({ organizationId, vehicles, garages, onCancel, onCr
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">New Fuel Order</h1>
+        <h1 className="text-xl font-bold text-gray-900">
+          {isEdit ? `Edit ${existingOrder.client_order_number || existingOrder.system_order_number}` : 'New Fuel Order'}
+        </h1>
         <button onClick={onCancel} className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 px-3 py-2 text-sm">
           <ArrowLeft className="w-4 h-4" />
           Back to orders
@@ -527,7 +559,7 @@ function CreateFuelOrderForm({ organizationId, vehicles, garages, onCancel, onCr
             disabled={!canSubmit}
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-lg transition-colors"
           >
-            {submitting ? 'Creating...' : 'Create Order'}
+            {submitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Order'}
           </button>
         </div>
       </form>
