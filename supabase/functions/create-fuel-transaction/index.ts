@@ -373,7 +373,7 @@ Deno.serve(async (req: Request) => {
       .eq("id", transactionData.garageId)
       .maybeSingle();
 
-    let claimedOrder: { id: string; orderNumber: string; litersOrdered: number; exceeded: boolean; excessLiters: number; previousLitersUsed: number } | null = null;
+    let claimedOrder: { id: string; orderNumber: string; litersOrdered: number; previousLitersUsed: number } | null = null;
     const orderUnavailableResponse = () =>
       new Response(
         JSON.stringify({ error: "This fuel order has already been used or cancelled" }),
@@ -421,7 +421,15 @@ Deno.serve(async (req: Request) => {
       const litersOrdered = Number(order.liters_ordered);
       const previousLitersUsed = Number(order.liters_used);
       const newLitersUsed = previousLitersUsed + transactionData.liters;
-      const exceeded = newLitersUsed > litersOrdered;
+      if (newLitersUsed > litersOrdered) {
+        return new Response(
+          JSON.stringify({ error: `This fill-up is more than the fuel order allows. Remaining litres: ${Math.max(0, litersOrdered - previousLitersUsed).toFixed(2)} L` }),
+          {
+            status: 422,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
       const orderCompleted = order.order_type !== "multiple" || newLitersUsed >= litersOrdered;
       const nowIso = new Date().toISOString();
 
@@ -430,7 +438,6 @@ Deno.serve(async (req: Request) => {
         .update({
           status: orderCompleted ? "fulfilled" : "open",
           liters_used: newLitersUsed,
-          exceeded,
           fulfilled_at: orderCompleted ? nowIso : null,
           updated_at: nowIso,
         })
@@ -448,8 +455,6 @@ Deno.serve(async (req: Request) => {
         id: order.id,
         orderNumber: order.client_order_number?.trim() || order.system_order_number,
         litersOrdered,
-        exceeded,
-        excessLiters: Math.max(0, newLitersUsed - litersOrdered),
         previousLitersUsed,
       };
     }
@@ -494,7 +499,7 @@ Deno.serve(async (req: Request) => {
       if (claimedOrder) {
         await supabase
           .from("fuel_orders")
-          .update({ status: "open", liters_used: claimedOrder.previousLitersUsed, exceeded: false, fulfilled_at: null, updated_at: new Date().toISOString() })
+          .update({ status: "open", liters_used: claimedOrder.previousLitersUsed, fulfilled_at: null, updated_at: new Date().toISOString() })
           .eq("id", claimedOrder.id);
       }
       console.error("Insert error:", insertError);
@@ -645,12 +650,6 @@ Deno.serve(async (req: Request) => {
       const tankCapacity = Number(vehicle.tank_capacity);
       responseData.warning = `WARNING: Refuel amount (${transactionData.liters}L) is at or near tank capacity (${tankCapacity}L). An exception has been logged for review.`;
       responseData.warningType = "tank_capacity";
-    }
-
-    if (claimedOrder?.exceeded) {
-      const excessLiters = claimedOrder.excessLiters.toFixed(2);
-      responseData.warning = `WARNING: This fill-up is ${excessLiters}L more than the fuel order ${claimedOrder.orderNumber} allowed (${claimedOrder.litersOrdered}L). The fill-up has been recorded and the order is flagged as exceeded.`;
-      responseData.warningType = "order_exceeded";
     }
 
     return new Response(
