@@ -143,7 +143,7 @@ Deno.serve(async (req: Request) => {
     // ===================================================================
     const { data: vehicle, error: vehicleError } = await supabase
       .from("vehicles")
-      .select("organization_id, tank_capacity")
+      .select("organization_id, tank_capacity, registration_number")
       .eq("id", transactionData.vehicleId)
       .maybeSingle();
 
@@ -373,7 +373,7 @@ Deno.serve(async (req: Request) => {
       .eq("id", transactionData.garageId)
       .maybeSingle();
 
-    let claimedOrder: { id: string; orderNumber: string; litersOrdered: number; previousLitersUsed: number } | null = null;
+    let claimedOrder: { id: string; orderNumber: string; litersOrdered: number; exceeded: boolean; excessLiters: number; previousLitersUsed: number } | null = null;
     const orderUnavailableResponse = () =>
       new Response(
         JSON.stringify({ error: "This fuel order has already been used or cancelled" }),
@@ -421,15 +421,7 @@ Deno.serve(async (req: Request) => {
       const litersOrdered = Number(order.liters_ordered);
       const previousLitersUsed = Number(order.liters_used);
       const newLitersUsed = previousLitersUsed + transactionData.liters;
-      if (newLitersUsed > litersOrdered) {
-        return new Response(
-          JSON.stringify({ error: `This fill-up is more than the fuel order allows. Remaining litres: ${Math.max(0, litersOrdered - previousLitersUsed).toFixed(2)} L` }),
-          {
-            status: 422,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
+      const exceeded = newLitersUsed > litersOrdered;
       const orderCompleted = order.order_type !== "multiple" || newLitersUsed >= litersOrdered;
       const nowIso = new Date().toISOString();
 
@@ -438,6 +430,7 @@ Deno.serve(async (req: Request) => {
         .update({
           status: orderCompleted ? "fulfilled" : "open",
           liters_used: newLitersUsed,
+          exceeded,
           fulfilled_at: orderCompleted ? nowIso : null,
           updated_at: nowIso,
         })
@@ -455,6 +448,8 @@ Deno.serve(async (req: Request) => {
         id: order.id,
         orderNumber: order.client_order_number?.trim() || order.system_order_number,
         litersOrdered,
+        exceeded,
+        excessLiters: Math.max(0, newLitersUsed - litersOrdered),
         previousLitersUsed,
       };
     }
@@ -499,7 +494,7 @@ Deno.serve(async (req: Request) => {
       if (claimedOrder) {
         await supabase
           .from("fuel_orders")
-          .update({ status: "open", liters_used: claimedOrder.previousLitersUsed, fulfilled_at: null, updated_at: new Date().toISOString() })
+          .update({ status: "open", liters_used: claimedOrder.previousLitersUsed, exceeded: false, fulfilled_at: null, updated_at: new Date().toISOString() })
           .eq("id", claimedOrder.id);
       }
       console.error("Insert error:", insertError);
@@ -529,6 +524,55 @@ Deno.serve(async (req: Request) => {
           actual_value: `${transactionData.liters}L`,
           resolved: false,
         });
+    }
+
+    if (claimedOrder?.exceeded) {
+      const excessLiters = claimedOrder.excessLiters.toFixed(2);
+      const orderSummary = `Fuel order ${claimedOrder.orderNumber} (${claimedOrder.litersOrdered}L) was exceeded by ${excessLiters}L on a fill-up of ${transactionData.liters}L.`;
+
+      await supabase
+        .from("vehicle_exceptions")
+        .insert({
+          organization_id: driver.organization_id,
+          vehicle_id: transactionData.vehicleId,
+          driver_id: driver.id,
+          transaction_id: transaction.id,
+          exception_type: "fuel_order_exceeded",
+          description: `${orderSummary} The fill-up was recorded as an exception for review.`,
+          expected_value: `Maximum ${claimedOrder.litersOrdered}L on fuel order ${claimedOrder.orderNumber}`,
+          actual_value: `${claimedOrder.previousLitersUsed + transactionData.liters}L used`,
+          resolved: false,
+        });
+
+      const { data: orgRecipients } = await supabase
+        .from("organization_users")
+        .select("email")
+        .eq("organization_id", driver.organization_id)
+        .in("title", ["main_user", "vehicle_user"])
+        .eq("active", true);
+
+      const recipients = [...new Set((orgRecipients ?? []).map((u: { email: string }) => u.email).filter(Boolean))];
+      if (recipients.length > 0) {
+        try {
+          const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              to: recipients,
+              subject: `Fuel Order Exceeded: ${vehicle.registration_number}`,
+              html: `<div style="font-family: Arial, sans-serif; max-width: 600px;"><h2 style="color: #b45309;">Fuel Order Exceeded</h2><p>${orderSummary}</p><p>The fill-up has been recorded and needs review.</p><p><strong>Vehicle:</strong> ${vehicle.registration_number}<br/><strong>Garage order:</strong> ${claimedOrder.orderNumber}</p><p style="color: #6b7280; font-size: 12px;">This is an automated message from MyFuelApp.</p></div>`,
+            }),
+          });
+          if (!emailResponse.ok) {
+            console.error("Fuel order exceeded email failed:", await emailResponse.text());
+          }
+        } catch (emailError) {
+          console.error("Fuel order exceeded email error:", emailError);
+        }
+      }
     }
 
     if (transactionData.isMockLocation) {
@@ -650,6 +694,12 @@ Deno.serve(async (req: Request) => {
       const tankCapacity = Number(vehicle.tank_capacity);
       responseData.warning = `WARNING: Refuel amount (${transactionData.liters}L) is at or near tank capacity (${tankCapacity}L). An exception has been logged for review.`;
       responseData.warningType = "tank_capacity";
+    }
+
+    if (claimedOrder?.exceeded) {
+      const excessLiters = claimedOrder.excessLiters.toFixed(2);
+      responseData.warning = `WARNING: This fill-up is ${excessLiters}L more than the fuel order ${claimedOrder.orderNumber} allowed (${claimedOrder.litersOrdered}L). The fill-up has been recorded as an exception and the garage's fleet contacts have been notified.`;
+      responseData.warningType = "order_exceeded";
     }
 
     return new Response(

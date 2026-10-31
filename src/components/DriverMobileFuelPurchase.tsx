@@ -2457,9 +2457,9 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                         : `${Math.max(0, Number(selectedOrder.liters_ordered) - Number(selectedOrder.liters_used)).toFixed(2)} L remaining of ${Number(selectedOrder.liters_ordered).toFixed(2)} L at R ${Number(selectedOrder.price_per_liter).toFixed(2)}/L. The order closes once its litres are used.`}
                     </p>
                     {parseFloat(formData.liters || '0') > Math.max(0, Number(selectedOrder.liters_ordered) - Number(selectedOrder.liters_used)) && (
-                      <div className="mt-3 bg-red-50 border border-red-400 rounded-lg p-3">
-                        <p className="text-xs font-bold text-red-900">
-                          This fill-up is more than the order allows. Enter no more than {Math.max(0, Number(selectedOrder.liters_ordered) - Number(selectedOrder.liters_used)).toFixed(2)} L.
+                      <div className="mt-3 bg-amber-50 border border-amber-400 rounded-lg p-3">
+                        <p className="text-xs font-bold text-amber-900">
+                          This fill-up is more than the order allows. It will be recorded as an exception and the garage's fleet contacts will be notified.
                         </p>
                       </div>
                     )}
@@ -2885,7 +2885,6 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                     !formData.odometerReading ||
                     (purchasingOil && (!formData.oilQuantity || !formData.oilUnitPrice || !formData.oilType)) ||
                     (spendingLimitInfo && !spendingLimitInfo.isBlocked && parseFloat(formData.totalAmount || '0') > spendingLimitInfo.availableAmount) ||
-                    (selectedOrder !== null && parseFloat(formData.liters || '0') > Math.max(0, Number(selectedOrder.liters_ordered) - Number(selectedOrder.liters_used))) ||
                     (drawnVehicle?.tank_capacity && parseFloat(formData.liters || '0') > (drawnVehicle.tank_capacity + 2))
                   }
                   className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
