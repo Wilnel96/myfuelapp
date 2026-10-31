@@ -307,10 +307,12 @@ Deno.serve(async (req: Request) => {
       resolvedPaymentMethod = "local_account";
     }
 
+    let requiresFuelOrder = false;
+
     if (organization?.payment_option === "Local Account") {
       const { data: garageAccount } = await supabase
         .from("organization_garage_accounts")
-        .select("id, is_active")
+        .select("id, is_active, order_required")
         .eq("organization_id", driver.organization_id)
         .eq("garage_id", transactionData.garageId)
         .maybeSingle();
@@ -326,6 +328,8 @@ Deno.serve(async (req: Request) => {
           }
         );
       }
+
+      requiresFuelOrder = garageAccount.order_required === true;
 
       if (!garageAccount.is_active) {
         return new Response(
@@ -526,6 +530,57 @@ Deno.serve(async (req: Request) => {
         });
     }
 
+    const notifyFleetContacts = async (subject: string, html: string) => {
+      const { data: orgRecipients } = await supabase
+        .from("organization_users")
+        .select("email")
+        .eq("organization_id", driver.organization_id)
+        .in("title", ["main_user", "vehicle_user"])
+        .eq("active", true);
+
+      const recipients = [...new Set((orgRecipients ?? []).map((u: { email: string }) => u.email).filter(Boolean))];
+      if (recipients.length === 0) return;
+
+      try {
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${supabaseServiceKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ to: recipients, subject, html }),
+        });
+        if (!emailResponse.ok) {
+          console.error("Fleet exception email failed:", await emailResponse.text());
+        }
+      } catch (emailError) {
+        console.error("Fleet exception email error:", emailError);
+      }
+    };
+
+    if (requiresFuelOrder && !claimedOrder) {
+      const description = `The garage account requires an open fuel order before filling up, but this fill-up of ${transactionData.liters}L had none. The fill-up was recorded as an exception for review.`;
+
+      await supabase
+        .from("vehicle_exceptions")
+        .insert({
+          organization_id: driver.organization_id,
+          vehicle_id: transactionData.vehicleId,
+          driver_id: driver.id,
+          transaction_id: transaction.id,
+          exception_type: "fuel_order_missing",
+          description,
+          expected_value: "Open fuel order for this vehicle at this garage",
+          actual_value: `No open order, ${transactionData.liters}L purchased`,
+          resolved: false,
+        });
+
+      await notifyFleetContacts(
+        `Fuel Order Missing: ${vehicle.registration_number}`,
+        `<div style="font-family: Arial, sans-serif; max-width: 600px;"><h2 style="color: #b45309;">Fuel Order Missing</h2><p>${description}</p><p><strong>Vehicle:</strong> ${vehicle.registration_number}</p><p style="color: #6b7280; font-size: 12px;">This is an automated message from MyFuelApp.</p></div>`,
+      );
+    }
+
     if (claimedOrder?.exceeded) {
       const excessLiters = claimedOrder.excessLiters.toFixed(2);
       const orderSummary = `Fuel order ${claimedOrder.orderNumber} (${claimedOrder.litersOrdered}L) was exceeded by ${excessLiters}L on a fill-up of ${transactionData.liters}L.`;
@@ -544,35 +599,10 @@ Deno.serve(async (req: Request) => {
           resolved: false,
         });
 
-      const { data: orgRecipients } = await supabase
-        .from("organization_users")
-        .select("email")
-        .eq("organization_id", driver.organization_id)
-        .in("title", ["main_user", "vehicle_user"])
-        .eq("active", true);
-
-      const recipients = [...new Set((orgRecipients ?? []).map((u: { email: string }) => u.email).filter(Boolean))];
-      if (recipients.length > 0) {
-        try {
-          const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${supabaseServiceKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              to: recipients,
-              subject: `Fuel Order Exceeded: ${vehicle.registration_number}`,
-              html: `<div style="font-family: Arial, sans-serif; max-width: 600px;"><h2 style="color: #b45309;">Fuel Order Exceeded</h2><p>${orderSummary}</p><p>The fill-up has been recorded and needs review.</p><p><strong>Vehicle:</strong> ${vehicle.registration_number}<br/><strong>Garage order:</strong> ${claimedOrder.orderNumber}</p><p style="color: #6b7280; font-size: 12px;">This is an automated message from MyFuelApp.</p></div>`,
-            }),
-          });
-          if (!emailResponse.ok) {
-            console.error("Fuel order exceeded email failed:", await emailResponse.text());
-          }
-        } catch (emailError) {
-          console.error("Fuel order exceeded email error:", emailError);
-        }
-      }
+      await notifyFleetContacts(
+        `Fuel Order Exceeded: ${vehicle.registration_number}`,
+        `<div style="font-family: Arial, sans-serif; max-width: 600px;"><h2 style="color: #b45309;">Fuel Order Exceeded</h2><p>${orderSummary}</p><p>The fill-up has been recorded and needs review.</p><p><strong>Vehicle:</strong> ${vehicle.registration_number}<br/><strong>Garage order:</strong> ${claimedOrder.orderNumber}</p><p style="color: #6b7280; font-size: 12px;">This is an automated message from MyFuelApp.</p></div>`,
+      );
     }
 
     if (transactionData.isMockLocation) {
