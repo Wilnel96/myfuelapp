@@ -2447,7 +2447,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                     {parseFloat(formData.liters || '0') > Math.max(0, Number(selectedOrder.liters_ordered) - Number(selectedOrder.liters_used)) && (
                       <div className="mt-3 bg-amber-50 border border-amber-400 rounded-lg p-3">
                         <p className="text-xs font-bold text-amber-900">
-                          This fill-up is more than the order allows. It will be recorded as an exception and the garage's fleet contacts will be notified.
+                          This fill-up is more than the order allows. It will be recorded as an exception and the garage and your organization will be notified by email.
                         </p>
                       </div>
                     )}

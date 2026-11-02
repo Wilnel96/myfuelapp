@@ -373,7 +373,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: garage } = await supabase
       .from("garages")
-      .select("city, latitude, longitude")
+      .select("city, latitude, longitude, email_address")
       .eq("id", transactionData.garageId)
       .maybeSingle();
 
@@ -538,7 +538,8 @@ Deno.serve(async (req: Request) => {
         .in("title", ["main_user", "vehicle_user"])
         .eq("active", true);
 
-      const recipients = [...new Set((orgRecipients ?? []).map((u: { email: string }) => u.email).filter(Boolean))];
+      const clientEmails = (orgRecipients ?? []).map((u: { email: string }) => u.email);
+      const recipients = [...new Set([...clientEmails, garage?.email_address].filter((e): e is string => Boolean(e)))];
       if (recipients.length === 0) return;
 
       try {
@@ -728,7 +729,7 @@ Deno.serve(async (req: Request) => {
 
     if (claimedOrder?.exceeded) {
       const excessLiters = claimedOrder.excessLiters.toFixed(2);
-      responseData.warning = `WARNING: This fill-up is ${excessLiters}L more than the fuel order ${claimedOrder.orderNumber} allowed (${claimedOrder.litersOrdered}L). The fill-up has been recorded as an exception and the garage's fleet contacts have been notified.`;
+      responseData.warning = `WARNING: This fill-up is ${excessLiters}L more than the fuel order ${claimedOrder.orderNumber} allowed (${claimedOrder.litersOrdered}L). The fill-up has been recorded as an exception and the garage and your organization have been notified by email.`;
       responseData.warningType = "order_exceeded";
     }
 
