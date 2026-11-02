@@ -27,6 +27,7 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [stayLoggedIn, setStayLoggedIn] = useState(false);
 
   const monthRef = useRef<HTMLInputElement>(null);
   const yearRef = useRef<HTMLInputElement>(null);
@@ -130,6 +131,7 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
         body: JSON.stringify({
           firstName: firstName.trim(),
           dateOfBirth,
+          rememberMe: stayLoggedIn,
         }),
       });
 
@@ -278,6 +280,16 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
               />
             </div>
           </div>
+
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={stayLoggedIn}
+              onChange={(e) => setStayLoggedIn(e.target.checked)}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700">Stay logged in</span>
+          </label>
 
           <button
             type="submit"

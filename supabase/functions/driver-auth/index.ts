@@ -9,7 +9,11 @@ const corsHeaders = {
 interface LoginRequest {
   firstName: string;
   dateOfBirth: string;
+  rememberMe?: boolean;
 }
+
+const DEFAULT_SESSION_HOURS = 8;
+const REMEMBER_ME_SESSION_HOURS = 24 * 30;
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -24,7 +28,7 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { firstName, dateOfBirth }: LoginRequest = await req.json();
+    const { firstName, dateOfBirth, rememberMe }: LoginRequest = await req.json();
 
     if (!firstName || !dateOfBirth) {
       return new Response(
@@ -65,7 +69,9 @@ Deno.serve(async (req: Request) => {
 
     const token = crypto.randomUUID();
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 8);
+    expiresAt.setHours(
+      expiresAt.getHours() + (rememberMe === true ? REMEMBER_ME_SESSION_HOURS : DEFAULT_SESSION_HOURS)
+    );
 
     const { error: sessionError } = await supabase
       .from('driver_sessions')
