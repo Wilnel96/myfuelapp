@@ -70,6 +70,9 @@ verify_jwt = false
 [functions.send-service-exception-email]
 verify_jwt = true
 
+[functions.send-unreturned-vehicle-email]
+verify_jwt = true
+
 [functions.send-statement-email]
 verify_jwt = true
 

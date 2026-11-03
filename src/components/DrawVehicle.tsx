@@ -723,8 +723,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
 
           if (closeError) {
             console.error('Failed to auto-close previous unreturned draw:', closeError);
-          } else {
-            console.log('Successfully auto-closed previous unreturned draw');
+            throw new Error(`Could not close the previous driver's unreturned draw: ${closeError.message}`);
           }
         }
       }
@@ -892,6 +891,30 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
           setError(`Warning: Vehicle drawn but unreturned exception logging failed: ${exceptionError.message}`);
         } else {
           console.log('Unreturned vehicle exception logged successfully');
+
+          const { data: drawingDriver } = await supabase
+            .from('drivers')
+            .select('first_name, surname')
+            .eq('id', driverId)
+            .maybeSingle();
+
+          try {
+            await supabase.functions.invoke('send-unreturned-vehicle-email', {
+              body: {
+                organization_id: organizationId,
+                vehicle_registration: selectedVehicle.registration_number,
+                vehicle_make: selectedVehicle.make,
+                vehicle_model: selectedVehicle.model,
+                driver_name: drawingDriver ? `${drawingDriver.first_name} ${drawingDriver.surname}` : 'Unknown driver',
+                driver_id: driverId,
+                previous_driver_name: previousDriverInfo.name,
+                last_draw_date: previousDriverInfo.lastDrawDate,
+                days_unreturned: previousDriverInfo.daysUnreturned,
+              },
+            });
+          } catch (emailErr) {
+            console.error('Failed to send unreturned vehicle email:', emailErr);
+          }
         }
       }
 
