@@ -385,7 +385,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     return unreturnedDraw ? (unreturnedDraw.vehicles as any).registration_number : null;
   };
 
-  const checkUnreturnedByOtherDriver = async (vehicleId: string): Promise<{ hasUnreturnedDraw: boolean; driverName: string; daysUnreturned: number; lastDrawDate: string; previousDriverId: string; drawTransactionId: string } | null> => {
+  const checkUnreturnedByOtherDriver = async (vehicleId: string): Promise<{ hasUnreturnedDraw: boolean; driverName: string; daysUnreturned: number; lastDrawDate: string } | null> => {
     // Fetch all draws and all returns for this vehicle in parallel (2 queries instead of N+1)
     const [{ data: draws }, { data: returns }] = await Promise.all([
       supabase
@@ -426,9 +426,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       hasUnreturnedDraw: true,
       driverName: `${driver.first_name} ${driver.surname}`,
       daysUnreturned,
-      lastDrawDate: drawDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      previousDriverId: lastDraw.driver_id,
-      drawTransactionId: lastDraw.id
+      lastDrawDate: drawDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     };
   };
 
@@ -704,27 +702,15 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     setLoading(true);
 
     try {
-      // If there's an unreturned draw by another driver, close it first
       if (logUnreturnedException && previousDriverInfo) {
-        const unreturnedCheck = await checkUnreturnedByOtherDriver(selectedVehicle.id);
-        if (unreturnedCheck?.hasUnreturnedDraw) {
-          // Create a virtual return transaction for the previous draw
-          const { error: closeError } = await supabase
-            .from('vehicle_transactions')
-            .insert({
-              organization_id: organizationId,
-              vehicle_id: selectedVehicle.id,
-              driver_id: unreturnedCheck.previousDriverId,
-              transaction_type: 'return',
-              odometer_reading: parseInt(odometerReading),
-              location: 'Auto-closed',
-              related_transaction_id: unreturnedCheck.drawTransactionId,
-            });
+        const { error: closeError } = await supabase.rpc('close_unreturned_vehicle_draw', {
+          p_vehicle_id: selectedVehicle.id,
+          p_odometer: parseInt(odometerReading),
+        });
 
-          if (closeError) {
-            console.error('Failed to auto-close previous unreturned draw:', closeError);
-            throw new Error(`Could not close the previous driver's unreturned draw: ${closeError.message}`);
-          }
+        if (closeError) {
+          console.error('Failed to close previous unreturned draw:', closeError);
+          throw new Error(`Could not close the previous driver's unreturned draw: ${closeError.message}`);
         }
       }
 
