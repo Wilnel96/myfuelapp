@@ -303,8 +303,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
         .from('trip_logbook_entries')
         .select('closing_km')
         .eq('vehicle_id', vehicleId)
-        .order('entry_date', { ascending: false })
-        .order('created_at', { ascending: false })
+        .order('closing_km', { ascending: false })
         .limit(1)
         .maybeSingle(),
     ]);
@@ -453,8 +452,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
         .from('trip_logbook_entries')
         .select('closing_km')
         .eq('vehicle_id', vehicle.id)
-        .order('entry_date', { ascending: false })
-        .order('created_at', { ascending: false })
+        .order('closing_km', { ascending: false })
         .limit(1)
         .maybeSingle(),
     ]);
