@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Wrench, Plus, Trash2, X, Search, ArrowLeft, DollarSign, Calendar, Truck, CheckSquare, Square, Pencil } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ScheduledMaintenanceSection from './ScheduledMaintenanceSection';
+import { getMaintenanceItems } from '../lib/maintenanceItems';
 
 interface Vehicle {
   id: string;
@@ -32,69 +33,6 @@ interface MaintenanceRecord {
 interface MaintenanceManagementProps {
   onNavigate?: (view: string | null) => void;
 }
-
-const SERVICE_ITEMS = [
-  'Minor Service',
-  'Major Service',
-  'Oil Change',
-  'Oil Filter Replacement',
-  'Air Filter Replacement',
-  'Fuel Filter Replacement',
-  'Cabin Filter Replacement',
-  'Spark Plug Replacement',
-  'Coolant Flush',
-  'Brake Fluid Change',
-  'Transmission Fluid Change',
-  'Differential Fluid Change',
-  'General Inspection',
-  'Other',
-];
-
-const OTHER_ITEMS = [
-  'Tire Replacement',
-  'Tire Rotation',
-  'Wheel Alignment',
-  'Brake Pads',
-  'Brake Discs',
-  'Brake Calipers',
-  'Battery Replacement',
-  'Alternator Repair',
-  'Starter Motor Repair',
-  'Clutch Replacement',
-  'Shock Absorbers',
-  'Exhaust Repair',
-  'Engine Repair',
-  'Gearbox Repair',
-  'Differential Repair',
-  'Electrical Fault',
-  'Bodywork / Panel Beating',
-  'Windscreen Replacement',
-  'Air Conditioning Service',
-  'Tow Bar Fitment',
-  'Other',
-];
-
-const LICENSE_RENEWAL_ITEMS = [
-  'Annual License Renewal',
-  'Roadworthy Certificate',
-  'Vehicle Registration',
-  'License Disc Renewal',
-  'Change of Ownership',
-  'Deregistration',
-  'Re-registration',
-  'Other',
-];
-
-const INSURANCE_ITEMS = [
-  'Comprehensive Insurance',
-  'Third Party Insurance',
-  'Third Party Fire & Theft',
-  'Fleet Insurance Premium',
-  'Insurance Excess Payment',
-  'Insurance Claim Deductible',
-  'Gap Cover',
-  'Other',
-];
 
 export default function MaintenanceManagement({ onNavigate }: MaintenanceManagementProps = {}) {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -210,14 +148,7 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
     });
   };
 
-  const availableItems =
-    formData.maintenance_type === 'service'
-      ? SERVICE_ITEMS
-      : formData.maintenance_type === 'license_renewal'
-      ? LICENSE_RENEWAL_ITEMS
-      : formData.maintenance_type === 'insurance'
-      ? INSURANCE_ITEMS
-      : OTHER_ITEMS;
+  const availableItems = getMaintenanceItems(formData.maintenance_type);
 
   const handleTypeChange = (type: 'service' | 'other' | 'license_renewal' | 'insurance') => {
     setFormData(prev => ({
