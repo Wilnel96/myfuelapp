@@ -70,6 +70,9 @@ verify_jwt = false
 [functions.send-exception-report]
 verify_jwt = false
 
+[functions.send-maintenance-reminders]
+verify_jwt = false
+
 [functions.send-service-exception-email]
 verify_jwt = true
 

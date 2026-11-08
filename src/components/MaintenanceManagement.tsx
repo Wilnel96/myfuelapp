@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Wrench, Plus, Trash2, X, Search, ArrowLeft, DollarSign, Calendar, Truck, CheckSquare, Square, Pencil } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import ScheduledMaintenanceSection from './ScheduledMaintenanceSection';
 
 interface Vehicle {
   id: string;
@@ -438,6 +439,12 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
             <p className="text-lg font-bold text-blue-900 mt-1">{formatCurrency(totalMaintenanceCost)}</p>
           </div>
         </div>
+
+        <ScheduledMaintenanceSection
+          key={selectedVehicle.id}
+          vehicleId={selectedVehicle.id}
+          organizationId={orgId}
+        />
 
         {/* Maintenance history table */}
         <div className="bg-white rounded-lg shadow border border-gray-200">
