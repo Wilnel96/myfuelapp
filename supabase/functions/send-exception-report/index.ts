@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { jsPDF } from "npm:jspdf@3.0.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,6 +32,71 @@ const escapeHtml = (value: string) =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+
+function renderExceptionReportPDF(rows: [string, string][], description: string): Uint8Array {
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const margin = 20;
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - margin * 2;
+  const labelWidth = 50;
+
+  pdf.setFillColor(30, 58, 95);
+  pdf.rect(0, 0, pageWidth, 36, "F");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(20);
+  pdf.text("Exception Report", margin, 18);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+  pdf.text("MyFuelApp", margin, 27);
+
+  let y = 52;
+  pdf.setTextColor(17, 24, 39);
+  for (const [label, value] of rows) {
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.text(label, margin, y);
+    pdf.setFont("helvetica", "normal");
+    const valueLines = pdf.splitTextToSize(value, contentWidth - labelWidth);
+    pdf.text(valueLines, margin + labelWidth, y);
+    const rowHeight = valueLines.length * 6 + 4;
+    y += rowHeight;
+    pdf.setDrawColor(229, 231, 235);
+    pdf.line(margin, y - 3, pageWidth - margin, y - 3);
+  }
+
+  y += 8;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(11);
+  pdf.text("Details", margin, y);
+  y += 7;
+  pdf.setFont("helvetica", "normal");
+  for (const line of pdf.splitTextToSize(description || "No additional details.", contentWidth)) {
+    if (y > pageHeight - 30) {
+      pdf.addPage();
+      y = 20;
+    }
+    pdf.text(line, margin, y);
+    y += 6;
+  }
+
+  pdf.setFontSize(9);
+  pdf.setTextColor(107, 114, 128);
+  pdf.text("This is an automated report from MyFuelApp.", pageWidth / 2, pageHeight - 15, { align: "center" });
+
+  return pdf.output("arraybuffer") as Uint8Array;
+}
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
 
 interface OrgUser {
   email: string;
@@ -137,13 +203,17 @@ Deno.serve(async (req: Request) => {
           <h2 style="margin: 0;">Exception Report</h2>
         </div>
         <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-          <p>An exception was recorded in MyFuelApp. Please review the details below.</p>
+          <p>An exception was recorded in MyFuelApp. Please review the details below. A PDF copy is attached for printing.</p>
           <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">${rowsHtml}</table>
           <p style="font-weight: bold;">${escapeHtml(exception.description ?? "")}</p>
           <p style="color: #6b7280; font-size: 12px; margin-top: 30px;">This is an automated message from MyFuelApp.</p>
         </div>
       </div>
     `;
+
+    const pdfBase64 = uint8ToBase64(renderExceptionReportPDF(rows, exception.description ?? ""));
+    const safeRegistration = registration.replace(/[^A-Za-z0-9]+/g, "-");
+    const filename = `Exception-Report-${safeRegistration}-${exception.id.slice(0, 8)}.pdf`;
 
     const fromAddresses = [
       "MyFuelApp <noreply@myfuelapp.net>",
@@ -158,7 +228,13 @@ Deno.serve(async (req: Request) => {
           "Authorization": `Bearer ${resendApiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ from: fromAddr, to: recipients, subject, html }),
+        body: JSON.stringify({
+          from: fromAddr,
+          to: recipients,
+          subject,
+          html,
+          attachments: [{ filename, content: pdfBase64 }],
+        }),
       });
 
       if (response.ok) {
