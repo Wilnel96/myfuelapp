@@ -372,6 +372,43 @@ function renderInvoicePDF(invoice: InvoiceRow): Uint8Array {
   return pdf.output("arraybuffer") as Uint8Array;
 }
 
+const FROM_ADDRESSES = [
+  "MyFuelApp <noreply@myfuelapp.net>",
+  "MyFuelApp <onboarding@resend.dev>",
+];
+
+async function sendInvoiceEmail(
+  resendApiKey: string,
+  to: string,
+  subject: string,
+  text: string,
+  filename: string,
+  pdfBase64: string,
+): Promise<{ sent: boolean; error: string }> {
+  let lastError = "";
+  for (const fromAddr of FROM_ADDRESSES) {
+    const emailResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddr,
+        to: [to],
+        subject,
+        text,
+        attachments: [{ filename, content: pdfBase64 }],
+      }),
+    });
+
+    if (emailResponse.ok) return { sent: true, error: "" };
+    lastError = await emailResponse.text();
+    console.error(`Failed to send invoice email from ${fromAddr}:`, lastError);
+  }
+  return { sent: false, error: lastError };
+}
+
 function uint8ToBase64(bytes: Uint8Array): string {
   const chunkSize = 0x8000;
   let binary = "";
@@ -412,6 +449,7 @@ Deno.serve(async (req: Request) => {
       .from("fuel_transaction_invoices")
       .select(`
         id,
+        fuel_transaction_id,
         invoice_number,
         invoice_date,
         transaction_date,
@@ -459,7 +497,31 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const results: { invoiceId: string; sent: boolean; error?: string }[] = [];
+    const fuelTransactionIds = invoices.map((invoice) => invoice.fuel_transaction_id).filter(Boolean);
+    const garageEmailByFuelTransactionId = new Map<string, string>();
+    if (fuelTransactionIds.length > 0) {
+      const { data: fuelTransactions, error: fuelTransactionsError } = await supabase
+        .from("fuel_transactions")
+        .select("id, garage_id")
+        .in("id", fuelTransactionIds);
+
+      const garageIds = [...new Set((fuelTransactions ?? []).map((tx) => tx.garage_id).filter(Boolean))];
+      const { data: garages, error: garagesError } = garageIds.length > 0
+        ? await supabase.from("garages").select("id, email_address").in("id", garageIds)
+        : { data: [], error: null };
+
+      if (fuelTransactionsError || garagesError) {
+        console.error("Failed to load garage emails for invoice copies", fuelTransactionsError, garagesError);
+      } else {
+        const garageEmailById = new Map((garages ?? []).map((g) => [g.id, g.email_address?.trim() || ""]));
+        for (const tx of fuelTransactions ?? []) {
+          const garageEmail = garageEmailById.get(tx.garage_id);
+          if (garageEmail) garageEmailByFuelTransactionId.set(tx.id, garageEmail);
+        }
+      }
+    }
+
+    const results: { invoiceId: string; sent: boolean; error?: string; garageCopySent: boolean }[] = [];
 
     for (const invoice of invoices) {
       const toEmail = invoice.email_recipient;
@@ -507,45 +569,45 @@ MyFuelApp Management`;
         "MyFuelApp <onboarding@resend.dev>",
       ];
 
-      let sent = false;
-      let lastError = "";
-      for (const fromAddr of fromAddresses) {
-        const emailResponse = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${resendApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: fromAddr,
-            to: [toEmail],
-            subject,
-            text: textBody,
-            attachments: [
-              {
-                filename,
-                content: pdfBase64,
-              },
-            ],
-          }),
-        });
+      const clientResult = await sendInvoiceEmail(resendApiKey, toEmail, subject, textBody, filename, pdfBase64);
 
-        if (emailResponse.ok) {
-          sent = true;
-          break;
-        }
-        lastError = await emailResponse.text();
-        console.error(`Failed to send invoice email from ${fromAddr}:`, lastError);
-      }
-
-      if (sent) {
+      if (clientResult.sent) {
         await supabase
           .from("fuel_transaction_invoices")
           .update({ email_sent_at: new Date().toISOString() })
           .eq("id", invoice.id);
       }
 
-      results.push({ invoiceId: invoice.id, sent, error: sent ? undefined : lastError });
+      let garageCopySent = false;
+      const garageEmail = invoice.fuel_transaction_id
+        ? garageEmailByFuelTransactionId.get(invoice.fuel_transaction_id)
+        : undefined;
+      if (clientResult.sent && garageEmail) {
+        const garageBody = `Dear ${invoice.garage_name || "Garage"},
+
+A copy of Fuel Invoice ${invoice.invoice_number} issued to ${clientName} is attached for your records.
+
+Invoice Date: ${new Date(invoice.invoice_date).toLocaleDateString("en-ZA")}
+Transaction Date: ${new Date(invoice.transaction_date).toLocaleDateString("en-ZA")}
+Vehicle: ${invoice.vehicle_registration || "N/A"}
+Driver: ${invoice.driver_name || "N/A"}
+Total Amount: R ${totalAmount.toFixed(2)}
+
+Kind regards,
+MyFuelApp Management`;
+        const garageResult = await sendInvoiceEmail(resendApiKey, garageEmail, `Garage copy: ${subject}`, garageBody, filename, pdfBase64);
+        garageCopySent = garageResult.sent;
+        if (!garageResult.sent) {
+          console.error("Garage copy failed for invoice", invoice.invoice_number, garageResult.error);
+        }
+      }
+
+      results.push({
+        invoiceId: invoice.id,
+        sent: clientResult.sent,
+        error: clientResult.sent ? undefined : clientResult.error,
+        garageCopySent,
+      });
     }
 
     const sentCount = results.filter((r) => r.sent).length;
