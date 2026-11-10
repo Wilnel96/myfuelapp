@@ -708,8 +708,44 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    let instantEmailSent = false;
+    if (generatedInvoice?.id) {
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("fuel_invoice_email_frequency")
+        .eq("id", driver.organization_id)
+        .maybeSingle();
+      const { data: currentInvoice } = await supabase
+        .from("fuel_transaction_invoices")
+        .select("email_sent_at")
+        .eq("id", generatedInvoice.id)
+        .maybeSingle();
+
+      if (org?.fuel_invoice_email_frequency === "instant" && currentInvoice && !currentInvoice.email_sent_at) {
+        try {
+          const sendResponse = await fetch(`${supabaseUrl}/functions/v1/send-fuel-invoice-email`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${supabaseServiceKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ invoiceId: generatedInvoice.id }),
+          });
+          if (sendResponse.ok) {
+            const sendResult = await sendResponse.json();
+            instantEmailSent = (sendResult.sent || 0) > 0;
+          } else {
+            console.error("Instant fuel invoice email failed:", await sendResponse.text());
+          }
+        } catch (emailError) {
+          console.error("Error sending instant fuel invoice email:", emailError);
+        }
+      }
+    }
+
     const responseData: any = {
       success: true,
+      instantEmailSent,
       transaction: { ...transaction, invoice_id: refreshedTx?.invoice_id || transaction.invoice_id },
       invoice: generatedInvoice,
       message: generatedInvoice
