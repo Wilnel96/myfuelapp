@@ -73,6 +73,9 @@ verify_jwt = false
 [functions.send-maintenance-reminders]
 verify_jwt = false
 
+[functions.log-missing-trip]
+verify_jwt = true
+
 [functions.send-service-exception-email]
 verify_jwt = true
 

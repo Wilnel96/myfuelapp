@@ -7,6 +7,7 @@ import UnreturnedVehiclesReport from './UnreturnedVehiclesReport';
 import VehicleReturnNotesReport from './VehicleReturnNotesReport';
 import LogbookReport from './LogbookReport';
 import EmailReportModal from './EmailReportModal';
+import LogMissingTripModal, { type MissingTripException } from './LogMissingTripModal';
 
 interface ReportType {
   id: string;
@@ -56,6 +57,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
   const [error, setError] = useState<string>('');
   const [resolvingException, setResolvingException] = useState<string | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
+  const [missingTripException, setMissingTripException] = useState<MissingTripException | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   // Helper to create ISO timestamp from date string without timezone conversion
@@ -582,6 +584,8 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
 
     const formattedExceptions = exceptions?.map(e => ({
       id: e.id,
+      organization_id: e.organization_id,
+      driver_id: e.driver_id,
       date: e.created_at,
       vehicle: e.vehicles ? `${e.vehicles.registration_number} (${e.vehicles.make} ${e.vehicles.model})` : 'Unknown',
       driver: e.drivers ? `${e.drivers.first_name} ${e.drivers.surname}` : 'Unknown',
@@ -1784,6 +1788,19 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                                   <span className="px-3 py-1 rounded-full text-sm font-medium bg-orange-600 text-white">
                                     Pending
                                   </span>
+                                  {exception.exception_type === 'odometer_mismatch' && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setMissingTripException(exception);
+                                      }}
+                                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                      Log Missing Trip
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -2129,6 +2146,18 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
           <p className="text-center text-gray-600 py-12">Select a date range and report type to view data</p>
         )}
       </div>
+
+      {missingTripException && (
+        <LogMissingTripModal
+          exception={missingTripException}
+          onClose={() => setMissingTripException(null)}
+          onLogged={() => {
+            const organizationId = missingTripException.organization_id;
+            setMissingTripException(null);
+            loadExceptionsData(organizationId, startDate, endDate);
+          }}
+        />
+      )}
 
       {/* Resolution Modal */}
       {resolvingException && (

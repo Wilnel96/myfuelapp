@@ -144,6 +144,10 @@
     "verify-driver-pin": {
       "hasChanged": false,
       "hash": "90d81ed1c1023240bb34dbddab02b8850f90408b4a3b420a0ee306f70c45e822"
+    },
+    "log-missing-trip": {
+      "hasChanged": false,
+      "hash": "cbcf88981f1ad348b976804bda12df0d09d551ace6b473d1b1c90dd7ed0de209"
     }
   }
 }
