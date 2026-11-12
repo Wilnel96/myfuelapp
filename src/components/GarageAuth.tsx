@@ -6,9 +6,10 @@ interface GarageAuthProps {
   onLogin: (garageId: string, garageName: string, garageEmail: string, garagePassword: string) => void;
   onBack?: () => void;
   onSignup?: () => void;
+  onDenied?: (message: string) => void;
 }
 
-export default function GarageAuth({ onLogin, onBack, onSignup }: GarageAuthProps) {
+export default function GarageAuth({ onLogin, onBack, onSignup, onDenied }: GarageAuthProps) {
   const [contactEmail, setContactEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,6 +53,7 @@ export default function GarageAuth({ onLogin, onBack, onSignup }: GarageAuthProp
 
       if (orgUserError) {
         console.error('[GarageAuth] Organization user error:', orgUserError);
+        onDenied?.('Could not verify account. Please contact support.');
         await supabase.auth.signOut();
         setError('Could not verify account. Please contact support.');
         setLoading(false);
@@ -60,6 +62,7 @@ export default function GarageAuth({ onLogin, onBack, onSignup }: GarageAuthProp
 
       if (!orgUser || orgUser.role !== 'garage_user') {
         console.error('[GarageAuth] User is not a garage user:', orgUser?.role);
+        onDenied?.('This account does not have access to the garage portal. Garage accounts only: use the contact email and password issued for your garage. If you are a fleet user, please sign in via the Client Portal.');
         await supabase.auth.signOut();
         setError('This account does not have access to the garage portal.');
         setLoading(false);

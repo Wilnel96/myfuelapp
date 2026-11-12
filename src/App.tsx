@@ -39,7 +39,7 @@ import FuelInvoicesPage from './components/FuelInvoicesPage';
 import AdminPasswordReset from './components/AdminPasswordReset';
 import ForcePasswordChange from './components/ForcePasswordChange';
 import LogbookReport from './components/LogbookReport';
-import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3, FileText, Settings, CreditCard as Edit3, ArrowLeft, UserPlus, ShieldAlert } from 'lucide-react';
+import { Truck, Store, DollarSign, Fuel, LogOut, X, Users, Building2, BarChart3, FileText, Settings, CreditCard as Edit3, ArrowLeft, UserPlus, ShieldAlert, AlertCircle } from 'lucide-react';
 import { DriverData } from './components/DriverAuth';
 
 type UserMode = 'admin' | 'driver' | 'garage' | null;
@@ -909,6 +909,13 @@ function App() {
               Select Login Type
             </h2>
 
+            {portalError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-3 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-red-800 text-sm">{portalError}</p>
+              </div>
+            )}
+
             <button
               onClick={() => {
                 setUserMode('driver');
@@ -1060,6 +1067,10 @@ function App() {
   if (userMode === 'garage' && !garageId) {
     return <GarageAuth
       onLogin={handleGarageLogin}
+      onDenied={(message) => {
+        pendingPortalErrorRef.current = message;
+        setPortalError(message);
+      }}
       onBack={() => {
         setUserMode(null);
         setShowModeSelection(true);
