@@ -258,7 +258,7 @@ export default function GarageStatementsPayments({
       .select('*')
       .eq('garage_id', garageId)
       .eq('organization_id', organizationId)
-      .order('statement_date', { ascending: false });
+      .order('statement_number', { ascending: false });
 
     if (statementsError) throw statementsError;
     setStatements(data || []);
@@ -295,6 +295,11 @@ export default function GarageStatementsPayments({
     }
     if (statementPeriodStart > statementPeriodEnd) {
       setError('Period start date cannot be after the period end date.');
+      return;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    if (statementPeriodEnd > today) {
+      setError('A statement cannot be created for a future date.');
       return;
     }
     try {
@@ -1109,6 +1114,7 @@ export default function GarageStatementsPayments({
                     <input
                       type="date"
                       value={statementPeriodStart}
+                      max={new Date().toISOString().split('T')[0]}
                       onChange={(e) => setStatementPeriodStart(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
                     />
@@ -1118,6 +1124,7 @@ export default function GarageStatementsPayments({
                     <input
                       type="date"
                       value={statementPeriodEnd}
+                      max={new Date().toISOString().split('T')[0]}
                       onChange={(e) => setStatementPeriodEnd(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2"
                     />
