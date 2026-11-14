@@ -453,49 +453,50 @@ export default function GarageStatementsPayments({
     pdf.text('ACCOUNT STATEMENT', pageWidth / 2, yPosition, { align: 'center' });
 
     yPosition += 6;
-    pdf.setFontSize(12);
-    pdf.text(garageName, pageWidth / 2, yPosition, { align: 'center' });
+    const colGap = 4;
+    const colW = (contentWidth - colGap) / 2;
+    const leftX = margin;
+    const rightX = margin + colW + colGap;
+
+    const garageLines = garageHeaderLines();
+    const clientLines = clientHeaderLines();
+    const maxLines = Math.max(garageLines.length, clientLines.length);
+    const boxHeight = 5 + (1 + maxLines) * 4.5 + 2;
+
+    // From: (garage) and Client: side by side, same style as the invoice boxes
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(107, 114, 128);
+    pdf.text('FROM:', leftX, yPosition);
+    pdf.text('CLIENT:', rightX, yPosition);
+
+    yPosition += 3;
+    pdf.setFillColor(249, 250, 251);
+    pdf.rect(leftX, yPosition, colW, boxHeight, 'F');
+    pdf.rect(rightX, yPosition, colW, boxHeight, 'F');
 
     yPosition += 5;
     pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(garageName, leftX + 3, yPosition);
+    pdf.text(organizationName, rightX + 3, yPosition);
+
+    pdf.setFontSize(8);
     pdf.setFont('helvetica', 'normal');
     pdf.setTextColor(75, 85, 99);
-    for (const line of garageHeaderLines()) {
-      pdf.text(line, pageWidth / 2, yPosition, { align: 'center' });
-      yPosition += 4.5;
+    let garageY = yPosition;
+    let clientY = yPosition;
+    for (const line of garageLines) {
+      garageY += 4.5;
+      pdf.text(line, leftX + 3, garageY);
+    }
+    for (const line of clientLines) {
+      clientY += 4.5;
+      pdf.text(line, rightX + 3, clientY);
     }
 
-    // Client details box, same style as the invoice CLIENT block
-    const clientLines = clientHeaderLines();
-    if (clientLines.length > 0) {
-      yPosition += 3;
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(107, 114, 128);
-      pdf.text('CLIENT', margin, yPosition);
-
-      yPosition += 3;
-      const boxHeight = 4 + (1 + clientLines.length) * 4.5 + 2;
-      pdf.setFillColor(249, 250, 251);
-      pdf.rect(margin, yPosition, contentWidth, boxHeight, 'F');
-
-      yPosition += 5;
-      pdf.setFontSize(9);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(17, 24, 39);
-      pdf.text(organizationName, margin + 3, yPosition);
-
-      yPosition += 4.5;
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(75, 85, 99);
-      for (const line of clientLines) {
-        pdf.text(line, margin + 3, yPosition);
-        yPosition += 4.5;
-      }
-    }
-
-    yPosition += 6;
+    yPosition += boxHeight + 6;
 
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'bold');
@@ -781,26 +782,27 @@ export default function GarageStatementsPayments({
             <p className="text-sm text-gray-500 mt-1">Operated by Fuel Empowerment Systems (Pty) Ltd</p>
             <div className="border-t border-gray-900 mt-4 pt-4">
               <h2 className="text-2xl font-bold text-gray-900 tracking-wide">ACCOUNT STATEMENT</h2>
-              <p className="text-gray-700 mt-1 font-semibold">{garageName}</p>
-              {garageHeaderLines().length > 0 && (
-                <div className="text-sm text-gray-500 mt-1 space-y-0.5">
-                  {garageHeaderLines().map((line, idx) => (
-                    <p key={idx}>{line}</p>
-                  ))}
+              <div className="grid md:grid-cols-2 gap-3 mt-4 text-left">
+                <div className="bg-gray-50 rounded-lg px-4 py-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">From:</p>
+                  <p className="font-semibold text-gray-900">{garageName}</p>
+                  <div className="text-sm text-gray-500 space-y-0.5">
+                    {garageHeaderLines().map((line, idx) => (
+                      <p key={idx}>{line}</p>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-            {clientHeaderLines().length > 0 && (
-              <div className="bg-gray-50 rounded-lg px-4 py-3 mt-4 text-left">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Client</p>
-                <p className="font-semibold text-gray-900">{organizationName}</p>
-                <div className="text-sm text-gray-500 space-y-0.5">
-                  {clientHeaderLines().map((line, idx) => (
-                    <p key={idx}>{line}</p>
-                  ))}
+                <div className="bg-gray-50 rounded-lg px-4 py-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Client:</p>
+                  <p className="font-semibold text-gray-900">{organizationName}</p>
+                  <div className="text-sm text-gray-500 space-y-0.5">
+                    {clientHeaderLines().map((line, idx) => (
+                      <p key={idx}>{line}</p>
+                    ))}
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Statement meta + balance summary */}
