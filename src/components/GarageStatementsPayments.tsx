@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, CreditCard, Plus, Calendar, Download, Printer, Eye, ArrowLeft, DollarSign, Fuel, AlertCircle, Search, X, RefreshCw, Mail } from 'lucide-react';
+import { FileText, CreditCard, Plus, Calendar, Download, Printer, Eye, ArrowLeft, DollarSign, AlertCircle, Search, X, RefreshCw, Mail } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 interface Organization {
@@ -785,9 +785,8 @@ export default function GarageStatementsPayments({
   if (viewingStatementDetails && selectedStatement) {
     return (
       <div className="space-y-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-lg shadow p-6 print:shadow-none print:p-0">
+          <div className="flex items-center justify-between mb-6 print:hidden">
             <button
               onClick={() => {
                 setViewingStatementDetails(false);
@@ -833,78 +832,57 @@ export default function GarageStatementsPayments({
           )}
 
           {/* Title */}
-          <div className="border-b-2 border-gray-900 pb-5 mb-6 text-center">
+          <div className="border-b-2 border-gray-900 pb-5 mb-6 text-center print:border-b border-black">
             <h1 className="text-3xl font-bold text-gray-900">MyFuelApp</h1>
             <p className="text-sm text-gray-500 mt-1">Operated by Fuel Empowerment Systems (Pty) Ltd</p>
             <div className="border-t border-gray-900 mt-4 pt-4">
               <h2 className="text-2xl font-bold text-gray-900 tracking-wide">ACCOUNT STATEMENT</h2>
               <div className="grid md:grid-cols-2 gap-3 mt-4 text-left">
-                <div className="bg-gray-50 rounded-lg px-4 py-3">
+                <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">From:</p>
-                  <p className="font-semibold text-gray-900">{garageName}</p>
-                  <div className="text-sm text-gray-500 space-y-0.5">
-                    {garageHeaderLines().map((line, idx) => (
-                      <p key={idx}>{line}</p>
-                    ))}
+                  <div className="bg-gray-50 rounded px-3 py-2">
+                    <p className="font-semibold text-gray-900">{garageName}</p>
+                    <div className="text-sm text-gray-500 space-y-0.5">
+                      {garageHeaderLines().map((line, idx) => (
+                        <p key={idx}>{line}</p>
+                      ))}
+                    </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 rounded-lg px-4 py-3">
+                <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Client:</p>
-                  <p className="font-semibold text-gray-900">{organizationName}</p>
-                  <div className="text-sm text-gray-500 space-y-0.5">
-                    {clientHeaderLines().map((line, idx) => (
-                      <p key={idx}>{line}</p>
-                    ))}
+                  <div className="bg-gray-50 rounded px-3 py-2">
+                    <p className="font-semibold text-gray-900">{organizationName}</p>
+                    <div className="text-sm text-gray-500 space-y-0.5">
+                      {clientHeaderLines().map((line, idx) => (
+                        <p key={idx}>{line}</p>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Statement meta + balance summary */}
-          <div className="grid md:grid-cols-2 gap-4 mb-8">
-            <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Statement Number</span>
-                <span className="font-semibold text-gray-900">{selectedStatement.statement_number}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Statement Date</span>
-                <span className="font-semibold text-gray-900">{new Date(selectedStatement.statement_date).toLocaleDateString('en-ZA')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Period</span>
-                <span className="font-semibold text-gray-900">
-                  {new Date(selectedStatement.period_start).toLocaleDateString('en-ZA')} – {new Date(selectedStatement.period_end).toLocaleDateString('en-ZA')}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Account</span>
-                <span className="font-semibold text-gray-900">{organizationName}</span>
-              </div>
+          {/* Statement details — full-width gray box, same as the printed layout */}
+          <div className="bg-gray-50 rounded px-4 py-3 space-y-1.5 text-sm mb-2">
+            <div className="flex">
+              <span className="w-40 text-gray-500">Statement Number:</span>
+              <span className="font-semibold text-gray-900">{selectedStatement.statement_number}</span>
             </div>
-
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Opening Balance</span>
-                <span className={`font-semibold ${Number(selectedStatement.opening_balance) < 0 ? 'text-green-700' : 'text-gray-900'}`}>
-                  {fmtBalance(selectedStatement.opening_balance)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Total Invoices</span>
-                <span className="font-semibold text-red-600">R {Number(selectedStatement.total_invoices).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Total Payments</span>
-                <span className="font-semibold text-green-600">R {Number(selectedStatement.total_payments).toFixed(2)}</span>
-              </div>
-              <div className="border-t border-blue-200 pt-2 flex justify-between items-center">
-                <span className="font-bold text-blue-900">Closing Balance</span>
-                <span className={`text-lg font-bold ${Number(selectedStatement.closing_balance) < 0 ? 'text-green-700' : 'text-blue-900'}`}>
-                  {fmtBalance(selectedStatement.closing_balance)}
-                </span>
-              </div>
+            <div className="flex">
+              <span className="w-40 text-gray-500">Statement Date:</span>
+              <span className="font-semibold text-gray-900">{new Date(selectedStatement.statement_date).toLocaleDateString('en-ZA')}</span>
+            </div>
+            <div className="flex">
+              <span className="w-40 text-gray-500">Period:</span>
+              <span className="font-semibold text-gray-900">
+                {new Date(selectedStatement.period_start).toLocaleDateString('en-ZA')} to {new Date(selectedStatement.period_end).toLocaleDateString('en-ZA')}
+              </span>
+            </div>
+            <div className="flex">
+              <span className="w-40 text-gray-500">Account:</span>
+              <span className="font-semibold text-gray-900">{organizationName}</span>
             </div>
           </div>
 
@@ -918,7 +896,7 @@ export default function GarageStatementsPayments({
             </div>
           ) : (
             <>
-              {/* Transactions — merged chronological list, matches printStatement */}
+              {/* Transactions — merged chronological list, exactly matching printStatement */}
               {(() => {
                 const transactions: Array<{
                   key: string;
@@ -956,56 +934,80 @@ export default function GarageStatementsPayments({
 
                 if (transactions.length === 0) {
                   return (
-                    <div className="rounded-lg border border-dashed border-gray-300 py-10 text-center text-gray-400 text-sm">
+                    <div className="rounded border border-dashed border-gray-300 py-10 text-center text-gray-400 text-sm">
                       No transactions recorded in this period
                     </div>
                   );
                 }
 
                 return (
-                  <div className="space-y-3">
-                    {transactions.map((t) => (
-                      <div key={t.key} className="rounded-lg border border-gray-200 p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-center gap-3">
-                            {t.type === 'invoice' ? (
-                              <span className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                                <Fuel className="w-4 h-4 text-blue-600" />
-                              </span>
-                            ) : (
-                              <span className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
-                                <CreditCard className="w-4 h-4 text-green-600" />
-                              </span>
-                            )}
-                            <div>
-                              <p className="font-semibold text-gray-900 text-sm">
-                                {t.type === 'invoice' ? t.invoice!.invoice_number : t.payment!.payment_number}
-                                <span className={`ml-2 text-xs font-medium uppercase ${t.type === 'invoice' ? 'text-blue-600' : 'text-green-600'}`}>
-                                  {t.type === 'invoice' ? 'Invoice' : 'Payment Received'}
-                                </span>
-                              </p>
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                {new Date(t.date).toLocaleDateString('en-ZA')}
-                                {t.type === 'invoice'
-                                  ? ` · ${t.invoice!.fuel_type} ${Number(t.invoice!.liters).toFixed(2)} L · ${t.invoice!.vehicle_registration}`
-                                  : ` · ${t.payment!.payment_method.toUpperCase()}${t.payment!.reference ? ` · ${t.payment!.reference}` : ''}`}
-                              </p>
-                            </div>
+                  <div>
+                    <div className="border-t border-gray-300 mb-3" />
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Opening Balance</p>
+                    <div className="flex justify-between text-sm mb-4">
+                      <span className="font-semibold text-gray-900">Opening Balance:</span>
+                      <span className="font-semibold text-gray-900">{fmtBalance(selectedStatement.opening_balance)}</span>
+                    </div>
+                    <div className="divide-y divide-gray-200">
+                      {transactions.map((t) => (
+                        <div key={t.key} className="py-2.5">
+                          <div className="flex justify-between text-sm font-semibold text-gray-900">
+                            <span>
+                              {new Date(t.date).toLocaleDateString('en-ZA')}{'  '}
+                              {t.type === 'invoice' ? t.invoice!.invoice_number : t.payment!.payment_number}
+                            </span>
+                            <span className={t.type === 'payment' ? 'text-green-600' : 'text-gray-900'}>
+                              R {(t.type === 'invoice' ? Number(t.invoice!.total_amount) : Number(t.payment!.amount)).toFixed(2)}
+                            </span>
                           </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className={`font-bold ${t.type === 'invoice' ? 'text-gray-900' : 'text-green-600'}`}>
-                              {t.type === 'invoice'
-                                ? `R ${Number(t.invoice!.total_amount).toFixed(2)}`
-                                : `R ${Number(t.payment!.amount).toFixed(2)}`}
+                          {t.type === 'invoice' ? (
+                            <>
+                              <p className="text-xs text-gray-600 mt-1">
+                                Fuel: {Number(t.invoice!.liters).toFixed(2)} L {t.invoice!.fuel_type} @ R{Number(t.invoice!.price_per_liter).toFixed(2)}/L = R{(Number(t.invoice!.liters) * Number(t.invoice!.price_per_liter)).toFixed(2)}
+                              </p>
+                              {t.invoice!.oil_type && t.invoice!.oil_quantity && (
+                                <p className="text-xs text-gray-600 mt-0.5">
+                                  Oil: {Number(t.invoice!.oil_quantity)}x {t.invoice!.oil_type} @ R{Number(t.invoice!.oil_unit_price).toFixed(2)} = R{Number(t.invoice!.oil_total_amount).toFixed(2)}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-600 mt-0.5">
+                                Driver: {t.invoice!.driver_name || 'N/A'} | Vehicle: {t.invoice!.vehicle_registration} | Odometer: {t.invoice!.odometer_reading != null ? Number(t.invoice!.odometer_reading).toLocaleString() : 'N/A'} km
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-xs text-gray-600 mt-1">
+                              Payment received: {t.payment!.payment_method.toUpperCase()}{t.payment!.reference ? `  Ref: ${t.payment!.reference}` : ''}{t.payment!.notes ? `  (${t.payment!.notes})` : ''}
                             </p>
-                            <p className="text-xs text-blue-600 mt-1">Balance: {fmtBalance(t.balance)}</p>
-                          </div>
+                          )}
+                          <p className="text-sm font-semibold text-blue-700 text-right mt-0.5">Balance: {fmtBalance(t.balance)}</p>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 );
               })()}
+
+              {/* Summary box at the bottom, same position and style as the printed statement */}
+              <div className="border-t-2 border-gray-900 mt-5 pt-4">
+                <div className="bg-blue-50 rounded px-5 py-4 space-y-1.5 text-sm">
+                  <div className="flex justify-between font-semibold text-gray-900">
+                    <span>Opening Balance:</span>
+                    <span>{fmtBalance(selectedStatement.opening_balance)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-gray-900">
+                    <span>Total Invoices:</span>
+                    <span>R {Number(selectedStatement.total_invoices).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-gray-900">
+                    <span>Total Payments:</span>
+                    <span>R {Number(selectedStatement.total_payments).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold pt-1">
+                    <span className={Number(selectedStatement.closing_balance) < 0 ? 'text-green-700' : 'text-gray-900'}>CLOSING BALANCE:</span>
+                    <span className={Number(selectedStatement.closing_balance) < 0 ? 'text-green-700' : 'text-gray-900'}>{fmtBalance(selectedStatement.closing_balance)}</span>
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </div>
