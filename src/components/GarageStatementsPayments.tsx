@@ -102,6 +102,14 @@ export default function GarageStatementsPayments({
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [recalcSuccess, setRecalcSuccess] = useState('');
   const [accountOpeningBalance, setAccountOpeningBalance] = useState(0);
+  const [garageDetails, setGarageDetails] = useState<{
+    address_line_1: string | null; address_line_2: string | null; city: string | null;
+    province: string | null; postal_code: string | null; phone_number: string | null; vat_number: string | null;
+  } | null>(null);
+  const [clientDetails, setClientDetails] = useState<{
+    vat_number: string | null; address_line_1: string | null; address_line_2: string | null;
+    city: string | null; province: string | null; postal_code: string | null; phone_number: string | null;
+  } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -162,12 +170,53 @@ export default function GarageStatementsPayments({
   const loadData = async () => {
     try {
       setLoading(true);
-      await Promise.all([loadStatements(), loadPayments()]);
+      await Promise.all([loadStatements(), loadPayments(), loadStatementHeaderDetails()]);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadStatementHeaderDetails = async () => {
+    const [garageRes, orgRes] = await Promise.all([
+      supabase
+        .from('garages')
+        .select('address_line_1, address_line_2, city, province, postal_code, phone_number, vat_number')
+        .eq('id', garageId)
+        .maybeSingle(),
+      supabase
+        .from('organizations')
+        .select('vat_number, address_line_1, address_line_2, city, province, postal_code, phone_number')
+        .eq('id', organizationId)
+        .maybeSingle(),
+    ]);
+    if (!garageRes.error && garageRes.data) setGarageDetails(garageRes.data);
+    if (!orgRes.error && orgRes.data) setClientDetails(orgRes.data);
+  };
+
+  const garageHeaderLines = (): string[] => {
+    if (!garageDetails) return [];
+    const lines: string[] = [];
+    const addr = [garageDetails.address_line_1, garageDetails.address_line_2].filter(Boolean).join(', ');
+    if (addr) lines.push(addr);
+    const town = [garageDetails.city, garageDetails.province, garageDetails.postal_code].filter(Boolean).join(', ');
+    if (town) lines.push(town);
+    if (garageDetails.phone_number) lines.push(`Tel: ${garageDetails.phone_number}`);
+    if (garageDetails.vat_number) lines.push(`VAT No: ${garageDetails.vat_number}`);
+    return lines;
+  };
+
+  const clientHeaderLines = (): string[] => {
+    if (!clientDetails) return [];
+    const lines: string[] = [];
+    const addr = [clientDetails.address_line_1, clientDetails.address_line_2].filter(Boolean).join(', ');
+    if (addr) lines.push(addr);
+    const town = [clientDetails.city, clientDetails.province, clientDetails.postal_code].filter(Boolean).join(', ');
+    if (town) lines.push(town);
+    if (clientDetails.phone_number) lines.push(`Tel: ${clientDetails.phone_number}`);
+    if (clientDetails.vat_number) lines.push(`VAT No: ${clientDetails.vat_number}`);
+    return lines;
   };
 
   const loadStatements = async () => {
@@ -380,21 +429,73 @@ export default function GarageStatementsPayments({
     const contentWidth = pageWidth - (margin * 2);
     let yPosition = margin;
 
-    pdf.setFontSize(20);
+    // Heading matches the fuel invoice: MyFuelApp banner, then garage details block
+    pdf.setFontSize(24);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('ACCOUNT STATEMENT', pageWidth / 2, yPosition, { align: 'center' });
+    pdf.setTextColor(17, 24, 39);
+    pdf.text('MyFuelApp', pageWidth / 2, yPosition, { align: 'center' });
 
     yPosition += 7;
-    pdf.setFontSize(12);
+    pdf.setFontSize(11);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(garageName, pageWidth / 2, yPosition, { align: 'center' });
+    pdf.setTextColor(107, 114, 128);
+    pdf.text('Operated by Fuel Empowerment Systems (Pty) Ltd', pageWidth / 2, yPosition, { align: 'center' });
 
-    yPosition += 10;
+    yPosition += 8;
     pdf.setDrawColor(17, 24, 39);
     pdf.setLineWidth(0.5);
     pdf.line(margin, yPosition, pageWidth - margin, yPosition);
 
-    yPosition += 8;
+    yPosition += 7;
+    pdf.setFontSize(16);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(17, 24, 39);
+    pdf.text('ACCOUNT STATEMENT', pageWidth / 2, yPosition, { align: 'center' });
+
+    yPosition += 6;
+    pdf.setFontSize(12);
+    pdf.text(garageName, pageWidth / 2, yPosition, { align: 'center' });
+
+    yPosition += 5;
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(75, 85, 99);
+    for (const line of garageHeaderLines()) {
+      pdf.text(line, pageWidth / 2, yPosition, { align: 'center' });
+      yPosition += 4.5;
+    }
+
+    // Client details box, same style as the invoice CLIENT block
+    const clientLines = clientHeaderLines();
+    if (clientLines.length > 0) {
+      yPosition += 3;
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(107, 114, 128);
+      pdf.text('CLIENT', margin, yPosition);
+
+      yPosition += 3;
+      const boxHeight = 4 + (1 + clientLines.length) * 4.5 + 2;
+      pdf.setFillColor(249, 250, 251);
+      pdf.rect(margin, yPosition, contentWidth, boxHeight, 'F');
+
+      yPosition += 5;
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(17, 24, 39);
+      pdf.text(organizationName, margin + 3, yPosition);
+
+      yPosition += 4.5;
+      pdf.setFontSize(8);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(75, 85, 99);
+      for (const line of clientLines) {
+        pdf.text(line, margin + 3, yPosition);
+        yPosition += 4.5;
+      }
+    }
+
+    yPosition += 6;
 
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'bold');
@@ -676,8 +777,30 @@ export default function GarageStatementsPayments({
 
           {/* Title */}
           <div className="border-b-2 border-gray-900 pb-5 mb-6 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-wide">ACCOUNT STATEMENT</h1>
-            <p className="text-gray-600 mt-1 font-medium">{garageName}</p>
+            <h1 className="text-3xl font-bold text-gray-900">MyFuelApp</h1>
+            <p className="text-sm text-gray-500 mt-1">Operated by Fuel Empowerment Systems (Pty) Ltd</p>
+            <div className="border-t border-gray-900 mt-4 pt-4">
+              <h2 className="text-2xl font-bold text-gray-900 tracking-wide">ACCOUNT STATEMENT</h2>
+              <p className="text-gray-700 mt-1 font-semibold">{garageName}</p>
+              {garageHeaderLines().length > 0 && (
+                <div className="text-sm text-gray-500 mt-1 space-y-0.5">
+                  {garageHeaderLines().map((line, idx) => (
+                    <p key={idx}>{line}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+            {clientHeaderLines().length > 0 && (
+              <div className="bg-gray-50 rounded-lg px-4 py-3 mt-4 text-left">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Client</p>
+                <p className="font-semibold text-gray-900">{organizationName}</p>
+                <div className="text-sm text-gray-500 space-y-0.5">
+                  {clientHeaderLines().map((line, idx) => (
+                    <p key={idx}>{line}</p>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Statement meta + balance summary */}
