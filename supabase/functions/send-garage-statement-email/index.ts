@@ -59,6 +59,12 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString("en-ZA");
 }
 
+function nextDay(dateString: string): string {
+  const date = new Date(`${dateString}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().split("T")[0];
+}
+
 function uint8ToBase64(bytes: Uint8Array): string {
   const chunkSize = 0x8000;
   let binary = "";
@@ -358,6 +364,14 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+    const authHeader = req.headers.get("Authorization") || "";
+    if (!authHeader.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Missing bearer token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { statement_id, to_email } = await req.json();
 
     if (!statement_id || !to_email) {
@@ -392,18 +406,21 @@ Deno.serve(async (req: Request) => {
         .select("name, vat_number, address_line_1, address_line_2, city, province, postal_code, country")
         .eq("id", statement.organization_id)
         .maybeSingle(),
-      adminClient.rpc("get_statement_invoices", {
-        p_garage_id: statement.garage_id,
-        p_organization_id: statement.organization_id,
-        p_period_start: statement.period_start,
-        p_period_end: statement.period_end,
-      }),
-      adminClient.rpc("get_statement_payments", {
-        p_garage_id: statement.garage_id,
-        p_organization_id: statement.organization_id,
-        p_period_start: statement.period_start,
-        p_period_end: statement.period_end,
-      }),
+      adminClient
+        .from("fuel_transaction_invoices")
+        .select("invoice_number, transaction_date, vehicle_registration, fuel_type, liters, total_amount")
+        .eq("organization_id", statement.organization_id)
+        .gte("transaction_date", statement.period_start)
+        .lt("transaction_date", nextDay(statement.period_end))
+        .order("transaction_date", { ascending: true }),
+      adminClient
+        .from("garage_debtor_payments")
+        .select("payment_number, payment_date, payment_method, reference, amount")
+        .eq("garage_id", statement.garage_id)
+        .eq("organization_id", statement.organization_id)
+        .gte("payment_date", statement.period_start)
+        .lte("payment_date", statement.period_end)
+        .order("payment_date", { ascending: true }),
     ]);
 
     if (garageResult.error) throw garageResult.error;
@@ -500,7 +517,7 @@ Deno.serve(async (req: Request) => {
   } catch (error: any) {
     console.error("Send garage statement email error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to send statement email" }),
+      JSON.stringify({ error: error?.message || String(error) || "Failed to send statement email" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
