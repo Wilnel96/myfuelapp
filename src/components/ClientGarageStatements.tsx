@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   Store, FileText, Plus, Eye, Printer, ArrowLeft,
-  Receipt, AlertCircle, CheckCircle, Wallet, ChevronDown, ChevronUp
+  Receipt, AlertCircle, CheckCircle, Wallet, ChevronDown, ChevronUp, Mail
 } from 'lucide-react';
 
 interface GarageAccount {
@@ -103,6 +103,7 @@ export default function ClientGarageStatements({ onNavigate }: { onNavigate?: (v
   const [payReference, setPayReference] = useState('');
   const [payNotes, setPayNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [emailing, setEmailing] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -297,6 +298,30 @@ export default function ClientGarageStatements({ onNavigate }: { onNavigate?: (v
     window.print();
   };
 
+  const handleEmailStatement = async () => {
+    if (!viewingStatement) return;
+    setError('');
+    setSuccess('');
+    setEmailing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const toEmail = session?.user?.email;
+      if (!toEmail) throw new Error('No email address found for your account');
+
+      const { error: fnError } = await supabase.functions.invoke('send-garage-statement-email', {
+        body: { statement_id: viewingStatement.id, to_email: toEmail },
+      });
+      if (fnError) throw fnError;
+
+      setSuccess(`Statement emailed to ${toEmail}`);
+    } catch (err: any) {
+      console.error('Error emailing statement:', err);
+      setError(err.message || 'Failed to email statement');
+    } finally {
+      setEmailing(false);
+    }
+  };
+
   // Summary is computed per-garage in the render loop below
   const currentGarage = selectedGarage || garageAccounts.find(g => g.garage_id === expandedGarage);
 
@@ -320,14 +345,31 @@ export default function ClientGarageStatements({ onNavigate }: { onNavigate?: (v
             <ArrowLeft className="w-4 h-4" />
             Back to Statements
           </button>
-          <button
-            onClick={printStatement}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
-          >
-            <Printer className="w-4 h-4" />
-            Print Statement
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleEmailStatement}
+              disabled={emailing}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+            >
+              <Mail className="w-4 h-4" />
+              {emailing ? 'Sending...' : 'Email Statement'}
+            </button>
+            <button
+              onClick={printStatement}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
+            >
+              <Printer className="w-4 h-4" />
+              Print Statement
+            </button>
+          </div>
         </div>
+
+        {(error || success) && (
+          <div className={`rounded-lg p-3 flex items-start gap-2 no-print ${success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+            {success ? <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" /> : <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />}
+            <p className={`text-sm ${success ? 'text-green-800' : 'text-red-800'}`}>{success || error}</p>
+          </div>
+        )}
 
         {loadingDetails ? (
           <div className="flex items-center justify-center py-12">

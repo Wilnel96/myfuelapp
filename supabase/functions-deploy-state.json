@@ -148,6 +148,10 @@
     "verify-driver-pin": {
       "hasChanged": false,
       "hash": "90d81ed1c1023240bb34dbddab02b8850f90408b4a3b420a0ee306f70c45e822"
+    },
+    "send-garage-statement-email": {
+      "hasChanged": false,
+      "hash": "0c9c1b881e6e78f0631806481788e65efda2e5647cdca3cb9e31c75bbad64cf8"
     }
   }
 }

@@ -85,6 +85,9 @@ verify_jwt = true
 [functions.send-statement-email]
 verify_jwt = true
 
+[functions.send-garage-statement-email]
+verify_jwt = true
+
 [functions.set-driver-pin]
 verify_jwt = false
 
