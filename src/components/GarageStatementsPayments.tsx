@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, CreditCard, Plus, Calendar, Download, Printer, Eye, ArrowLeft, DollarSign, Fuel, AlertCircle, Search, X, RefreshCw } from 'lucide-react';
+import { FileText, CreditCard, Plus, Calendar, Download, Printer, Eye, ArrowLeft, DollarSign, Fuel, AlertCircle, Search, X, RefreshCw, Mail } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 interface Organization {
@@ -106,6 +106,9 @@ export default function GarageStatementsPayments({
     address_line_1: string | null; address_line_2: string | null; city: string | null;
     province: string | null; postal_code: string | null; phone_number: string | null; vat_number: string | null;
   } | null>(null);
+  const [clientEmail, setClientEmail] = useState('');
+  const [emailing, setEmailing] = useState(false);
+  const [emailSuccess, setEmailSuccess] = useState('');
   const [clientDetails, setClientDetails] = useState<{
     vat_number: string | null; address_line_1: string | null; address_line_2: string | null;
     city: string | null; province: string | null; postal_code: string | null; phone_number: string | null;
@@ -193,6 +196,36 @@ export default function GarageStatementsPayments({
     ]);
     if (!garageRes.error && garageRes.data) setGarageDetails(garageRes.data);
     if (!orgRes.error && orgRes.data) setClientDetails(orgRes.data);
+
+    const { data: mainUsers } = await supabase
+      .from('organization_users')
+      .select('email')
+      .eq('organization_id', organizationId)
+      .eq('is_main_user', true)
+      .limit(1);
+    if (mainUsers && mainUsers.length > 0 && mainUsers[0].email) setClientEmail(mainUsers[0].email);
+  };
+
+  const emailStatement = async (statement: Statement) => {
+    if (!clientEmail) {
+      setError('No email address found for this client');
+      return;
+    }
+    setError('');
+    setEmailSuccess('');
+    setEmailing(true);
+    try {
+      const { error: fnError } = await supabase.functions.invoke('send-garage-statement-email', {
+        body: { statement_id: statement.id, to_email: clientEmail },
+      });
+      if (fnError) throw fnError;
+      setEmailSuccess(`Statement emailed to ${clientEmail}`);
+      setTimeout(() => setEmailSuccess(''), 4000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to email statement');
+    } finally {
+      setEmailing(false);
+    }
   };
 
   const garageHeaderLines = (): string[] => {
@@ -760,14 +793,32 @@ export default function GarageStatementsPayments({
               <ArrowLeft className="w-5 h-5" />
               Back to Statements
             </button>
-            <button
-              onClick={() => printStatement(selectedStatement)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-            >
-              <Printer className="w-4 h-4" />
-              Print Statement
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => emailStatement(selectedStatement)}
+                disabled={emailing || !clientEmail}
+                title={clientEmail ? `Email statement to ${clientEmail}` : 'No client email address found'}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Mail className="w-4 h-4" />
+                {emailing ? 'Emailing...' : 'Email Statement'}
+              </button>
+              <button
+                onClick={() => printStatement(selectedStatement)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+              >
+                <Printer className="w-4 h-4" />
+                Print Statement
+              </button>
+            </div>
           </div>
+
+          {emailSuccess && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+              <Mail className="w-4 h-4 text-green-600 flex-shrink-0" />
+              <p className="text-green-800 text-sm">{emailSuccess}</p>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
@@ -862,160 +913,94 @@ export default function GarageStatementsPayments({
             </div>
           ) : (
             <>
-              {/* Invoices section */}
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <Fuel className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-base font-bold text-gray-900">
-                    Fuel Purchases &amp; Invoices
-                    <span className="ml-2 text-sm font-normal text-gray-500">({statementInvoices.length})</span>
-                  </h3>
-                </div>
+              {/* Transactions — merged chronological list, matches printStatement */}
+              {(() => {
+                const transactions: Array<{
+                  key: string;
+                  type: 'invoice' | 'payment';
+                  date: string;
+                  balance: number;
+                  invoice?: Invoice;
+                  payment?: Payment;
+                }> = [];
+                let runningBalance = Number(selectedStatement.opening_balance);
+                [...statementInvoices.map((inv) => ({ type: 'invoice' as const, date: inv.transaction_date, data: inv })),
+                 ...statementPayments.map((pmt) => ({ type: 'payment' as const, date: pmt.payment_date, data: pmt }))]
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                  .forEach((t) => {
+                    if (t.type === 'invoice') {
+                      runningBalance += Number(t.data.total_amount);
+                      transactions.push({
+                        key: `inv-${t.data.id}`,
+                        type: 'invoice',
+                        date: t.date,
+                        balance: runningBalance,
+                        invoice: t.data as Invoice,
+                      });
+                    } else {
+                      runningBalance -= Number(t.data.amount);
+                      transactions.push({
+                        key: `pmt-${t.data.id}`,
+                        type: 'payment',
+                        date: t.date,
+                        balance: runningBalance,
+                        payment: t.data as Payment,
+                      });
+                    }
+                  });
 
-                {statementInvoices.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-gray-300 py-10 text-center text-gray-400 text-sm">
-                    No invoices recorded in this period
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Invoice #</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Driver / Vehicle</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Fuel</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Oil / Other</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {statementInvoices.map((inv) => {
-                          const fuelAmt = Number(inv.liters) * Number(inv.price_per_liter);
-                          return (
-                            <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-4 whitespace-nowrap text-gray-700">
-                                {new Date(inv.transaction_date).toLocaleDateString('en-ZA')}
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap font-medium text-gray-900">
-                                {inv.invoice_number}
-                              </td>
-                              <td className="px-4 py-4">
-                                <div className="font-medium text-gray-900">{inv.driver_name || '—'}</div>
-                                <div className="text-xs text-gray-500 mt-0.5">{inv.vehicle_registration}</div>
-                                {inv.odometer_reading != null && (
-                                  <div className="text-xs text-gray-400">{Number(inv.odometer_reading).toLocaleString()} km</div>
-                                )}
-                              </td>
-                              <td className="px-4 py-4">
-                                <div className="font-medium text-gray-900">
-                                  {inv.fuel_type}: {Number(inv.liters).toFixed(2)} L
-                                </div>
-                                <div className="text-xs text-gray-500 mt-0.5">
-                                  @ R{Number(inv.price_per_liter).toFixed(2)}/L = <span className="font-semibold text-gray-700">R{fuelAmt.toFixed(2)}</span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-4">
-                                {inv.oil_type && inv.oil_quantity ? (
-                                  <div>
-                                    <div className="font-medium text-gray-900">
-                                      {inv.oil_quantity}× {inv.oil_type}
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-0.5">
-                                      @ R{Number(inv.oil_unit_price ?? 0).toFixed(2)} = <span className="font-semibold text-gray-700">R{Number(inv.oil_total_amount ?? 0).toFixed(2)}</span>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-300">—</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-4 text-right">
-                                <span className="font-bold text-gray-900">R {Number(inv.total_amount).toFixed(2)}</span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-gray-50 border-t-2 border-gray-200">
-                          <td colSpan={5} className="px-4 py-3 text-right text-sm font-bold text-gray-700">
-                            Total Invoices
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-gray-900">
-                            R {statementInvoices.reduce((s, inv) => s + Number(inv.total_amount), 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                )}
-              </div>
+                if (transactions.length === 0) {
+                  return (
+                    <div className="rounded-lg border border-dashed border-gray-300 py-10 text-center text-gray-400 text-sm">
+                      No transactions recorded in this period
+                    </div>
+                  );
+                }
 
-              {/* Payments section */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <CreditCard className="w-5 h-5 text-green-600" />
-                  <h3 className="text-base font-bold text-gray-900">
-                    Payments Received
-                    <span className="ml-2 text-sm font-normal text-gray-500">({statementPayments.length})</span>
-                  </h3>
-                </div>
-
-                {statementPayments.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-gray-300 py-10 text-center text-gray-400 text-sm">
-                    No payments recorded in this period
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Date Received</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Payment #</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Method</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Reference / Notes</th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {statementPayments.map((pmt) => (
-                          <tr key={pmt.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-4 whitespace-nowrap text-gray-700">
-                              {new Date(pmt.payment_date).toLocaleDateString('en-ZA')}
-                            </td>
-                            <td className="px-4 py-4 font-medium text-gray-900 whitespace-nowrap">
-                              {pmt.payment_number}
-                            </td>
-                            <td className="px-4 py-4">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-700 uppercase">
-                                {pmt.payment_method}
+                return (
+                  <div className="space-y-3">
+                    {transactions.map((t) => (
+                      <div key={t.key} className="rounded-lg border border-gray-200 p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            {t.type === 'invoice' ? (
+                              <span className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                                <Fuel className="w-4 h-4 text-blue-600" />
                               </span>
-                            </td>
-                            <td className="px-4 py-4 text-gray-600">
-                              {pmt.reference && <div className="font-medium">{pmt.reference}</div>}
-                              {pmt.notes && <div className="text-xs text-gray-400 mt-0.5">{pmt.notes}</div>}
-                              {!pmt.reference && !pmt.notes && <span className="text-gray-300">—</span>}
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <span className="font-bold text-green-600">R {Number(pmt.amount).toFixed(2)}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-gray-50 border-t-2 border-gray-200">
-                          <td colSpan={4} className="px-4 py-3 text-right text-sm font-bold text-gray-700">
-                            Total Payments
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-green-600">
-                            R {statementPayments.reduce((s, p) => s + Number(p.amount), 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                            ) : (
+                              <span className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                                <CreditCard className="w-4 h-4 text-green-600" />
+                              </span>
+                            )}
+                            <div>
+                              <p className="font-semibold text-gray-900 text-sm">
+                                {t.type === 'invoice' ? t.invoice!.invoice_number : t.payment!.payment_number}
+                                <span className={`ml-2 text-xs font-medium uppercase ${t.type === 'invoice' ? 'text-blue-600' : 'text-green-600'}`}>
+                                  {t.type === 'invoice' ? 'Invoice' : 'Payment Received'}
+                                </span>
+                              </p>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {new Date(t.date).toLocaleDateString('en-ZA')}
+                                {t.type === 'invoice'
+                                  ? ` · ${t.invoice!.fuel_type} ${Number(t.invoice!.liters).toFixed(2)} L · ${t.invoice!.vehicle_registration}`
+                                  : ` · ${t.payment!.payment_method.toUpperCase()}${t.payment!.reference ? ` · ${t.payment!.reference}` : ''}`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <p className={`font-bold ${t.type === 'invoice' ? 'text-gray-900' : 'text-green-600'}`}>
+                              {t.type === 'invoice'
+                                ? `R ${Number(t.invoice!.total_amount).toFixed(2)}`
+                                : `R ${Number(t.payment!.amount).toFixed(2)}`}
+                            </p>
+                            <p className="text-xs text-blue-600 mt-1">Balance: {fmtBalance(t.balance)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                );
+              })()}
             </>
           )}
         </div>
@@ -1205,6 +1190,14 @@ export default function GarageStatementsPayments({
                               title="Print Statement"
                             >
                               <Printer className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => emailStatement(statement)}
+                              disabled={emailing || !clientEmail}
+                              title={clientEmail ? `Email Statement to ${clientEmail}` : 'No client email address found'}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              <Mail className="w-4 h-4" />
                             </button>
                             <button
                               onClick={async () => {
