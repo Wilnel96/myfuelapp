@@ -10,9 +10,13 @@ export interface InvoiceData {
   garage_name: string;
   garage_vat_number?: string;
   garage_address: string;
+  garage_phone?: string;
+  garage_email?: string;
   client_name?: string;
   client_address?: string;
   client_vat_number?: string;
+  client_phone?: string;
+  client_email?: string;
   fuel_type: string;
   liters: number | string;
   price_per_liter: number | string;
@@ -76,13 +80,21 @@ export function renderInvoiceToPDF(
   const rightX = margin + colW + colGap;
 
   const addressLines = invoice.garage_address ? invoice.garage_address.split('\n').filter(Boolean) : [];
-  const garageLineCount = 1 + addressLines.length + (invoice.garage_vat_number ? 1 : 0);
+  const garageContactLines = [
+    invoice.garage_phone ? `Tel: ${invoice.garage_phone}` : null,
+    invoice.garage_email ? `Email: ${invoice.garage_email}` : null,
+  ].filter(Boolean) as string[];
+  const garageLineCount = 1 + addressLines.length + garageContactLines.length + (invoice.garage_vat_number ? 1 : 0);
   const garageBoxHeight = (compact ? 5 : 6) + garageLineCount * (compact ? 4 : 5) + 3;
 
   const clientLines = invoice.client_address ? invoice.client_address.split('\n').filter(Boolean) : [];
   const hasClientVat = !!invoice.client_vat_number;
   const hasClient = !!invoice.client_name;
-  const clientLineCount = hasClient ? (1 + clientLines.length + (hasClientVat ? 1 : 0)) : 0;
+  const clientContactLines = [
+    invoice.client_phone ? `Tel: ${invoice.client_phone}` : null,
+    invoice.client_email ? `Email: ${invoice.client_email}` : null,
+  ].filter(Boolean) as string[];
+  const clientLineCount = hasClient ? (1 + clientLines.length + clientContactLines.length + (hasClientVat ? 1 : 0)) : 0;
   const clientBoxHeight = hasClient ? ((compact ? 5 : 6) + clientLineCount * (compact ? 4 : 5) + 3) : 0;
 
   const bothBoxHeight = Math.max(garageBoxHeight, clientBoxHeight);
@@ -115,6 +127,14 @@ export function renderInvoiceToPDF(
     pdf.text(line, leftX + 3, garageY);
   }
 
+  for (const line of garageContactLines) {
+    garageY += compact ? 4 : 5;
+    pdf.setFontSize(compact ? 7 : 9);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(75, 85, 99);
+    pdf.text(line, leftX + 3, garageY);
+  }
+
   if (invoice.garage_vat_number) {
     garageY += compact ? 4 : 5;
     pdf.setFontSize(compact ? 7 : 9);
@@ -135,6 +155,14 @@ export function renderInvoiceToPDF(
     pdf.text(invoice.client_name!, rightX + 3, clientY);
 
     for (const line of clientLines) {
+      clientY += compact ? 4 : 5;
+      pdf.setFontSize(compact ? 7 : 9);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(75, 85, 99);
+      pdf.text(line, rightX + 3, clientY);
+    }
+
+    for (const line of clientContactLines) {
       clientY += compact ? 4 : 5;
       pdf.setFontSize(compact ? 7 : 9);
       pdf.setFont('helvetica', 'normal');

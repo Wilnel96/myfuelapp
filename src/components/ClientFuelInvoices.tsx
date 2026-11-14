@@ -15,6 +15,8 @@ interface FuelInvoice {
   garage_name: string;
   garage_address: string;
   garage_vat_number?: string;
+  garage_phone?: string;
+  garage_email?: string;
   fuel_type: string;
   liters: number;
   price_per_liter: number;
@@ -31,6 +33,8 @@ interface FuelInvoice {
   client_name?: string;
   client_address?: string;
   client_vat_number?: string;
+  client_phone?: string;
+  client_email?: string;
   payment_option?: string;
   card_last_four_digits?: string;
 }
@@ -49,6 +53,9 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [orgId, setOrgId] = useState<string>('');
+  const [orgPhone, setOrgPhone] = useState<string>('');
+  const [orgEmail, setOrgEmail] = useState<string>('');
+  const [garageContacts, setGarageContacts] = useState<Record<string, { phone: string; email: string }>>({});
 
   useEffect(() => {
     loadInvoices();
@@ -82,6 +89,35 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
         .order('transaction_date', { ascending: false });
 
       if (invoicesError) throw invoicesError;
+
+      const [orgRes, mainUserRes] = await Promise.all([
+        supabase
+          .from('organizations')
+          .select('phone_number')
+          .eq('id', profile.organization_id)
+          .maybeSingle(),
+        supabase
+          .from('organization_users')
+          .select('email')
+          .eq('organization_id', profile.organization_id)
+          .eq('is_main_user', true)
+          .maybeSingle(),
+      ]);
+      setOrgPhone(orgRes.data?.phone_number || '');
+      setOrgEmail(mainUserRes.data?.email || '');
+
+      const garageNames = Array.from(new Set((data || []).map((inv: FuelInvoice) => inv.garage_name).filter(Boolean)));
+      if (garageNames.length > 0) {
+        const { data: garagesData } = await supabase
+          .from('garages')
+          .select('name, phone_number, email_address')
+          .in('name', garageNames);
+        const contacts: Record<string, { phone: string; email: string }> = {};
+        (garagesData || []).forEach((g: { name: string; phone_number: string | null; email_address: string | null }) => {
+          contacts[g.name] = { phone: g.phone_number || '', email: g.email_address || '' };
+        });
+        setGarageContacts(contacts);
+      }
 
       setInvoices(data || []);
     } catch (err: any) {
@@ -128,6 +164,8 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
     return filteredInvoices.reduce((sum, inv) => sum + parseFloat(inv.liters.toString()), 0);
   };
 
+  const garageContactsFor = (invoice: FuelInvoice) => garageContacts[invoice.garage_name] || { phone: '', email: '' };
+
   const printInvoice = async (invoice: FuelInvoice, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
@@ -150,9 +188,13 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
         garage_name: invoice.garage_name,
         garage_vat_number: invoice.garage_vat_number,
         garage_address: invoice.garage_address,
+        garage_phone: garageContactsFor(invoice).phone,
+        garage_email: garageContactsFor(invoice).email,
         client_name: invoice.client_name,
         client_address: invoice.client_address,
         client_vat_number: invoice.client_vat_number,
+        client_phone: orgPhone,
+        client_email: orgEmail,
         fuel_type: invoice.fuel_type,
         liters: invoice.liters,
         price_per_liter: invoice.price_per_liter,
@@ -283,9 +325,13 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
         garage_name: invoice.garage_name,
         garage_vat_number: invoice.garage_vat_number,
         garage_address: invoice.garage_address,
+        garage_phone: garageContactsFor(invoice).phone,
+        garage_email: garageContactsFor(invoice).email,
         client_name: invoice.client_name,
         client_address: invoice.client_address,
         client_vat_number: invoice.client_vat_number,
+        client_phone: orgPhone,
+        client_email: orgEmail,
         fuel_type: invoice.fuel_type,
         liters: invoice.liters,
         price_per_liter: invoice.price_per_liter,
@@ -333,9 +379,13 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
         garage_name: invoice.garage_name,
         garage_vat_number: invoice.garage_vat_number,
         garage_address: invoice.garage_address,
+        garage_phone: garageContactsFor(invoice).phone,
+        garage_email: garageContactsFor(invoice).email,
         client_name: invoice.client_name,
         client_address: invoice.client_address,
         client_vat_number: invoice.client_vat_number,
+        client_phone: orgPhone,
+        client_email: orgEmail,
         fuel_type: invoice.fuel_type,
         liters: invoice.liters,
         price_per_liter: invoice.price_per_liter,
@@ -393,9 +443,13 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
         garage_name: invoice.garage_name,
         garage_vat_number: invoice.garage_vat_number,
         garage_address: invoice.garage_address,
+        garage_phone: garageContactsFor(invoice).phone,
+        garage_email: garageContactsFor(invoice).email,
         client_name: invoice.client_name,
         client_address: invoice.client_address,
         client_vat_number: invoice.client_vat_number,
+        client_phone: orgPhone,
+        client_email: orgEmail,
         fuel_type: invoice.fuel_type,
         liters: invoice.liters,
         price_per_liter: invoice.price_per_liter,
@@ -483,33 +537,47 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
             <p className="text-center text-gray-500 mt-1 text-sm">Operated by Fuel Empowerment Systems (Pty) Ltd</p>
           </div>
 
-          <div className="mb-6">
-            <h3 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">FUEL INVOICE FROM</h3>
-            <div className="bg-gray-50 rounded-lg p-4 space-y-1">
-              <div className="font-bold text-base text-gray-900">{selectedInvoice.garage_name}</div>
-              {selectedInvoice.garage_address && selectedInvoice.garage_address.split('\n').filter(Boolean).map((line, i) => (
-                <div key={i} className="text-gray-700 text-sm">{line}</div>
-              ))}
-              {selectedInvoice.garage_vat_number && (
-                <div className="text-gray-600 text-sm">VAT No: {selectedInvoice.garage_vat_number}</div>
-              )}
-            </div>
-          </div>
-
-          {selectedInvoice.client_name && (
-            <div className="mb-6">
-              <h3 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">CLIENT</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">FUEL INVOICE FROM</h3>
               <div className="bg-gray-50 rounded-lg p-4 space-y-1">
-                <div className="font-bold text-base text-gray-900">{selectedInvoice.client_name}</div>
-                {selectedInvoice.client_address && selectedInvoice.client_address.split('\n').filter(Boolean).map((line, i) => (
+                <div className="font-bold text-base text-gray-900">{selectedInvoice.garage_name}</div>
+                {selectedInvoice.garage_address && selectedInvoice.garage_address.split('\n').filter(Boolean).map((line, i) => (
                   <div key={i} className="text-gray-700 text-sm">{line}</div>
                 ))}
-                {selectedInvoice.client_vat_number && (
-                  <div className="text-gray-600 text-sm">VAT No: {selectedInvoice.client_vat_number}</div>
+                {selectedInvoice.garage_vat_number && (
+                  <div className="text-gray-600 text-sm">VAT No: {selectedInvoice.garage_vat_number}</div>
+                )}
+                {garageContactsFor(selectedInvoice).phone && (
+                  <div className="text-gray-600 text-sm">Tel: {garageContactsFor(selectedInvoice).phone}</div>
+                )}
+                {garageContactsFor(selectedInvoice).email && (
+                  <div className="text-gray-600 text-sm">Email: {garageContactsFor(selectedInvoice).email}</div>
                 )}
               </div>
             </div>
-          )}
+
+            {selectedInvoice.client_name && (
+              <div>
+                <h3 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">CLIENT</h3>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-1">
+                  <div className="font-bold text-base text-gray-900">{selectedInvoice.client_name}</div>
+                  {selectedInvoice.client_address && selectedInvoice.client_address.split('\n').filter(Boolean).map((line, i) => (
+                    <div key={i} className="text-gray-700 text-sm">{line}</div>
+                  ))}
+                  {selectedInvoice.client_vat_number && (
+                    <div className="text-gray-600 text-sm">VAT No: {selectedInvoice.client_vat_number}</div>
+                  )}
+                  {orgPhone && (
+                    <div className="text-gray-600 text-sm">Tel: {orgPhone}</div>
+                  )}
+                  {orgEmail && (
+                    <div className="text-gray-600 text-sm">Email: {orgEmail}</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="mb-6">
             <h3 className="text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide">VEHICLE & DRIVER</h3>

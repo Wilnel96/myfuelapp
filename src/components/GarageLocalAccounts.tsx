@@ -745,7 +745,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
 
       const { data: garageData, error: fetchError } = await supabase
         .from('garages')
-        .select('name, address_line_1, address_line_2, city, province, postal_code, vat_number')
+        .select('name, address_line_1, address_line_2, city, province, postal_code, vat_number, phone_number, email_address')
         .eq('id', garageId)
         .single();
 
@@ -767,17 +767,20 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
       let clientName = invoice.client_name || '';
       let clientAddress = invoice.client_address || '';
       let clientVatNumber = invoice.client_vat_number || '';
+      let clientPhone = '';
+      let clientEmail = '';
 
       if ((!clientName || !clientAddress || !clientVatNumber) && invoice.organization_id) {
         const { data: orgData } = await supabase
           .from('organizations')
-          .select('name, address_line_1, address_line_2, city, province, postal_code, vat_number')
+          .select('name, address_line_1, address_line_2, city, province, postal_code, vat_number, phone_number')
           .eq('id', invoice.organization_id)
           .maybeSingle();
 
         if (orgData) {
           if (!clientName) clientName = orgData.name;
           if (!clientVatNumber) clientVatNumber = orgData.vat_number || '';
+          clientPhone = orgData.phone_number || '';
           if (!clientAddress) {
             clientAddress = [
               orgData.address_line_1,
@@ -794,6 +797,16 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         ? await fetchPreviousFillings(supabase, invoice.vehicle_registration, invoice.organization_id, invoice.transaction_date)
         : [];
 
+      if (invoice.organization_id && !clientEmail) {
+        const { data: mainUser } = await supabase
+          .from('organization_users')
+          .select('email')
+          .eq('organization_id', invoice.organization_id)
+          .eq('is_main_user', true)
+          .maybeSingle();
+        clientEmail = mainUser?.email || '';
+      }
+
       const pdfBlob = await generateFuelInvoicePDF({
         previous_fillings: previousFillings,
         invoice_number: invoice.invoice_number,
@@ -805,9 +818,13 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         garage_name: garageData?.name || garageName,
         garage_vat_number: garageData?.vat_number,
         garage_address: garageAddress,
+        garage_phone: garageData?.phone_number || '',
+        garage_email: garageData?.email_address || '',
         client_name: clientName || undefined,
         client_address: clientAddress || undefined,
         client_vat_number: clientVatNumber || undefined,
+        client_phone: clientPhone || undefined,
+        client_email: clientEmail || undefined,
         fuel_type: invoice.fuel_type,
         liters: invoice.liters,
         price_per_liter: invoice.price_per_liter,
