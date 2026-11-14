@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.3";
+import { jsPDF } from "npm:jspdf@3.0.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,19 +7,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-function formatCurrency(amount: number): string {
-  return `R ${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-}
-
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-ZA");
-}
+const FROM_ADDRESSES = [
+  "MyFuelApp <noreply@myfuelapp.net>",
+  "MyFuelApp <onboarding@resend.dev>",
+];
 
 interface StatementInvoice {
   invoice_number: string;
   transaction_date: string;
   vehicle_registration: string;
+  fuel_type: string | null;
   liters: number;
   total_amount: number;
 }
@@ -29,6 +27,325 @@ interface StatementPayment {
   payment_method: string;
   reference: string | null;
   amount: number;
+}
+
+interface StatementRow {
+  statement_number: string;
+  statement_date: string;
+  period_start: string;
+  period_end: string;
+  opening_balance: number;
+  total_invoices: number;
+  total_payments: number;
+  closing_balance: number;
+}
+
+interface Party {
+  name: string;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  province: string | null;
+  postal_code: string | null;
+  vat_number: string | null;
+}
+
+function fmtBalance(val: number): string {
+  return val < 0 ? `CR R ${Math.abs(val).toFixed(2)}` : `R ${val.toFixed(2)}`;
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-ZA");
+}
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function partyAddressLines(party: Party | null): string[] {
+  if (!party) return [];
+  const cityLine = party.city ? [party.city, party.province, party.postal_code].filter(Boolean).join(", ") : null;
+  return [party.address_line_1, party.address_line_2, cityLine].filter(Boolean) as string[];
+}
+
+function drawPartyBox(
+  pdf: jsPDF,
+  x: number,
+  y: number,
+  boxW: number,
+  label: string,
+  party: Party | null,
+  extraLines: string[],
+): number {
+  const lines: string[] = [];
+  if (party) {
+    if (party.name) lines.push(party.name);
+    lines.push(...partyAddressLines(party));
+    if (party.vat_number) lines.push(`VAT No: ${party.vat_number}`);
+  }
+  lines.push(...extraLines.filter(Boolean));
+
+  pdf.setDrawColor(229, 231, 235);
+  pdf.setFillColor(249, 250, 251);
+  pdf.setLineWidth(0.3);
+  const labelY = y + 5;
+  const boxHeight = 5 + (1 + lines.length) * 4.5 + 2;
+  pdf.rect(x, y, boxW, boxHeight, "FD");
+
+  pdf.setFontSize(8);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(107, 114, 128);
+  pdf.text(label, x + 3, labelY);
+
+  let ly = labelY + 5;
+  lines.forEach((line, idx) => {
+    if (idx === 0) {
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(17, 24, 39);
+    } else {
+      pdf.setFontSize(8);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(75, 85, 99);
+    }
+    pdf.text(line, x + 3, ly);
+    ly += 4.5;
+  });
+
+  return y + boxHeight;
+}
+
+function renderStatementPDF(
+  statement: StatementRow,
+  garage: Party | null,
+  client: Party | null,
+  invoices: StatementInvoice[],
+  payments: StatementPayment[],
+): Uint8Array {
+  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentWidth = pageWidth - margin * 2;
+  let y = margin;
+
+  const ensureSpace = (needed: number) => {
+    if (y + needed > pageHeight - margin - 10) {
+      pdf.addPage();
+      y = margin;
+    }
+  };
+
+  pdf.setFontSize(24);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text("MyFuelApp", pageWidth / 2, y + 8, { align: "center" });
+
+  y += 13;
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(107, 114, 128);
+  pdf.text("Operated by Fuel Empowerment Systems (Pty) Ltd", pageWidth / 2, y, { align: "center" });
+
+  y += 4;
+  pdf.setDrawColor(17, 24, 39);
+  pdf.setLineWidth(0.5);
+  pdf.line(margin, y, pageWidth - margin, y);
+
+  y += 10;
+  pdf.setFontSize(16);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text("ACCOUNT STATEMENT", pageWidth / 2, y, { align: "center" });
+
+  y += 8;
+  const colGap = 4;
+  const colW = (contentWidth - colGap) / 2;
+  const boxesTop = y;
+  const fromBottom = drawPartyBox(pdf, margin, boxesTop, colW, "FROM:", garage, []);
+  const clientBottom = drawPartyBox(pdf, margin + colW + colGap, boxesTop, colW, "CLIENT:", client, []);
+  y = Math.max(fromBottom, clientBottom) + 4;
+
+  ensureSpace(30);
+  pdf.setDrawColor(229, 231, 235);
+  pdf.setFillColor(249, 250, 251);
+  pdf.setLineWidth(0.3);
+  const detailsBoxHeight = 5 + 4 * 5 + 2;
+  pdf.rect(margin, y, contentWidth, detailsBoxHeight, "FD");
+  pdf.setFontSize(8);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(107, 114, 128);
+  pdf.text("STATEMENT DETAILS", margin + 3, y + 5);
+
+  const detailRows: [string, string][] = [
+    ["Statement Number:", statement.statement_number],
+    ["Statement Date:", formatDate(statement.statement_date)],
+    ["Period:", `${formatDate(statement.period_start)} - ${formatDate(statement.period_end)}`],
+    ["Client:", client?.name || "-"],
+  ];
+  let dy = y + 10;
+  detailRows.forEach(([label, value]) => {
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(75, 85, 99);
+    pdf.text(label, margin + 3, dy);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(value, margin + 40, dy);
+    dy += 5;
+  });
+  y += detailsBoxHeight + 6;
+
+  pdf.setFontSize(11);
+  pdf.setFont("helvetica", "bold");
+  pdf.setTextColor(17, 24, 39);
+  pdf.text("TRANSACTION DETAILS", margin, y);
+  y += 5;
+
+  const transactions = [
+    ...invoices.map((inv) => ({
+      date: new Date(inv.transaction_date),
+      description: inv.invoice_number,
+      detail: [
+        inv.fuel_type ? inv.fuel_type : null,
+        inv.liters ? `${Number(inv.liters).toFixed(2)} L` : null,
+        inv.vehicle_registration ? `Vehicle ${inv.vehicle_registration}` : null,
+      ].filter(Boolean).join(" - "),
+      amount: Number(inv.total_amount),
+      isPayment: false,
+    })),
+    ...payments.map((pay) => ({
+      date: new Date(pay.payment_date),
+      description: pay.payment_number,
+      detail: [
+        pay.payment_method ? pay.payment_method.toUpperCase() : null,
+        pay.reference || null,
+      ].filter(Boolean).join(" - "),
+      amount: -Number(pay.amount),
+      isPayment: true,
+    })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const colAmountW = 24;
+  const colBalanceW = 26;
+  const colDateW = 22;
+  const colDescW = contentWidth - colDateW - colAmountW - colBalanceW;
+
+  const drawTableHeader = () => {
+    pdf.setFillColor(243, 244, 246);
+    pdf.rect(margin, y, contentWidth, 6, "F");
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(107, 114, 128);
+    pdf.text("DATE", margin + 1.5, y + 4);
+    pdf.text("DESCRIPTION", margin + colDateW + 1.5, y + 4);
+    pdf.text("AMOUNT", margin + colDateW + colDescW, y + 4, { align: "right" });
+    pdf.text("BALANCE", margin + colDateW + colDescW + colAmountW, y + 4, { align: "right" });
+    y += 6;
+  };
+
+  drawTableHeader();
+
+  let runningBalance = Number(statement.opening_balance);
+  const fmtAmt = (v: number) => `R ${Math.abs(v).toFixed(2)}`;
+
+  if (transactions.length === 0) {
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(156, 163, 175);
+    pdf.text("No transactions recorded in this period", margin + 1.5, y + 4);
+    y += 7;
+  }
+
+  transactions.forEach((tx) => {
+    runningBalance += tx.amount;
+
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(55, 65, 81);
+    const dateStr = formatDate(tx.date.toISOString());
+    pdf.text(dateStr, margin + 1.5, y + 4);
+
+    let descLines: string[] = [tx.description];
+    if (tx.detail) {
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(107, 114, 128);
+      descLines = pdf.splitTextToSize(tx.detail, colDescW - 3) as string[];
+    }
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", tx.isPayment ? "bold" : "normal");
+    pdf.setTextColor(tx.isPayment ? 22 : 17, tx.isPayment ? 101 : 24, tx.isPayment ? 52 : 39);
+    pdf.text(tx.description, margin + colDateW + 1.5, y + 4);
+
+    if (tx.detail) {
+      pdf.setFontSize(6.5);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(107, 114, 128);
+      pdf.text(descLines, margin + colDateW + 1.5, y + 6.8);
+    }
+
+    pdf.setFontSize(7.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(tx.isPayment ? 22 : 17, tx.isPayment ? 101 : 24, tx.isPayment ? 52 : 39);
+    pdf.text(`${tx.isPayment ? "-" : ""}${fmtAmt(tx.amount)}`, margin + colDateW + colDescW, y + 4, { align: "right" });
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(fmtBalance(runningBalance), margin + colDateW + colDescW + colAmountW, y + 4, { align: "right" });
+
+    const rowH = tx.detail ? 6.8 + descLines.length * 3 + 1.5 : 7;
+    pdf.setDrawColor(233, 236, 239);
+    pdf.setLineWidth(0.1);
+    pdf.line(margin, y + rowH - 1, margin + contentWidth, y + rowH - 1);
+    y += rowH;
+
+    if (y + 8 > pageHeight - margin - 10) {
+      pdf.addPage();
+      y = margin;
+      drawTableHeader();
+    }
+  });
+
+  ensureSpace(40);
+  y += 3;
+  const summaryH = 5 + 4 * 5.5 + 2;
+  pdf.setDrawColor(229, 231, 235);
+  pdf.setFillColor(249, 250, 251);
+  pdf.setLineWidth(0.3);
+  pdf.rect(margin + contentWidth * 0.45, y, contentWidth * 0.55, summaryH, "FD");
+
+  let sy = y + 5;
+  const summaryRows: [string, string, boolean][] = [
+    ["Opening Balance:", fmtBalance(Number(statement.opening_balance)), false],
+    ["Total Invoices:", `R ${Number(statement.total_invoices).toFixed(2)}`, false],
+    ["Total Payments:", `R ${Number(statement.total_payments).toFixed(2)}`, false],
+    ["CLOSING BALANCE:", fmtBalance(Number(statement.closing_balance)), true],
+  ];
+  summaryRows.forEach(([label, value, bold]) => {
+    pdf.setFontSize(bold ? 9 : 8);
+    pdf.setFont("helvetica", bold ? "bold" : "normal");
+    pdf.setTextColor(bold ? 17 : 75, bold ? 24 : 85, bold ? 39 : 99);
+    pdf.text(label, margin + contentWidth * 0.45 + 3, sy);
+    pdf.text(value, margin + contentWidth - 3, sy, { align: "right" });
+    sy += 5.5;
+  });
+
+  pdf.setFontSize(8);
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(156, 163, 175);
+  pdf.text(
+    "This statement was generated by MyFuelApp. If you have any questions, please contact your account manager.",
+    pageWidth / 2,
+    pageHeight - 8,
+    { align: "center" },
+  );
+
+  return new Uint8Array(pdf.output("arraybuffer") as ArrayBuffer);
 }
 
 Deno.serve(async (req: Request) => {
@@ -64,7 +381,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const [garageResult, orgResult, mgmtOrgResult, invResult, payResult] = await Promise.all([
+    const [garageResult, orgResult, invResult, payResult] = await Promise.all([
       adminClient
         .from("garages")
         .select("name, address_line_1, address_line_2, city, province, postal_code, vat_number")
@@ -72,13 +389,8 @@ Deno.serve(async (req: Request) => {
         .maybeSingle(),
       adminClient
         .from("organizations")
-        .select("name, vat_number, address_line_1, address_line_2, city, province, postal_code, country, company_registration_number")
+        .select("name, vat_number, address_line_1, address_line_2, city, province, postal_code, country")
         .eq("id", statement.organization_id)
-        .maybeSingle(),
-      adminClient
-        .from("organizations")
-        .select("name, vat_number, address_line_1, address_line_2, city, province, postal_code, country, phone_number, company_registration_number")
-        .eq("is_management_org", true)
         .maybeSingle(),
       adminClient.rpc("get_statement_invoices", {
         p_garage_id: statement.garage_id,
@@ -96,181 +408,25 @@ Deno.serve(async (req: Request) => {
 
     if (garageResult.error) throw garageResult.error;
     if (orgResult.error) throw orgResult.error;
+    if (invResult.error) throw invResult.error;
+    if (payResult.error) throw payResult.error;
 
-    const garage = garageResult.data;
-    const org = orgResult.data;
-    const mgmtOrg = mgmtOrgResult.data;
+    const garage = garageResult.data as Party | null;
+    const org = orgResult.data as Party | null;
     const invoices: StatementInvoice[] = invResult.data || [];
     const payments: StatementPayment[] = payResult.data || [];
 
-    const orgAddress = org ? [
-      org.address_line_1,
-      org.address_line_2,
-      org.city ? `${org.city}, ${org.province} ${org.postal_code}` : null,
-      org.country,
-    ].filter(Boolean).join(", ") : "";
-
-    const invRows = invoices.map((inv) => `
-      <tr>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;">${formatDate(inv.transaction_date)}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;">${inv.invoice_number}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;">${inv.vehicle_registration}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px; text-align: right;">${Number(inv.liters).toFixed(2)}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px; text-align: right;">${formatCurrency(Number(inv.total_amount))}</td>
-      </tr>
-    `).join("");
-
-    const payRows = payments.map((pay) => `
-      <tr>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;">${formatDate(pay.payment_date)}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;">${pay.payment_number}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px; text-transform: uppercase;">${pay.payment_method}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px;">${pay.reference || "—"}</td>
-        <td style="padding: 8px 12px; border-bottom: 1px solid #eee; font-size: 13px; text-align: right; color: #16a34a;">${formatCurrency(Number(pay.amount))}</td>
-      </tr>
-    `).join("");
-
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
-        ${mgmtOrg ? `
-        <div style="border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-start;">
-          <div>
-            <h1 style="margin: 0; font-size: 24px; color: #1f2937;">${mgmtOrg.name}</h1>
-            <div style="font-size: 13px; color: #6b7280; margin-top: 4px;">
-              <p style="margin: 2px 0;">${mgmtOrg.address_line_1}${mgmtOrg.address_line_2 ? ", " + mgmtOrg.address_line_2 : ""}</p>
-              <p style="margin: 2px 0;">${mgmtOrg.city}, ${mgmtOrg.province} ${mgmtOrg.postal_code}</p>
-              ${mgmtOrg.phone_number ? `<p style="margin: 2px 0;">Phone: ${mgmtOrg.phone_number}</p>` : ""}
-              <div style="margin-top: 6px; font-weight: 500; color: #374151;">
-                ${mgmtOrg.vat_number ? `<span style="margin-right: 16px;">VAT No: ${mgmtOrg.vat_number}</span>` : ""}
-                ${mgmtOrg.company_registration_number ? `<span>Reg No: ${mgmtOrg.company_registration_number}</span>` : ""}
-              </div>
-            </div>
-          </div>
-        </div>
-        ` : ""}
-
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
-          <div>
-            <h2 style="margin: 0; font-size: 28px; color: #1f2937;">ACCOUNT STATEMENT</h2>
-            <div style="font-size: 13px; color: #4b5563; margin-top: 8px; line-height: 1.8;">
-              <p style="margin: 0;"><strong>Statement Number:</strong> ${statement.statement_number}</p>
-              <p style="margin: 0;"><strong>Statement Date:</strong> ${formatDate(statement.statement_date)}</p>
-              <p style="margin: 0;"><strong>Period:</strong> ${formatDate(statement.period_start)} - ${formatDate(statement.period_end)}</p>
-            </div>
-          </div>
-          ${garage ? `
-          <div style="text-align: right;">
-            <h3 style="margin: 0; font-size: 16px; color: #1f2937;">${garage.name}</h3>
-            <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
-              ${garage.address_line_1 ? `<p style="margin: 1px 0;">${garage.address_line_1}</p>` : ""}
-              ${garage.city ? `<p style="margin: 1px 0;">${garage.city}, ${garage.province} ${garage.postal_code || ""}</p>` : ""}
-              ${garage.vat_number ? `<p style="margin: 1px 0;">VAT No: ${garage.vat_number}</p>` : ""}
-            </div>
-          </div>
-          ` : ""}
-        </div>
-
-        ${org ? `
-        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-          <h3 style="margin: 0 0 8px; font-size: 14px; color: #1f2937;">Client:</h3>
-          <div style="font-size: 13px; color: #374151; line-height: 1.6;">
-            <p style="margin: 0; font-weight: 600;">${org.name}</p>
-            ${orgAddress ? `<p style="margin: 0;">${orgAddress}</p>` : ""}
-            <div style="margin-top: 6px; font-weight: 500;">
-              ${org.vat_number ? `<span style="margin-right: 16px;">VAT No: ${org.vat_number}</span>` : ""}
-              ${org.company_registration_number ? `<span>Reg No: ${org.company_registration_number}</span>` : ""}
-            </div>
-          </div>
-        </div>
-        ` : ""}
-
-        <!-- Summary cards -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
-          <div style="background: #f3f4f6; border-radius: 8px; padding: 12px; text-align: center;">
-            <p style="margin: 0; font-size: 10px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Opening</p>
-            <p style="margin: 4px 0 0; font-size: 16px; font-weight: 700; color: #1f2937;">${formatCurrency(Number(statement.opening_balance))}</p>
-          </div>
-          <div style="background: #fef2f2; border-radius: 8px; padding: 12px; text-align: center;">
-            <p style="margin: 0; font-size: 10px; color: #dc2626; text-transform: uppercase; font-weight: 600;">Invoices</p>
-            <p style="margin: 4px 0 0; font-size: 16px; font-weight: 700; color: #b91c1c;">${formatCurrency(Number(statement.total_invoices))}</p>
-          </div>
-          <div style="background: #f0fdf4; border-radius: 8px; padding: 12px; text-align: center;">
-            <p style="margin: 0; font-size: 10px; color: #16a34a; text-transform: uppercase; font-weight: 600;">Payments</p>
-            <p style="margin: 4px 0 0; font-size: 16px; font-weight: 700; color: #15803d;">${formatCurrency(Number(statement.total_payments))}</p>
-          </div>
-          <div style="background: ${Number(statement.closing_balance) > 0 ? "#fef3c7" : "#f0fdf4"}; border-radius: 8px; padding: 12px; text-align: center;">
-            <p style="margin: 0; font-size: 10px; color: #6b7280; text-transform: uppercase; font-weight: 600;">Closing</p>
-            <p style="margin: 4px 0 0; font-size: 16px; font-weight: 700; color: ${Number(statement.closing_balance) > 0 ? "#b45309" : "#15803d"};">${formatCurrency(Number(statement.closing_balance))}</p>
-          </div>
-        </div>
-
-        <h3 style="font-size: 16px; color: #1f2937; margin: 24px 0 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">Fuel Purchases &amp; Invoices</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="background: #f9fafb;">
-              <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Date</th>
-              <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Invoice #</th>
-              <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Vehicle</th>
-              <th style="padding: 8px 12px; text-align: right; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Liters</th>
-              <th style="padding: 8px 12px; text-align: right; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${invRows || `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #9ca3af; font-size: 13px;">No invoices in this period</td></tr>`}
-          </tbody>
-          ${invoices.length > 0 ? `
-          <tfoot>
-            <tr style="background: #f9fafb; font-weight: 600;">
-              <td colspan="4" style="padding: 8px 12px; text-align: right; font-size: 13px;">Total Invoices:</td>
-              <td style="padding: 8px 12px; text-align: right; font-size: 13px;">${formatCurrency(Number(statement.total_invoices))}</td>
-            </tr>
-          </tfoot>
-          ` : ""}
-        </table>
-
-        <h3 style="font-size: 16px; color: #1f2937; margin: 24px 0 12px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px;">Payments Made</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="background: #f9fafb;">
-              <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Date</th>
-              <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Payment #</th>
-              <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Method</th>
-              <th style="padding: 8px 12px; text-align: left; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Reference</th>
-              <th style="padding: 8px 12px; text-align: right; font-size: 11px; color: #6b7280; text-transform: uppercase; border-bottom: 2px solid #e5e7eb;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${payRows || `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #9ca3af; font-size: 13px;">No payments in this period</td></tr>`}
-          </tbody>
-          ${payments.length > 0 ? `
-          <tfoot>
-            <tr style="background: #f9fafb; font-weight: 600;">
-              <td colspan="4" style="padding: 8px 12px; text-align: right; font-size: 13px;">Total Payments:</td>
-              <td style="padding: 8px 12px; text-align: right; font-size: 13px; color: #16a34a;">${formatCurrency(Number(statement.total_payments))}</td>
-            </tr>
-          </tfoot>
-          ` : ""}
-        </table>
-
-        <div style="margin-top: 24px; border-top: 2px solid #e5e7eb; padding-top: 16px;">
-          <div style="max-width: 280px; margin-left: auto; font-size: 14px; line-height: 2;">
-            <div style="display: flex; justify-content: space-between;"><span style="color: #6b7280;">Opening Balance:</span><span style="font-weight: 500;">${formatCurrency(Number(statement.opening_balance))}</span></div>
-            <div style="display: flex; justify-content: space-between;"><span style="color: #6b7280;">Total Invoices:</span><span style="font-weight: 500;">${formatCurrency(Number(statement.total_invoices))}</span></div>
-            <div style="display: flex; justify-content: space-between;"><span style="color: #6b7280;">Total Payments:</span><span style="font-weight: 500; color: #16a34a;">${formatCurrency(Number(statement.total_payments))}</span></div>
-            <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; border-top: 1px solid #d1d5db; padding-top: 8px; margin-top: 4px;">
-              <span>Closing Balance:</span>
-              <span style="color: ${Number(statement.closing_balance) > 0 ? "#dc2626" : "#16a34a"};">${formatCurrency(Number(statement.closing_balance))}</span>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top: 30px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #9ca3af; text-align: center;">
-          <p>This statement was generated by MyFuelApp. If you have any questions, please contact your account manager.</p>
-        </div>
-      </div>
-    `;
-
-    const text = `MyFuelApp Account Statement\n\nStatement Number: ${statement.statement_number}\nStatement Date: ${formatDate(statement.statement_date)}\nPeriod: ${formatDate(statement.period_start)} - ${formatDate(statement.period_end)}\nGarage: ${garage?.name || "N/A"}\nClient: ${org?.name || "N/A"}\n\nOpening Balance: ${formatCurrency(Number(statement.opening_balance))}\nTotal Invoices: ${formatCurrency(Number(statement.total_invoices))}\nTotal Payments: ${formatCurrency(Number(statement.total_payments))}\nClosing Balance: ${formatCurrency(Number(statement.closing_balance))}\n\nPlease log in to your MyFuelApp portal to view the full statement details.`;
+    let pdfBase64: string;
+    try {
+      const pdfBytes = renderStatementPDF(statement, garage, org, invoices, payments);
+      pdfBase64 = uint8ToBase64(pdfBytes);
+    } catch (pdfError) {
+      console.error("Failed to generate statement PDF", statement.statement_number, pdfError);
+      return new Response(
+        JSON.stringify({ error: "Failed to generate statement PDF" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
@@ -280,15 +436,30 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const fromAddresses = [
-      "MyFuelApp <noreply@myfuelapp.net>",
-      "MyFuelApp <onboarding@resend.dev>",
-    ];
+    const filename = `Statement-${statement.statement_number}.pdf`;
+    const clientName = org?.name || "Client";
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 20px;">
+        <p style="font-size: 15px; color: #1f2937; margin: 0 0 12px;">Dear ${clientName},</p>
+        <p style="font-size: 14px; color: #374151; line-height: 1.6; margin: 0 0 12px;">
+          Please find your account statement attached for the period
+          <strong>${formatDate(statement.period_start)} - ${formatDate(statement.period_end)}</strong>.
+        </p>
+        <p style="font-size: 14px; color: #374151; line-height: 1.6; margin: 0 0 16px;">
+          Statement Number: <strong>${statement.statement_number}</strong><br />
+          Closing Balance: <strong>${fmtBalance(Number(statement.closing_balance))}</strong>
+        </p>
+        <p style="font-size: 14px; color: #374151; line-height: 1.6; margin: 0 0 4px;">Kind regards,</p>
+        <p style="font-size: 14px; color: #374151; margin: 0;"><strong>MyFuelApp</strong><br />
+        <span style="font-size: 12px; color: #6b7280;">Operated by Fuel Empowerment Systems (Pty) Ltd</span></p>
+      </div>
+    `;
+    const text = `Dear ${clientName},\n\nPlease find your account statement attached for the period ${formatDate(statement.period_start)} - ${formatDate(statement.period_end)}.\n\nStatement Number: ${statement.statement_number}\nClosing Balance: ${fmtBalance(Number(statement.closing_balance))}\n\nKind regards,\nMyFuelApp`;
 
     let emailSent = false;
     let emailError = "";
 
-    for (const fromAddr of fromAddresses) {
+    for (const fromAddr of FROM_ADDRESSES) {
       const emailResponse = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -301,6 +472,7 @@ Deno.serve(async (req: Request) => {
           subject: `Account Statement ${statement.statement_number} - ${garage?.name || ""}`,
           html,
           text,
+          attachments: [{ filename, content: pdfBase64 }],
         }),
       });
 
