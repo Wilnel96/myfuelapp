@@ -258,7 +258,7 @@ export default function GarageStatementsPayments({
       .select('*')
       .eq('garage_id', garageId)
       .eq('organization_id', organizationId)
-      .order('statement_date', { ascending: false });
+      .order('statement_date', { ascending: true });
 
     if (statementsError) throw statementsError;
     setStatements(data || []);
