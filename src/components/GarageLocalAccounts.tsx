@@ -1424,10 +1424,10 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
             {onBack && (
               <button
                 onClick={onBack}
-                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Back to Menu"
+                className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
+                Back to Main Menu
               </button>
             )}
             <h2 className="text-lg font-semibold text-gray-900">
