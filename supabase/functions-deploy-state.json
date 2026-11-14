@@ -63,7 +63,7 @@
     },
     "generate-fuel-transaction-invoice": {
       "hasChanged": false,
-      "hash": "2e158f7ddaba514d50db2156a28252b914d781c281c81ea81dfa803c25af3668"
+      "hash": "c07772bc59e12ce88df291e8a643dee9bdfe201cc686afc1b7c984980078892b"
     },
     "generate-garage-fee-invoices": {
       "hasChanged": false,
@@ -72,6 +72,10 @@
     "generate-monthly-invoices": {
       "hasChanged": false,
       "hash": "58286b22f60a95968dde4313d41d92acb311d84020814898c7127d63627cf48d"
+    },
+    "log-missing-trip": {
+      "hasChanged": false,
+      "hash": "cbcf88981f1ad348b976804bda12df0d09d551ace6b473d1b1c90dd7ed0de209"
     },
     "nightly-reports": {
       "hasChanged": false,
@@ -91,11 +95,11 @@
     },
     "send-exception-report": {
       "hasChanged": false,
-      "hash": "8587e86ab0c9c0170c523199daedfeaa141184b581fc3857309a4fb9cb4c1a1b"
+      "hash": "48c9878e5664309b98dc13699b86e90638e7c4437a9d92088d7c202657ce1772"
     },
     "send-fuel-invoice-email": {
       "hasChanged": false,
-      "hash": "3e5d8694ba8547aa0e095967583d27a813cc288f7f59ac79f709eb5edcef8654"
+      "hash": "f7f4863779588803a82a7ebeb31e8adb36e595fe51500f64085c1f9efe02e2c2"
     },
     "send-maintenance-reminders": {
       "hasChanged": false,
@@ -144,10 +148,6 @@
     "verify-driver-pin": {
       "hasChanged": false,
       "hash": "90d81ed1c1023240bb34dbddab02b8850f90408b4a3b420a0ee306f70c45e822"
-    },
-    "log-missing-trip": {
-      "hasChanged": false,
-      "hash": "cbcf88981f1ad348b976804bda12df0d09d551ace6b473d1b1c90dd7ed0de209"
     }
   }
 }

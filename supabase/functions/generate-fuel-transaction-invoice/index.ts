@@ -75,13 +75,45 @@ Deno.serve(async (req: Request) => {
     }
 
     if (transaction.invoice_id) {
+      // Invoice already exists — report success so the caller's instant-email
+      // step can still run for it instead of failing silently.
       return new Response(
         JSON.stringify({
-          error: "Invoice already exists for this transaction",
-          invoiceId: transaction.invoice_id
+          success: true,
+          invoiceId: transaction.invoice_id,
+          invoice: { id: transaction.invoice_id },
+          message: "Invoice already exists for this transaction"
         }),
         {
-          status: 400,
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // The AFTER trigger may have created the invoice without setting
+    // fuel_transactions.invoice_id; look it up before inserting a duplicate.
+    const { data: existingInvoice } = await supabase
+      .from("fuel_transaction_invoices")
+      .select("id")
+      .eq("fuel_transaction_id", transaction.id)
+      .maybeSingle();
+
+    if (existingInvoice) {
+      await supabase
+        .from("fuel_transactions")
+        .update({ invoice_id: existingInvoice.id })
+        .eq("id", transaction.id);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          invoiceId: existingInvoice.id,
+          invoice: { id: existingInvoice.id },
+          message: "Invoice already exists for this transaction"
+        }),
+        {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );

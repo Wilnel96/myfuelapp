@@ -369,7 +369,7 @@ function renderInvoicePDF(invoice: InvoiceRow): Uint8Array {
   y += 5;
   pdf.text("Thank you for your business.", pageWidth / 2, y, { align: "center" });
 
-  return pdf.output("arraybuffer") as Uint8Array;
+  return new Uint8Array(pdf.output("arraybuffer") as ArrayBuffer);
 }
 
 const FROM_ADDRESSES = [

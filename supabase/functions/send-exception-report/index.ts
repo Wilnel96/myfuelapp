@@ -85,7 +85,7 @@ function renderExceptionReportPDF(rows: [string, string][], description: string)
   pdf.setTextColor(107, 114, 128);
   pdf.text("This is an automated report from MyFuelApp.", pageWidth / 2, pageHeight - 15, { align: "center" });
 
-  return pdf.output("arraybuffer") as Uint8Array;
+  return new Uint8Array(pdf.output("arraybuffer") as ArrayBuffer);
 }
 
 function uint8ToBase64(bytes: Uint8Array): string {
