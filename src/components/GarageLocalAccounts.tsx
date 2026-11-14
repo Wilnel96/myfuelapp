@@ -1420,33 +1420,30 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 lg:col-span-2">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                Back to Main Menu
-              </button>
-            )}
-            <h2 className="text-lg font-semibold text-gray-900">
-              {initialView === 'active' ? 'Active Accounts' :
-               initialView === 'view-invoices' ? 'View Fuel Invoices' :
-               initialView === 'create-statements' ? 'Create Statements' :
-               initialView === 'payments' ? 'Payments' :
-               initialView === 'add-client' ? 'Add New Client' :
-               initialView === 'external' ? 'External Clients' :
-               initialView === 'managed' ? 'My Managed Clients' :
-               'MyFuelApp Garage Accounts'}
-            </h2>
-          </div>
-          <span className="text-sm text-gray-600">
-            {activeAccounts.length} active client{activeAccounts.length !== 1 ? 's' : ''}
-          </span>
+          <h2 className="text-lg font-semibold text-gray-900">
+            {initialView === 'active' ? 'Active Accounts' :
+             initialView === 'view-invoices' ? 'View Fuel Invoices' :
+             initialView === 'create-statements' ? 'Create Statements' :
+             initialView === 'payments' ? 'Payments' :
+             initialView === 'add-client' ? 'Add New Client' :
+             initialView === 'external' ? 'External Clients' :
+             initialView === 'managed' ? 'My Managed Clients' :
+             'MyFuelApp Garage Accounts'}
+          </h2>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to Main Menu
+            </button>
+          )}
         </div>
 
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">{activeAccounts.length} active client{activeAccounts.length !== 1 ? 's' : ''}</span>
+          {activeAccounts.length > 0 && ' · '}
           {initialView === 'active' ? 'View and manage your active garage account clients' :
            initialView === 'view-invoices' ? 'View and download fuel invoices for your garage account clients' :
            initialView === 'create-statements' ? 'Generate and manage monthly statements for your clients' :
