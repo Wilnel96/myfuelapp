@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
+import { GARAGE_COLUMNS } from '../lib/garageColumns';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName, sortFuelTypes } from '../lib/fuelTypes';
 import { Store, Search, MapPin, Phone, Mail, AlertCircle, ArrowLeft } from 'lucide-react';
@@ -197,13 +199,13 @@ export default function ClientGaragesView({ onNavigate }: ClientGaragesViewProps
 
       const { data, error: fetchError } = await supabase
         .from('garages')
-        .select('*')
+        .select(GARAGE_COLUMNS)
         .eq('status', 'active')
         .order('name');
 
       if (fetchError) throw fetchError;
 
-      const garagesWithAccountInfo = (data || []).map(garage => {
+      const garagesWithAccountInfo = ((data || []) as unknown as Garage[]).map(garage => {
         const accountInfo = garageAccounts?.find(acc => acc.garage_id === garage.id);
         const hasAccount = garageIds.includes(garage.id);
         return {
@@ -218,7 +220,7 @@ export default function ClientGaragesView({ onNavigate }: ClientGaragesViewProps
       setFilteredGarages(garagesWithAccountInfo);
     } catch (err: any) {
       console.error('Error loading garages:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }

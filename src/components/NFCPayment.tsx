@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Smartphone, CheckCircle2, XCircle, AlertCircle, Loader2, CreditCard } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getDriverToken } from '../lib/supabase';
 
 interface NFCPaymentProps {
   driverId: string;
@@ -17,8 +17,6 @@ interface NFCPaymentProps {
 type PaymentStatus = 'preparing' | 'nfc_ready' | 'waiting_tap' | 'transmitting' | 'pin_request' | 'awaiting_pin' | 'processing' | 'completed' | 'failed' | 'timeout';
 
 export function NFCPayment({
-  driverId,
-  organizationId,
   vehicleId,
   amount,
   pin,
@@ -34,6 +32,7 @@ export function NFCPayment({
   const [cardBrand, setCardBrand] = useState('');
   const [lastFourDigits, setLastFourDigits] = useState('');
   const [authorizationPIN, setAuthorizationPIN] = useState('');
+  const [hasCardPin, setHasCardPin] = useState(false);
   const [accountInfo, setAccountInfo] = useState('');
   const [countdown, setCountdown] = useState(60);
   const [retryCount, setRetryCount] = useState(0);
@@ -90,12 +89,12 @@ export function NFCPayment({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'X-Driver-Token': getDriverToken() || '',
           },
           body: JSON.stringify({
-            driverId,
             pin,
             amount,
-            organizationId,
             vehicleId,
             fuelTransactionId,
             deviceInfo,
@@ -126,13 +125,13 @@ export function NFCPayment({
       } else {
         setCardBrand(result.cardBrand || '');
         setLastFourDigits(result.lastFourDigits || '');
-        setAuthorizationPIN(result.cardPin || '');
+        setHasCardPin(Boolean(result.hasCardPin));
       }
       setStatus('nfc_ready');
 
       setTimeout(() => {
         if (status === 'nfc_ready') {
-          initiateNFCTransmission(result.payload);
+          initiateNFCTransmission();
         }
       }, 1000);
     } catch (err: any) {
@@ -146,21 +145,21 @@ export function NFCPayment({
     }
   };
 
-  const initiateNFCTransmission = async (payload: string) => {
+  const initiateNFCTransmission = async () => {
     try {
       setStatus('waiting_tap');
 
       if ('NDEFReader' in window) {
-        await transmitViaWebNFC(payload);
+        await transmitViaWebNFC();
       } else {
-        await simulateNFCTransmission(payload);
+        await simulateNFCTransmission();
       }
     } catch (err: any) {
       handleTransmissionError(err.message);
     }
   };
 
-  const transmitViaWebNFC = async (payload: string) => {
+  const transmitViaWebNFC = async () => {
     try {
       setStatus('transmitting');
 
@@ -181,7 +180,7 @@ export function NFCPayment({
     }
   };
 
-  const simulateNFCTransmission = async (payload: string) => {
+  const simulateNFCTransmission = async () => {
     setStatus('transmitting');
 
     await supabase
@@ -199,7 +198,7 @@ export function NFCPayment({
   };
 
   const handleGetPIN = async () => {
-    if (!authorizationPIN || authorizationPIN === '') {
+    if (!hasCardPin) {
       setError('Card PIN not found. Please re-register your payment card with a PIN.');
       setStatus('failed');
       setTimeout(() => {
@@ -207,6 +206,44 @@ export function NFCPayment({
       }, 3000);
       return;
     }
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/prepare-nfc-payment`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'X-Driver-Token': getDriverToken() || '',
+          },
+          body: JSON.stringify({ mode: 'authorization-pin', transactionId, pin: '' }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.cardPin) {
+        console.error(result);
+        setError('Card PIN is not available right now. Please try again.');
+        setStatus('failed');
+        setTimeout(() => {
+          onFailure('Card PIN not available', false);
+        }, 3000);
+        return;
+      }
+
+      setAuthorizationPIN(result.cardPin);
+    } catch (err) {
+      console.error(err);
+      setError('Card PIN is not available right now. Please try again.');
+      setStatus('failed');
+      setTimeout(() => {
+        onFailure('Card PIN not available', false);
+      }, 3000);
+      return;
+    }
+
     setStatus('awaiting_pin');
     await waitForPINEntry();
   };

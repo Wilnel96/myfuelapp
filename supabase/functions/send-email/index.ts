@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,6 +34,32 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: 'Email service not configured. RESEND_API_KEY secret is required.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Only signed-in users (or trusted server-side callers using the service role
+    // key) may send mail. Without this check anyone holding the public key could
+    // relay arbitrary email from the application's domain.
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authHeader = req.headers.get('Authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: 'Not authorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (token !== serviceRoleKey) {
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
+      const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Not authorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const { to, subject, html, text, replyTo, attachments }: EmailRequest = await req.json();
@@ -83,13 +110,13 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ error: 'Failed to send email', details: lastError }),
+      JSON.stringify({ error: 'Failed to send email' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
     console.error('Email send error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to send email' }),
+      JSON.stringify({ error: 'Failed to send email' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

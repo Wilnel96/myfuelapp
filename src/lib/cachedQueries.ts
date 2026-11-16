@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { GARAGE_COLUMNS } from './garageColumns';
 import { cache } from './cache';
 
 interface CachedQueryOptions {
@@ -62,7 +63,7 @@ export async function getCachedGarages(options: CachedQueryOptions = {}) {
 
   const { data } = await supabase
     .from('garages')
-    .select('*')
+    .select(GARAGE_COLUMNS)
     .order('name');
 
   cache.set(cacheKey, data || [], options.ttl || 15 * 60 * 1000);

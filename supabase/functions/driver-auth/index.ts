@@ -9,6 +9,7 @@ const corsHeaders = {
 interface LoginRequest {
   firstName: string;
   dateOfBirth: string;
+  idLastFour: string;
   rememberMe?: boolean;
 }
 
@@ -28,9 +29,9 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { firstName, dateOfBirth, rememberMe }: LoginRequest = await req.json();
+    const { firstName, dateOfBirth, idLastFour, rememberMe }: LoginRequest = await req.json();
 
-    if (!firstName || !dateOfBirth) {
+    if (!firstName || !dateOfBirth || !idLastFour) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         {
@@ -48,7 +49,16 @@ Deno.serve(async (req: Request) => {
       .eq('status', 'active')
       .maybeSingle();
 
-    if (driverError || !driver) {
+    // A name and date of birth are not secret, so the driver must also provide
+    // the last four digits of the identity number already on their record.
+    const suppliedLastFour = String(idLastFour).replace(/\D/g, '');
+    const storedId = String(driver?.id_number ?? '').replace(/\D/g, '');
+    const idMatches =
+      suppliedLastFour.length === 4 &&
+      storedId.length >= 4 &&
+      storedId.slice(-4) === suppliedLastFour;
+
+    if (driverError || !driver || !idMatches) {
       return new Response(
         JSON.stringify({ error: 'Invalid credentials' }),
         {
@@ -116,7 +126,7 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Unable to sign in' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

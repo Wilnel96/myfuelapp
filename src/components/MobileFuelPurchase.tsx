@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { GARAGE_COLUMNS } from '../lib/garageColumns';
 import { Fuel, Camera, MapPin, AlertCircle, CheckCircle } from 'lucide-react';
 import BarcodeScanner from './BarcodeScanner';
 import { supabase } from '../lib/supabase';
@@ -105,12 +106,12 @@ export default function MobileFuelPurchase() {
     if (profile) {
       const { data } = await supabase
         .from('garages')
-        .select('*')
+        .select(GARAGE_COLUMNS)
         .eq('organization_id', profile.organization_id)
         .eq('status', 'active')
         .order('name');
 
-      if (data) setGarages(data);
+      if (data) setGarages(data as unknown as Garage[]);
     }
   };
 

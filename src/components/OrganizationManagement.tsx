@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { Building2, CreditCard as Edit2, Save, X, AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -61,7 +62,7 @@ export default function OrganizationManagement({ onBack }: OrganizationManagemen
       }
     } catch (err: any) {
       console.error('Error loading organization:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -112,7 +113,7 @@ export default function OrganizationManagement({ onBack }: OrganizationManagemen
       loadOrganization();
     } catch (err: any) {
       console.error('Error saving organization:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { Building2, CheckCircle, XCircle, Loader2, CreditCard as Edit2, Save, X, AlertCircle, Ban, Power, Search } from 'lucide-react';
 
@@ -64,7 +65,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
       setGarages(garagesResult.data || []);
       setGarageAccounts(accountsResult.data || []);
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -84,7 +85,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
 
       await loadData();
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(null);
     }
@@ -127,7 +128,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
       setAccountNumberInput('');
       setAccountLimitInput('');
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(null);
     }
@@ -180,7 +181,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
       setAccountNumberInput('');
       setAccountLimitInput('');
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(null);
     }

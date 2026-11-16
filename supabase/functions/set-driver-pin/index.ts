@@ -26,7 +26,31 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { driverId, pin, oldPin }: SetPINRequest = await req.json();
+    // The caller must present a valid driver session. The driver id is taken
+    // from that session, never from the request body.
+    const driverToken = req.headers.get('X-Driver-Token');
+    if (!driverToken) {
+      return new Response(
+        JSON.stringify({ error: 'Driver session required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: session } = await supabase
+      .from('driver_sessions')
+      .select('driver_id, expires_at')
+      .eq('token', driverToken)
+      .maybeSingle();
+
+    if (!session || new Date(session.expires_at) < new Date()) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired session' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { pin, oldPin }: SetPINRequest = await req.json();
+    const driverId = session.driver_id;
 
     if (!driverId || !pin) {
       return new Response(
@@ -86,8 +110,15 @@ Deno.serve(async (req: Request) => {
       .eq('driver_id', driverId)
       .maybeSingle();
 
-    // If changing PIN, verify old PIN first
-    if (settings?.is_pin_active && oldPin) {
+    // If a PIN is already active, the current PIN is always required.
+    if (settings?.is_pin_active) {
+      if (!oldPin) {
+        return new Response(
+          JSON.stringify({ error: 'Current PIN is required to change your PIN' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       const oldPinValid = await bcrypt.compare(oldPin, settings.pin_hash);
       if (!oldPinValid) {
         return new Response(

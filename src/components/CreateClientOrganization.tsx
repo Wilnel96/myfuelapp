@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import GarageClientIntakeForm, { IntakeFormType } from './GarageClientIntakeForm';
 import { Building2, Save, AlertCircle, CheckCircle, Copy, Printer, User, CreditCard, PartyPopper, LogIn, Smartphone } from 'lucide-react';
@@ -447,7 +448,7 @@ export default function CreateClientOrganization({ onNavigate, publicMode = fals
         }, 2500);
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }

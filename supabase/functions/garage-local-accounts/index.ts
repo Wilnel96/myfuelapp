@@ -49,24 +49,27 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Fall back to email/password auth
+    // Fall back to email/password auth, verified against the stored hash
     if (!authenticatedGarage && garageEmail && garagePassword) {
-      const { data: garages } = await supabase
-        .from('garages')
-        .select('id, name, contact_persons, status');
+      const { data: verifiedGarageId } = await supabase.rpc('verify_garage_contact_password', {
+        p_email: garageEmail,
+        p_password: garagePassword,
+      });
 
-      for (const garage of garages || []) {
-        if (garage.status !== 'active') continue;
-        const contacts = (garage.contact_persons as any[]) || [];
-        const match = contacts.find(
-          (c: any) =>
-            c.email?.toLowerCase() === garageEmail?.toLowerCase() &&
-            c.password === garagePassword
-        );
-        if (match) {
+      if (verifiedGarageId) {
+        const { data: garage } = await supabase
+          .from('garages')
+          .select('id, name, contact_persons, status')
+          .eq('id', verifiedGarageId)
+          .maybeSingle();
+
+        if (garage) {
           authenticatedGarage = garage;
-          currentContact = match;
-          break;
+          const contacts = (garage.contact_persons as any[]) || [];
+          currentContact =
+            contacts.find(
+              (c: any) => c.email?.toLowerCase() === garageEmail?.toLowerCase()
+            ) || null;
         }
       }
     }
@@ -213,6 +216,41 @@ Deno.serve(async (req: Request) => {
         if (updateError) throw updateError;
 
         return new Response(JSON.stringify({ data: updatedOrg }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      case 'list-fee-invoices': {
+        const perms = getPermissions();
+        if (!perms.can_view_invoices) {
+          return new Response(
+            JSON.stringify({ error: 'You do not have permission to view invoices.' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: managedOrgs, error: managedError } = await supabase
+          .from('organizations')
+          .select('id')
+          .eq('managing_garage_id', authenticatedGarage.id)
+          .eq('is_garage_managed', true);
+        if (managedError) throw managedError;
+
+        const orgIds = (managedOrgs || []).map((o: any) => o.id);
+        if (orgIds.length === 0) {
+          return new Response(JSON.stringify({ data: [] }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const { data, error } = await supabase
+          .from('invoices')
+          .select('id, organization_id, invoice_number, invoice_date, billing_period_start, billing_period_end, subtotal, vat_amount, total_amount, amount_paid, amount_outstanding, payment_terms, payment_due_date, status, organization:organizations(name)')
+          .in('organization_id', orgIds)
+          .order('invoice_date', { ascending: false });
+        if (error) throw error;
+
+        return new Response(JSON.stringify({ data }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }

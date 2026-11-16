@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { Calendar, Download, AlertTriangle, Clock, User, Truck, CheckCircle } from 'lucide-react';
 
@@ -127,7 +128,7 @@ export default function UnreturnedVehiclesReport() {
       unreturned.sort((a, b) => b.hours_out - a.hours_out);
       setRows(unreturned);
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
       setGenerated(true);

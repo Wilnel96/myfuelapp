@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Fuel, Camera, MapPin, AlertCircle, CheckCircle, LogOut, XCircle } from 'lucide-react';
 import BarcodeScanner from './BarcodeScanner';
-import { supabase } from '../lib/supabase';
+import { supabase, getDriverToken } from '../lib/supabase';
 import { DriverData } from './DriverAuth';
 
 interface Vehicle {
@@ -351,7 +351,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
       ]);
 
       if (allGarages) {
-        const garagesWithAccounts = allGarages.map(garage => ({
+        const garagesWithAccounts = (allGarages as any[]).map(garage => ({
           ...garage,
           accountNumber: garageAccounts?.find(acc => acc.garage_id === garage.id)?.account_number || null,
         }));
@@ -1892,9 +1892,9 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                     headers: {
                       'Content-Type': 'application/json',
                       'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                      'X-Driver-Token': getDriverToken() || '',
                     },
                     body: JSON.stringify({
-                      driverId: driver.id,
                       pin: pinInput,
                     }),
                   }

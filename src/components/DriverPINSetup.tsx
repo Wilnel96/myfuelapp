@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { supabase, getDriverToken } from '../lib/supabase';
 
 interface DriverPINSetupProps {
   driverId: string;
@@ -147,9 +147,9 @@ export function DriverPINSetup({ driverId, onComplete, onCancel }: DriverPINSetu
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'X-Driver-Token': getDriverToken() || '',
           },
           body: JSON.stringify({
-            driverId,
             pin: finalPin,
             oldPin: isChanging ? oldPin : undefined,
           }),

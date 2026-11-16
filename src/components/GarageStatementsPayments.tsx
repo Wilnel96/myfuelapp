@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { FileText, CreditCard, Plus, Calendar, Download, Printer, Eye, ArrowLeft, DollarSign, AlertCircle, Search, X, RefreshCw, Mail } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -175,7 +176,7 @@ export default function GarageStatementsPayments({
       setLoading(true);
       await Promise.all([loadStatements(), loadPayments(), loadStatementHeaderDetails()]);
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -349,7 +350,7 @@ export default function GarageStatementsPayments({
       setShowCreateStatement(false);
       await loadStatements();
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(false);
     }
@@ -390,7 +391,7 @@ export default function GarageStatementsPayments({
       setPaymentNotes('');
       await loadPayments();
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(false);
     }
@@ -426,7 +427,7 @@ export default function GarageStatementsPayments({
       setStatementInvoices(invoicesResult.data || []);
       setStatementPayments(paymentsResult.data || []);
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoadingDetails(false);
     }

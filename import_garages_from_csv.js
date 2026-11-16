@@ -32,7 +32,7 @@ async function authenticateAdmin() {
   console.log('Authenticating as super admin...');
   const { data, error } = await supabase.auth.signInWithPassword({
     email: 'willem@fleetfuel.com',
-    password: 'FleetFuel2024!'
+    password: process.env.GARAGE_IMPORT_PASSWORD || ''
   });
 
   if (error) {

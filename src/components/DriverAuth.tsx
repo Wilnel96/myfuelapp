@@ -21,6 +21,7 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
   const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
   const [year, setYear] = useState('');
+  const [idLastFour, setIdLastFour] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -112,6 +113,12 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
       return;
     }
 
+    if (idLastFour.length !== 4) {
+      setError('Please enter the last 4 digits of your ID number');
+      setLoading(false);
+      return;
+    }
+
     const dateOfBirth = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
     try {
@@ -131,6 +138,7 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
         body: JSON.stringify({
           firstName: firstName.trim(),
           dateOfBirth,
+          idLastFour,
           rememberMe: stayLoggedIn,
         }),
       });
@@ -152,7 +160,8 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
         throw new Error('Invalid response from server');
       }
     } catch (err: any) {
-      setError(err.message || 'Invalid first name or date of birth');
+      console.error('Driver sign-in failed:', err);
+      setError('We could not sign you in. Please check your details and try again.');
     } finally {
       setLoading(false);
     }
@@ -279,6 +288,22 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
                 maxLength={4}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Last 4 Digits of ID Number
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={idLastFour}
+              onChange={(e) => setIdLastFour(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-center tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="0000"
+              required
+              maxLength={4}
+            />
           </div>
 
           <label className="flex items-center gap-3 cursor-pointer select-none">

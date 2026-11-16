@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
+import { GARAGE_COLUMNS } from '../lib/garageColumns';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName, sortFuelTypes, AVAILABLE_FUEL_TYPES } from '../lib/fuelTypes';
 import { Store, LogOut, Save, MapPin, AlertCircle, X, Plus, Trash2, Building2, Users, User, Fuel, ShoppingBag, ArrowLeft, Receipt, FileText, CreditCard, Printer, ExternalLink } from 'lucide-react';
@@ -96,42 +98,44 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from('garages')
-        .select('*')
+        .select(GARAGE_COLUMNS)
         .eq('id', garageId)
         .single();
 
       if (fetchError) throw fetchError;
       if (!data) throw new Error('Garage not found');
+      const garageData = data as unknown as GarageData;
 
       const roundedFuelPrices: Record<string, number> = {};
-      if (data.fuel_prices) {
-        Object.keys(data.fuel_prices).forEach(fuelType => {
-          roundedFuelPrices[fuelType] = Math.round(data.fuel_prices[fuelType] * 100) / 100;
+      if (garageData.fuel_prices) {
+        const prices = garageData.fuel_prices as Record<string, number>;
+        Object.keys(prices).forEach(fuelType => {
+          roundedFuelPrices[fuelType] = Math.round(prices[fuelType] * 100) / 100;
         });
       }
 
-      setGarage(data);
-      setGarageCapabilities(data.garage_capabilities || ['card_only']);
-      setFuelTypes(data.fuel_types || []);
+      setGarage(garageData);
+      setGarageCapabilities(garageData.garage_capabilities || ['card_only']);
+      setFuelTypes(garageData.fuel_types || []);
       setFuelPrices(roundedFuelPrices);
-      setOtherOfferings(data.other_offerings || {});
-      setContactPersons(data.contact_persons || []);
+      setOtherOfferings(garageData.other_offerings || {});
+      setContactPersons(garageData.contact_persons || []);
       setEditedGarageInfo({
-        name: data.name || '',
-        address_line_1: data.address_line_1 || '',
-        address_line_2: data.address_line_2 || '',
-        city: data.city || '',
-        province: data.province || '',
-        postal_code: data.postal_code || '',
-        latitude: data.latitude?.toString() || '',
-        longitude: data.longitude?.toString() || '',
-        phone_number: data.phone_number || '',
-        email_address: data.email_address || '',
-        fuel_brand: data.fuel_brand || ''
+        name: garageData.name || '',
+        address_line_1: garageData.address_line_1 || '',
+        address_line_2: garageData.address_line_2 || '',
+        city: garageData.city || '',
+        province: garageData.province || '',
+        postal_code: garageData.postal_code || '',
+        latitude: garageData.latitude?.toString() || '',
+        longitude: garageData.longitude?.toString() || '',
+        phone_number: garageData.phone_number || '',
+        email_address: garageData.email_address || '',
+        fuel_brand: garageData.fuel_brand || ''
       });
     } catch (err: any) {
       console.error('Error loading garage:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }

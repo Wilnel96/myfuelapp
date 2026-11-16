@@ -11,7 +11,7 @@
     },
     "client-self-signup": {
       "hasChanged": false,
-      "hash": "31df8e4d86e2a636e672efb333b739b645df1abe48ca29b85a965bd8acd1178c"
+      "hash": "4481deaf6b97fa76936766101db280ffbdc01792faf80352b9ce00e99dc1dd75"
     },
     "create-fuel-transaction": {
       "hasChanged": false,
@@ -39,7 +39,7 @@
     },
     "driver-auth": {
       "hasChanged": false,
-      "hash": "4356e10634190a273310280a337f9c1516f73c0a49edd6f6dc4b648b1c4ef6bc"
+      "hash": "6c3d660c75f72591594dbbd14ff93d0812f64d636c884d6fee49f8d1c865f8c9"
     },
     "encrypt-card-data": {
       "hasChanged": false,
@@ -47,11 +47,11 @@
     },
     "garage-local-accounts": {
       "hasChanged": false,
-      "hash": "e40ec4db83f0add134f9d03360865fde74f6e722e30d49d4be1d324df9f926e2"
+      "hash": "3be872f8f0098b1746d79b5efa2e6087e4e1652964a1db46c3a91b914e3469e2"
     },
     "garage-managed-client-setup": {
       "hasChanged": false,
-      "hash": "98a3c12b3c5e965a80df7f746053c782ce6f839657a810750a476159ac9e6640"
+      "hash": "069c7fbabee6ab479305c4ea24f768c0bfef7d1c0e9e54c5bb73f99646eaaabf"
     },
     "garage-update": {
       "hasChanged": false,
@@ -67,7 +67,7 @@
     },
     "generate-garage-fee-invoices": {
       "hasChanged": false,
-      "hash": "299a575e1cd5b1b3c66d0b53358561710d7d5d2dcf97418d42c418161d9e7c94"
+      "hash": "32529632bdfaf43487f2aaa196b6d245626b5f8a42699c503418af61f410feab"
     },
     "generate-monthly-invoices": {
       "hasChanged": false,
@@ -87,11 +87,11 @@
     },
     "prepare-nfc-payment": {
       "hasChanged": false,
-      "hash": "57aa59f0bb8689536f6bbe484ee935b4edd469d49c7c7a45eec7e914975fe931"
+      "hash": "bcf9c17405bf582c1093f4ceb16c530f182f25a29156bbeec35eb1045cd54618"
     },
     "send-email": {
       "hasChanged": false,
-      "hash": "4bc9007ce12e34aa07ed55566ed25c60b5001df30fd919055360e8d6b1229817"
+      "hash": "4a2fe9644f85f9a04d6286f2a2017797989f6ed3b99feb2a952d36eaeb391593"
     },
     "send-exception-report": {
       "hasChanged": false,
@@ -123,7 +123,7 @@
     },
     "set-driver-pin": {
       "hasChanged": false,
-      "hash": "17e5cddb5e0dfcc2bdc58bd1e6e305c2a317c781c6831453e37fad7807f60dc0"
+      "hash": "0036b3d0a6075f957fcf35152f17824d8d5554aaa79c8463f6f16bea47a0fcd8"
     },
     "setup-shell-robertson": {
       "hasChanged": false,
@@ -143,7 +143,7 @@
     },
     "update-user-password": {
       "hasChanged": false,
-      "hash": "2fd83b676dff77b68374e626609a94f3cfb7c12109152e209bd2c4efa4c6b7a9"
+      "hash": "e2c834cd3f09590f1945be33a8bc2ff335b19d768d1334c49092b794f3b44e47"
     },
     "validate-driver-session": {
       "hasChanged": false,
@@ -151,7 +151,7 @@
     },
     "verify-driver-pin": {
       "hasChanged": false,
-      "hash": "90d81ed1c1023240bb34dbddab02b8850f90408b4a3b420a0ee306f70c45e822"
+      "hash": "7976058f203e12e73170872531cb16e97ff82047b26f86a902a008f9d4fff379"
     }
   }
 }

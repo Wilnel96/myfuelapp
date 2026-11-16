@@ -92,19 +92,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!authenticatedGarageId && garageEmail && garagePassword) {
-      const { data: garages } = await supabase
-        .from('garages')
-        .select('id, contact_persons, status');
-      for (const garage of garages || []) {
-        if (garage.status !== 'active') continue;
-        const contacts = (garage.contact_persons as any[]) || [];
-        const match = contacts.find(
-          (c: any) =>
-            c.email?.toLowerCase() === garageEmail?.toLowerCase() &&
-            c.password === garagePassword
-        );
-        if (match) { authenticatedGarageId = garage.id; break; }
-      }
+      const { data: verifiedGarageId } = await supabase.rpc('verify_garage_contact_password', {
+        p_email: garageEmail,
+        p_password: garagePassword,
+      });
+      if (verifiedGarageId) authenticatedGarageId = verifiedGarageId as string;
     }
 
     if (!authenticatedGarageId) {

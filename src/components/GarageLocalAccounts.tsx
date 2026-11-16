@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { Building2, CheckCircle, XCircle, Loader2, CreditCard as Edit2, Save, X, AlertCircle, Search, Plus, Ban, Power, MapPin, Phone, Mail, User, CreditCard, FileText, Calendar, Download, Send, ChevronDown, ChevronRight, Receipt, ArrowLeft } from 'lucide-react';
 import GarageStatementsPayments from './GarageStatementsPayments';
@@ -305,7 +306,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         }
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -315,16 +316,28 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
     setLoadingFeeInvoices(true);
     setFeeInvoiceError('');
     try {
-      const query = supabase
-        .from('invoices')
-        .select('id, organization_id, invoice_number, invoice_date, billing_period_start, billing_period_end, subtotal, vat_amount, total_amount, amount_paid, amount_outstanding, payment_terms, payment_due_date, status, organization:organizations(name)')
-        .in('organization_id', organizations.filter(o => o.is_garage_managed && o.managing_garage_id === garageId).map(o => o.id))
-        .order('invoice_date', { ascending: false });
-      const { data, error } = await query;
-      if (error) throw error;
-      setFeeInvoices((data || []) as unknown as FeeInvoice[]);
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/garage-local-accounts`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          action: 'list-fee-invoices',
+          garageEmail,
+          garagePassword,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to load invoices');
+      setFeeInvoices((result.data || []) as unknown as FeeInvoice[]);
     } catch (err: any) {
-      setFeeInvoiceError(err.message);
+      console.error('Failed to load fee invoices:', err);
+      setFeeInvoiceError('Could not load the invoices. Please try again.');
     } finally {
       setLoadingFeeInvoices(false);
     }
@@ -341,17 +354,26 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
       const periodEnd = new Date(year, month, 0).toISOString().split('T')[0];
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-garage-fee-invoices`;
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ garage_id: garageId, billing_period_start: periodStart, billing_period_end: periodEnd }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({
+          garage_id: garageId,
+          billing_period_start: periodStart,
+          billing_period_end: periodEnd,
+          garageEmail,
+          garagePassword,
+        }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to generate invoice');
       setFeeInvoiceSuccess(`Invoice ${result.invoice_number} created for ${result.organization} — R${result.total_amount?.toFixed(2)}`);
       await loadFeeInvoices();
     } catch (err: any) {
-      setFeeInvoiceError(err.message);
+      console.error('Failed to generate fee invoice:', err);
+      setFeeInvoiceError('Could not generate the invoice. Please check the details and try again.');
     } finally {
       setGeneratingFeeInvoice(false);
     }
@@ -388,7 +410,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
 
       await loadData();
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(null);
     }
@@ -450,7 +472,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
       setAccountLimitInput('');
       setNotesInput('');
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(null);
     }
@@ -518,7 +540,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
       setAccountLimitInput('');
       setDepositInput('');
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(null);
     }
@@ -610,7 +632,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
       setTimeout(() => setSuccessMessage(''), 3000);
       await loadData();
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSavingOrgInfo(false);
     }
@@ -857,7 +879,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
         setSuccessMessage('');
       }, 5000);
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 
@@ -2529,7 +2551,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                         if (qErr) throw qErr;
                         setSearchPayments(data || []);
                       } catch (err: any) {
-                        setError(err.message);
+                        setError(friendlyError(err));
                       } finally {
                         setSearchLoading(false);
                       }
@@ -2777,7 +2799,7 @@ export default function GarageLocalAccounts({ garageId, garageName, garageEmail,
                               if (qErr) throw qErr;
                               setSearchPayments(data || []);
                             } catch (err: any) {
-                              setError(err.message);
+                              setError(friendlyError(err));
                             } finally {
                               setSearchLoading(false);
                             }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { Building2, User, Save, AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -104,7 +105,7 @@ export default function OrganizationInfo() {
         setCanEdit(ouData.is_main_user || ouData.can_edit_organization_info || false);
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -178,7 +179,7 @@ export default function OrganizationInfo() {
       setSuccess('Information updated successfully');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(false);
     }

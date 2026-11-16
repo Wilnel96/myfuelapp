@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { FileText, CreditCard as Edit2, Save, X, AlertCircle, CheckCircle, Search, ArrowLeft, CreditCard } from 'lucide-react';
 import { OrganizationPaymentCardReadOnly } from './OrganizationPaymentCardReadOnly';
@@ -126,7 +127,7 @@ export default function ClientFinancialInfo({ onNavigate, clientSelfMode = false
         }
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -213,7 +214,7 @@ export default function ClientFinancialInfo({ onNavigate, clientSelfMode = false
         setFilteredOrganizations(orgs);
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 

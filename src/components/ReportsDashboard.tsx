@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName } from '../lib/fuelTypes';
 import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare, Clock, DollarSign, Mail, BookOpen } from 'lucide-react';
@@ -121,7 +122,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
       setOrgSettings(org || {});
     } catch (err: any) {
       console.error('Error loading organization settings:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 

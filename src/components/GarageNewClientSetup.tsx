@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { friendlyError } from '../lib/errors';
 import {
   ArrowLeft, ArrowRight, Building2, User, Car, Users, Check,
   Plus, Trash2, AlertCircle, CheckCircle, Loader2, Info, Printer,
@@ -311,7 +312,7 @@ export default function GarageNewClientSetup({
       setCreatedOrgId(json.organization_id);
       setStep('vehicles');
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSubmitting(false);
     }
@@ -374,7 +375,7 @@ export default function GarageNewClientSetup({
 
       onComplete();
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSubmitting(false);
     }

@@ -12,6 +12,8 @@ interface GenerateRequest {
   billing_period_start: string;
   billing_period_end: string;
   payment_terms?: string;
+  garageEmail?: string;
+  garagePassword?: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -24,12 +26,77 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { garage_id, billing_period_start, billing_period_end, payment_terms = "30-Days" }: GenerateRequest = await req.json();
+    const { garage_id, billing_period_start, billing_period_end, payment_terms = "30-Days", garageEmail, garagePassword }: GenerateRequest = await req.json();
 
     if (!garage_id || !billing_period_start || !billing_period_end) {
       return new Response(
         JSON.stringify({ error: "garage_id, billing_period_start and billing_period_end are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // The caller must prove they operate this garage (or be platform staff).
+    // Without this check anyone holding the public key could bill any garage.
+    let authorized = false;
+
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+
+    if (token && token === supabaseServiceKey) {
+      authorized = true;
+    } else if (token) {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (user) {
+        const { data: orgUser } = await supabase
+          .from("organization_users")
+          .select("organization_id, role")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        if (orgUser?.role === "garage_user") {
+          const { data: ownGarage } = await supabase
+            .from("garages")
+            .select("id")
+            .eq("id", garage_id)
+            .eq("organization_id", orgUser.organization_id)
+            .maybeSingle();
+          if (ownGarage) authorized = true;
+        }
+
+        if (!authorized) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role, organization_id")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          if (profile?.role === "super_admin" || profile?.role === "management") {
+            authorized = true;
+          } else if (profile?.organization_id) {
+            const { data: org } = await supabase
+              .from("organizations")
+              .select("is_management_org")
+              .eq("id", profile.organization_id)
+              .maybeSingle();
+            if (org?.is_management_org) authorized = true;
+          }
+        }
+      }
+    }
+
+    if (!authorized && garageEmail && garagePassword) {
+      const { data: verifiedGarageId } = await supabase.rpc("verify_garage_contact_password", {
+        p_email: garageEmail,
+        p_password: garagePassword,
+      });
+      if (verifiedGarageId && verifiedGarageId === garage_id) authorized = true;
+    }
+
+    if (!authorized) {
+      return new Response(
+        JSON.stringify({ error: "Not authorized" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

@@ -8,10 +8,10 @@ const corsHeaders = {
 };
 
 interface PreparePaymentRequest {
-  driverId: string;
+  mode?: 'prepare' | 'authorization-pin';
+  transactionId?: string;
   pin: string;
   amount: number;
-  organizationId: string;
   vehicleId?: string;
   fuelTransactionId?: string;
   deviceInfo?: any;
@@ -43,11 +43,108 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // The caller must present a valid driver session. Both the driver and the
+    // organization are derived from it, never from the request body, so a
+    // caller cannot ask for somebody else's card.
+    const driverToken = req.headers.get('X-Driver-Token');
+    if (!driverToken) {
+      return new Response(
+        JSON.stringify({ error: 'Driver session required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: session } = await supabase
+      .from('driver_sessions')
+      .select('driver_id, expires_at')
+      .eq('token', driverToken)
+      .maybeSingle();
+
+    if (!session || new Date(session.expires_at) < new Date()) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired session' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const driverId = session.driver_id;
+
+    const { data: sessionDriver } = await supabase
+      .from('drivers')
+      .select('id, organization_id, status')
+      .eq('id', driverId)
+      .maybeSingle();
+
+    if (!sessionDriver || sessionDriver.status !== 'active') {
+      return new Response(
+        JSON.stringify({ error: 'Driver account is not active' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const organizationId = sessionDriver.organization_id;
+
     const requestData: PreparePaymentRequest = await req.json();
-    const { driverId, pin, amount, organizationId, vehicleId, fuelTransactionId, deviceInfo, location } = requestData;
+    const { mode, transactionId, pin, amount, vehicleId, fuelTransactionId, deviceInfo, location } = requestData;
+
+    // Second step of a card payment: hand over the card's authorisation PIN only
+    // for a transaction that belongs to this driver and is waiting at the pump.
+    // The PIN is never included in the prepare response.
+    if (mode === 'authorization-pin') {
+      if (!transactionId) {
+        return new Response(
+          JSON.stringify({ error: 'Transaction required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: txn } = await supabase
+        .from('nfc_payment_transactions')
+        .select('id, driver_id, organization_card_id, payment_status, nfc_activated_at')
+        .eq('id', transactionId)
+        .eq('driver_id', driverId)
+        .maybeSingle();
+
+      if (!txn || !['nfc_ready', 'transmitting'].includes(txn.payment_status) || !txn.organization_card_id) {
+        return new Response(
+          JSON.stringify({ error: 'Payment is not ready' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const activatedAt = txn.nfc_activated_at ? new Date(txn.nfc_activated_at).getTime() : 0;
+      if (!activatedAt || Date.now() - activatedAt > 5 * 60 * 1000) {
+        return new Response(
+          JSON.stringify({ error: 'Payment session expired' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: card } = await supabase
+        .from('organization_payment_cards')
+        .select('id, organization_id, pin_encrypted, iv_pin, encryption_keys(key_encrypted)')
+        .eq('id', txn.organization_card_id)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (!card || !card.pin_encrypted) {
+        return new Response(
+          JSON.stringify({ error: 'Card PIN not available' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const pinKey = await decryptKey(masterEncryptionKey, (card as any).encryption_keys.key_encrypted);
+      const authorizationPin = await decryptField(pinKey, card.pin_encrypted, card.iv_pin);
+
+      return new Response(
+        JSON.stringify({ success: true, cardPin: authorizationPin }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Validate required fields
-    if (!driverId || !pin || !amount || !organizationId) {
+    if (!pin || !amount || !organizationId) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -195,6 +292,7 @@ Deno.serve(async (req: Request) => {
         .from('vehicles')
         .select('vehicle_number, registration_number')
         .eq('id', vehicleId)
+        .eq('organization_id', organizationId)
         .maybeSingle();
 
       if (vehicleError || !vehicle) {
@@ -286,7 +384,6 @@ Deno.serve(async (req: Request) => {
       const expiryMonth = await decryptField(dataKey, paymentCard.expiry_month_encrypted, paymentCard.iv_expiry_month);
       const expiryYear = await decryptField(dataKey, paymentCard.expiry_year_encrypted, paymentCard.iv_expiry_year);
       const cvv = await decryptField(dataKey, paymentCard.cvv_encrypted, paymentCard.iv_cvv);
-      const cardPin = await decryptField(dataKey, paymentCard.pin_encrypted, paymentCard.iv_pin);
 
       // Create NFC payment transaction record
       const { data: nfcTransaction, error: nfcError } = await supabase
@@ -345,7 +442,7 @@ Deno.serve(async (req: Request) => {
         paymentType: 'card',
         cardBrand: paymentCard.card_brand,
         lastFourDigits: paymentCard.last_four_digits,
-        cardPin: cardPin,
+        hasCardPin: Boolean(paymentCard.pin_encrypted),
         amount,
       };
     }
@@ -447,10 +544,9 @@ async function encryptNFCPayload(payload: any): Promise<string> {
   combined.set(iv, 0);
   combined.set(new Uint8Array(encrypted), iv.length);
 
-  // Return both the encrypted payload and the session key
-  // In production, you'd want to transmit the key securely (e.g., via separate channel)
+  // Only the ciphertext leaves the server. The session key is never shipped
+  // next to the data it protects.
   return JSON.stringify({
     data: btoa(String.fromCharCode(...combined)),
-    key: sessionKey,
   });
 }

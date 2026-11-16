@@ -13,12 +13,20 @@ interface UpdatePasswordRequest {
   newPassword?: string;
 }
 
+// Same rule as the change-password function.
+const STRONG_PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+function json(body: unknown, status: number) {
+  return new Response(JSON.stringify(body), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    status,
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -26,79 +34,38 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse request body
     const body: UpdatePasswordRequest = await req.json();
     const new_password = body.new_password || body.newPassword;
 
     if (!new_password) {
-      throw new Error('New password is required');
+      return json({ success: false, error: 'New password is required' }, 400);
     }
 
-    if (new_password.length < 6) {
-      throw new Error('Password must be at least 6 characters long');
-    }
-
-    // If email is provided (public password reset without auth)
-    if (body.email) {
-      // Find user by email
-      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-
-      if (listError) {
-        throw new Error('Failed to find user');
-      }
-
-      const targetUser = users.find(u => u.email === body.email);
-
-      if (!targetUser) {
-        throw new Error('User not found');
-      }
-
-      // Update the user's password
-      const { error: updateError } = await supabase.auth.admin.updateUserById(
-        targetUser.id,
-        { password: new_password }
-      );
-
-      if (updateError) {
-        console.error('Failed to update password:', updateError);
-        throw new Error(`Failed to update password: ${updateError.message}`);
-      }
-
-      // Also update the password in organization_users table
-      await supabase
-        .from('organization_users')
-        .update({ password: new_password })
-        .eq('user_id', targetUser.id);
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Password updated successfully'
-        }),
+    if (!STRONG_PASSWORD_REGEX.test(new_password)) {
+      return json(
         {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-          status: 200,
-        }
+          success: false,
+          error:
+            'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number and a special character',
+        },
+        400,
       );
     }
 
-    // Otherwise, use authenticated flow with user_id
+    // Every caller must prove who they are. There is no unauthenticated path.
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
+    const token = authHeader?.replace('Bearer ', '').trim();
+
+    if (!token) {
+      return json({ success: false, error: 'Unauthorized' }, 401);
     }
 
-    const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      throw new Error('Unauthorized');
+      return json({ success: false, error: 'Unauthorized' }, 401);
     }
 
-    // Check if user has permission (main user, can_manage_users, or super admin)
     const { data: profile } = await supabase
       .from('profiles')
       .select('organization_id, role')
@@ -106,13 +73,34 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (!profile) {
-      throw new Error('User profile not found');
+      return json({ success: false, error: 'Unauthorized' }, 403);
     }
 
     const isSuperAdmin = profile.role === 'super_admin';
-    const user_id = body.user_id;
 
-    // If not super admin, check if they're a main user or have manage_users permission
+    // Resolve the target user. An email may be supplied, but only after the
+    // caller has been authenticated and authorized for that target.
+    let user_id = body.user_id;
+
+    if (!user_id && body.email) {
+      const { data: targetOrgUserByEmail } = await supabase
+        .from('organization_users')
+        .select('user_id')
+        .ilike('email', body.email)
+        .maybeSingle();
+
+      user_id = targetOrgUserByEmail?.user_id ?? undefined;
+
+      if (!user_id) {
+        // Do not reveal whether the address exists.
+        return json({ success: false, error: 'Unable to update password' }, 400);
+      }
+    }
+
+    if (!user_id) {
+      return json({ success: false, error: 'User ID is required' }, 400);
+    }
+
     if (!isSuperAdmin) {
       const { data: orgUser } = await supabase
         .from('organization_users')
@@ -121,75 +109,54 @@ Deno.serve(async (req: Request) => {
         .eq('is_active', true)
         .maybeSingle();
 
-      if (!orgUser || (!orgUser.is_main_user && !orgUser.can_manage_users)) {
-        throw new Error('Only main users or users with manage_users permission can update passwords');
-      }
+      const selfService = user_id === user.id;
 
-      // Verify the target user belongs to the same organization
-      const { data: targetOrgUser } = await supabase
-        .from('organization_users')
-        .select('organization_id')
-        .eq('user_id', user_id)
-        .maybeSingle();
+      if (!selfService) {
+        if (!orgUser || (!orgUser.is_main_user && !orgUser.can_manage_users)) {
+          return json(
+            {
+              success: false,
+              error:
+                'Only main users or users with manage_users permission can update passwords',
+            },
+            403,
+          );
+        }
 
-      if (!targetOrgUser || targetOrgUser.organization_id !== orgUser.organization_id) {
-        throw new Error('You can only update passwords for users in your organization');
+        const { data: targetOrgUser } = await supabase
+          .from('organization_users')
+          .select('organization_id')
+          .eq('user_id', user_id)
+          .maybeSingle();
+
+        if (!targetOrgUser || targetOrgUser.organization_id !== orgUser.organization_id) {
+          return json(
+            {
+              success: false,
+              error: 'You can only update passwords for users in your organization',
+            },
+            403,
+          );
+        }
       }
     }
 
-    if (!user_id) {
-      throw new Error('User ID is required');
-    }
-
-    // Update the user's password
     const { error: updateError } = await supabase.auth.admin.updateUserById(
       user_id,
-      { password: new_password }
+      { password: new_password },
     );
 
     if (updateError) {
       console.error('Failed to update password:', updateError);
-      throw new Error(`Failed to update password: ${updateError.message}`);
+      return json({ success: false, error: 'Failed to update password' }, 400);
     }
 
-    // Also update the password in organization_users table
-    const { error: orgUpdateError } = await supabase
-      .from('organization_users')
-      .update({ password: new_password })
-      .eq('user_id', user_id);
+    // The credential itself lives in Supabase Auth only. It is never mirrored
+    // into a readable table.
 
-    if (orgUpdateError) {
-      console.error('Failed to update password in organization_users:', orgUpdateError);
-      // Don't throw error here - auth password was updated successfully
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Password updated successfully'
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 200,
-      }
-    );
+    return json({ success: true, message: 'Password updated successfully' }, 200);
   } catch (error) {
     console.error('Error updating password:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 400,
-      }
-    );
+    return json({ success: false, error: 'Unable to update password' }, 400);
   }
 });

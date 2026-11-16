@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { friendlyError } from '../lib/errors';
+import { GARAGE_COLUMNS } from '../lib/garageColumns';
 import { Store, Plus, CreditCard as Edit2, Trash2, X, Search, MapPin, Phone, Mail, Smartphone, ArrowLeft, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import GarageContactManagement from './GarageContactManagement';
@@ -326,10 +328,10 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
   const loadGarages = async () => {
     const { data } = await supabase
       .from('garages')
-      .select('*')
+      .select(GARAGE_COLUMNS)
       .order('name');
 
-    if (data) setGarages(data);
+    if (data) setGarages(data as unknown as Garage[]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -400,7 +402,7 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
       resetForm();
       loadGarages();
     } catch (error: any) {
-      alert(error.message);
+      alert(friendlyError(error));
     } finally {
       setLoading(false);
     }
@@ -453,7 +455,7 @@ export default function GarageManagement({ onNavigate }: GarageManagementProps) 
       .eq('id', id);
 
     if (error) {
-      alert(error.message);
+      alert(friendlyError(error));
     } else {
       loadGarages();
     }

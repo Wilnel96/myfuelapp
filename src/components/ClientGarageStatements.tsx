@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import {
   Store, FileText, Plus, Eye, Printer, ArrowLeft,
@@ -193,7 +194,7 @@ export default function ClientGarageStatements({ onNavigate }: { onNavigate?: (v
       setPayments(payResult.data || []);
     } catch (err: any) {
       console.error('Error loading garage data:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 
@@ -230,7 +231,7 @@ export default function ClientGarageStatements({ onNavigate }: { onNavigate?: (v
       setStatementPayments(payResult.data || []);
     } catch (err: any) {
       console.error('Error loading statement details:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoadingDetails(false);
     }

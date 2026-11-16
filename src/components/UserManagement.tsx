@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { Users, Plus, CreditCard as Edit2, Trash2, Save, X, AlertCircle, CheckCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 
@@ -434,7 +435,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       setHasMainUser((sortedData || []).some(u => u.is_main_user));
     } catch (err: any) {
       console.error('Error loading users:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -585,7 +586,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       setTimeout(() => setSuccess(''), 5000);
     } catch (err: any) {
       console.error('Error adding user:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 
@@ -683,8 +684,10 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       // its own temporary password and forces a password reset
       const emailWillChange = orgUserData?.user_id && editingUser.email !== originalEmail;
       if (orgUserData?.user_id && newPassword && newPassword.trim() && !emailWillChange) {
-        if (newPassword.length < 6) {
-          throw new Error('Password must be at least 6 characters long');
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(newPassword)) {
+          throw new Error(
+            'Password must be at least 8 characters and include an uppercase letter, a lowercase letter, a number and a special character'
+          );
         }
 
         const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-password`;
@@ -805,7 +808,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       setTimeout(() => setSuccess(''), 6000);
     } catch (err: any) {
       console.error('Error updating user:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 
@@ -824,7 +827,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       console.error('Error updating user:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 
@@ -845,7 +848,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       console.error('Error deactivating user:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 
@@ -866,7 +869,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       console.error('Error reactivating user:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 
@@ -902,7 +905,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       console.error('Error transferring main user:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 
@@ -949,7 +952,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
         setTimeout(() => setSuccess(''), 3000);
       } catch (err: any) {
         console.error('Error promoting to secondary main user:', err);
-        setError(err.message);
+        setError(friendlyError(err));
       }
     }
   };
@@ -979,7 +982,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       console.error('Error demoting secondary main user:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 
@@ -1010,7 +1013,7 @@ export default function UserManagement({ managementMode = false, clientSelfMode 
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       console.error('Error removing main user:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     }
   };
 

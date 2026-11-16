@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
+import { GARAGE_COLUMNS } from '../lib/garageColumns';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName, sortFuelTypes } from '../lib/fuelTypes';
 import { Store, Search, MapPin, Phone, Mail, AlertCircle } from 'lucide-react';
@@ -109,15 +111,16 @@ export default function GaragesDirectory() {
       setLoading(true);
       const { data, error: fetchError } = await supabase
         .from('garages')
-        .select('*')
+        .select(GARAGE_COLUMNS)
         .order('name');
 
       if (fetchError) throw fetchError;
-      setGarages(data || []);
-      setFilteredGarages(data || []);
+      const garages = (data || []) as unknown as Garage[];
+      setGarages(garages);
+      setFilteredGarages(garages);
     } catch (err: any) {
       console.error('Error loading garages:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }

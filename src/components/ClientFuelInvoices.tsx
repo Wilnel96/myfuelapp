@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { FileText, Search, Calendar, DollarSign, Fuel, Download, Eye, AlertCircle, Printer, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { generateFuelInvoicePDF, renderInvoiceToPDF, downloadPDFBlob, fetchPreviousFillings, type InvoiceData } from '../lib/invoicePdfGenerator';
@@ -121,7 +122,7 @@ export default function ClientFuelInvoices({ onNavigate }: ClientFuelInvoicesPro
 
       setInvoices(data || []);
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }

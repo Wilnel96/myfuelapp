@@ -8,7 +8,6 @@ const corsHeaders = {
 };
 
 interface VerifyPINRequest {
-  driverId: string;
   pin: string;
 }
 
@@ -25,9 +24,33 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { driverId, pin }: VerifyPINRequest = await req.json();
+    // The driver is taken from the session token, never from the request body,
+    // so a caller cannot verify or lock out another driver's PIN.
+    const driverToken = req.headers.get('X-Driver-Token');
+    if (!driverToken) {
+      return new Response(
+        JSON.stringify({ error: 'Driver session required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    if (!driverId || !pin) {
+    const { data: session } = await supabase
+      .from('driver_sessions')
+      .select('driver_id, expires_at')
+      .eq('token', driverToken)
+      .maybeSingle();
+
+    if (!session || new Date(session.expires_at) < new Date()) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid or expired session' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { pin }: VerifyPINRequest = await req.json();
+    const driverId = session.driver_id;
+
+    if (!pin) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -120,7 +143,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('PIN verification error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: 'Unable to verify PIN' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

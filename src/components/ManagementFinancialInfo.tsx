@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { DollarSign, Save, AlertCircle, CheckCircle, ArrowLeft, Edit, X } from 'lucide-react';
 
@@ -62,7 +63,7 @@ export default function ManagementFinancialInfo({ onNavigate }: ManagementFinanc
       }
     } catch (err: any) {
       console.error('Error loading organization:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -122,7 +123,7 @@ export default function ManagementFinancialInfo({ onNavigate }: ManagementFinanc
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       console.error('Error saving financial info:', err);
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setSaving(false);
     }

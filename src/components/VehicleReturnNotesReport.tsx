@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { Calendar, Download, MessageSquare, Truck, User, Clock, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 
@@ -135,7 +136,7 @@ export default function VehicleReturnNotesReport() {
 
       setRows(result);
     } catch (err: any) {
-      setError(err.message);
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
       setGenerated(true);
