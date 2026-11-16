@@ -38,6 +38,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [selectedGarageForAccount, setSelectedGarageForAccount] = useState<Garage | null>(null);
   const [garageSearch, setGarageSearch] = useState('');
+  const [addGarageSearch, setAddGarageSearch] = useState('');
 
   useEffect(() => {
     loadData();
@@ -142,15 +143,6 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
     setError('');
   };
 
-  const isGarageActive = (garageId: string): boolean => {
-    const account = garageAccounts.find(a => a.garage_id === garageId);
-    return account ? account.is_active : false;
-  };
-
-  const getGarageAccount = (garageId: string): GarageAccount | undefined => {
-    return garageAccounts.find(a => a.garage_id === garageId);
-  };
-
   const handleEditAccount = (account: GarageAccount) => {
     setEditingAccountId(account.id);
     setAccountNumberInput(account.account_number || '');
@@ -199,10 +191,16 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
     (searchTerm === '' ||
       [garage.name, garage.city, garage.province].some(value => value?.toLowerCase().includes(searchTerm)));
 
+  const addSearchTerm = addGarageSearch.trim().toLowerCase();
+  const matchesAddSearch = (garage: Garage | undefined): boolean =>
+    !!garage &&
+    (addSearchTerm === '' ||
+      [garage.name, garage.city, garage.province].some(value => value?.toLowerCase().includes(addSearchTerm)));
+
   const activeAccounts = garageAccounts.filter(a => a.is_active && matchesSearch(garages.find(g => g.id === a.garage_id)));
   const inactiveAccounts = garageAccounts.filter(a => !a.is_active && matchesSearch(garages.find(g => g.id === a.garage_id)));
   const unlinkedGarages = garages.filter(g => !garageAccounts.find(a => a.garage_id === g.id));
-  const availableGarages = unlinkedGarages.filter(matchesSearch);
+  const availableGarages = unlinkedGarages.filter(matchesAddSearch);
 
   if (loading) {
     return (
@@ -573,7 +571,32 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
             )}
 
             <div>
-              <h4 className="text-xs font-semibold text-gray-900 mb-2">Add New Garage</h4>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-semibold text-gray-900">Add New Garage</h4>
+                <span className="text-[11px] text-gray-500">
+                  {unlinkedGarages.length} available
+                </span>
+              </div>
+              <div className="relative mb-2">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={addGarageSearch}
+                  onChange={(e) => setAddGarageSearch(e.target.value)}
+                  placeholder="Search garages by name, city or province..."
+                  className="w-full pl-8 pr-8 py-2 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+                />
+                {addGarageSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setAddGarageSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-lg">
                 {unlinkedGarages.length === 0 ? (
                   <div className="p-4 text-center text-xs text-gray-500">
@@ -581,7 +604,7 @@ export default function ClientGarageAccounts({ organizationId, organizationName 
                   </div>
                 ) : availableGarages.length === 0 ? (
                   <div className="p-4 text-center text-xs text-gray-500">
-                    No garages match "{garageSearch.trim()}"
+                    No garages match "{addGarageSearch.trim()}"
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-200">
