@@ -77,7 +77,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
     provider: string;
   } | null>(null);
 
-  const [currentStep, setCurrentStep] = useState<'garage_selection' | 'location_confirmation' | 'license_scan' | 'spending_check' | 'authorized' | 'fuel_details' | 'pin_entry' | 'scan_to_till' | 'authorization_pending'>('garage_selection');
+  const [currentStep, setCurrentStep] = useState<'garage_selection' | 'payment_choice' | 'location_confirmation' | 'license_scan' | 'spending_check' | 'authorized' | 'fuel_details' | 'pin_entry' | 'scan_to_till' | 'authorization_pending'>('garage_selection');
   const [selectedGarageId, setSelectedGarageId] = useState('');
   const [spendingLimitInfo, setSpendingLimitInfo] = useState<{
     hasLimit: boolean;
@@ -468,40 +468,34 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         console.error('Error fetching garage account:', garageAccountError);
       }
 
-      // Payment method: if a local account exists at this specific garage, use it —
-      // this allows an org to have both card payment (default) and local accounts at
-      // specific garages. The garage-specific account always takes precedence.
-      if (garageAccount) {
-        setPaymentOption('Local Account');
-        setIsLocalAccount(true);
-        setGarageAccountNumber(garageAccount.account_number);
-        console.log('[FuelPurchase] Payment flow: Local Account at this garage (overrides org default)');
-      } else if (orgPaymentOption === 'Local Account') {
-        // Org default is local account but no account exists at this garage
-        setError(`No local account exists for ${selectedGarage.name}. Please contact your administrator.`);
-        setCurrentStep('garage_selection');
-        return;
-      } else {
-        // No local account at this garage — use the org's default card
-        const { data: paymentCard, error: cardError } = await supabase
-          .from('organization_payment_cards')
-          .select('*')
-          .eq('organization_id', drawnVehicle.organization_id)
-          .eq('is_active', true)
-          .eq('is_default', true)
-          .maybeSingle();
+      // Payment method was already chosen — automatically at garage selection or by
+      // the driver on the choice screen. Respect it here rather than re-resolving.
+      const usingLocalAccount = paymentOption === 'Local Account';
 
-        if (cardError || !paymentCard) {
-          console.error('Error fetching payment card:', cardError);
-          setError('No active payment card found. Please contact your administrator.');
-          setCurrentStep('garage_selection');
-          return;
+      if (usingLocalAccount) {
+        if (!garageAccountNumber && garageAccount?.account_number) {
+          setGarageAccountNumber(garageAccount.account_number);
         }
+        console.log('[FuelPurchase] Payment flow: Local Account (chosen at garage selection)');
+      } else {
+        if (!encryptedCardData) {
+          const { data: paymentCard, error: cardError } = await supabase
+            .from('organization_payment_cards')
+            .select('*')
+            .eq('organization_id', drawnVehicle.organization_id)
+            .eq('is_active', true)
+            .eq('is_default', true)
+            .maybeSingle();
 
-        setPaymentOption('Card Payment');
-        setIsLocalAccount(false);
-        setEncryptedCardData(paymentCard);
-        console.log('[FuelPurchase] Payment flow: Card Payment (no local account at this garage)');
+          if (cardError || !paymentCard) {
+            console.error('Error fetching payment card:', cardError);
+            setError('No active payment card found. Please contact your administrator.');
+            setCurrentStep('garage_selection');
+            return;
+          }
+          setEncryptedCardData(paymentCard);
+        }
+        console.log('[FuelPurchase] Payment flow: Card Payment (chosen at garage selection)');
       }
 
       const fuelPrice = selectedGarage.fuel_prices?.[drawnVehicle.fuel_type || ''] || 0;
@@ -616,8 +610,8 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         }
       }
 
-      // Check garage-specific spending limit using statement balance
-      if (garageAccount?.monthly_spend_limit) {
+      // Check garage-specific spending limit using statement balance (only when paying from the garage account)
+      if (usingLocalAccount && garageAccount?.monthly_spend_limit) {
         const deposit = parseFloat((garageAccount.deposit_amount as any) || '0') || 0;
         const effectiveLimit = garageAccount.monthly_spend_limit - deposit;
 
@@ -655,8 +649,8 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         });
       }
 
-      // Check organization daily limit — skip when a garage account exists for this garage
-      if (organization.daily_spending_limit && !garageAccount) {
+      // Check organization daily limit — skip when paying from the garage account
+      if (organization.daily_spending_limit && !usingLocalAccount) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -686,9 +680,9 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         }
       }
 
-      // Check organization monthly limit — skip when a garage account exists for this garage,
+      // Check organization monthly limit — skip when paying from the garage account,
       // because the garage account's statement-based limit is the authoritative constraint
-      if (organization.monthly_spending_limit && !garageAccount) {
+      if (organization.monthly_spending_limit && !usingLocalAccount) {
         const firstDayOfMonth = new Date();
         firstDayOfMonth.setDate(1);
         firstDayOfMonth.setHours(0, 0, 0, 0);
@@ -927,8 +921,32 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           .maybeSingle(),
       ]);
 
+      if (garageAccount && orgPaymentOption === 'Card Payment') {
+        const { data: paymentCard } = await supabase
+          .from('organization_payment_cards')
+          .select('id')
+          .eq('organization_id', drawnVehicle.organization_id)
+          .eq('is_active', true)
+          .eq('is_default', true)
+          .maybeSingle();
+
+        if (paymentCard) {
+          // Both a garage account and a card are available — let the driver choose
+          setPaymentOption(null);
+          setIsLocalAccount(false);
+          setGarageAccountNumber(garageAccount.account_number);
+          setPaymentCheckError('');
+          const proximityCheck = checkLocationProximity(selectedGarage);
+          setDistanceFromGarage(proximityCheck.distance);
+          setLocationMismatch(!proximityCheck.isNear);
+          setCurrentStep('payment_choice');
+          setLoading(false);
+          return;
+        }
+      }
+
       if (garageAccount) {
-        // Local account exists for this garage — use it
+        // Local account exists for this garage and no card alternative — use it
         setPaymentOption('Local Account');
         setIsLocalAccount(true);
         setGarageAccountNumber(garageAccount.account_number);
@@ -969,11 +987,21 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
       return;
     }
 
-    const proximityCheck = checkLocationProximity(selectedGarage);
-    setDistanceFromGarage(proximityCheck.distance);
-    setLocationMismatch(!proximityCheck.isNear);
+    const selectedGarageForChoice = garages.find(g => g.id === selectedGarageId);
+    if (selectedGarageForChoice) {
+      const proximityCheck = checkLocationProximity(selectedGarageForChoice);
+      setDistanceFromGarage(proximityCheck.distance);
+      setLocationMismatch(!proximityCheck.isNear);
+    }
     setCurrentStep('location_confirmation');
     setLoading(false);
+  };
+
+  const handlePaymentChoice = (choice: 'Local Account' | 'Card Payment') => {
+    setError('');
+    setPaymentOption(choice);
+    setIsLocalAccount(choice === 'Local Account');
+    setCurrentStep('location_confirmation');
   };
 
   const proceedToScan = async () => {
@@ -1081,6 +1109,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           isMockLocation: locationMetadata?.isMock || false,
           locationAccuracy: locationMetadata?.accuracy || null,
           locationProvider: locationMetadata?.provider || null,
+          paymentMethod: isLocalAccount ? 'local_account' : 'card',
         }),
       });
 
@@ -1363,6 +1392,60 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
 
   // Debug: Log current render state
   console.log('[FuelPurchase] 🎨 Rendering component. Current step:', currentStep, 'Loading:', loading, 'Success:', success, 'Payment Option:', paymentOption);
+
+  if (currentStep === 'payment_choice') {
+    const selectedGarage = garages.find(g => g.id === selectedGarageId);
+    return (
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">Choose Payment Method</h2>
+          <p className="text-gray-600 text-sm text-center mb-6">
+            {selectedGarage?.name || 'This garage'} offers more than one way to pay
+          </p>
+
+          {selectedGarage && (
+            <div className="bg-blue-50 rounded-lg p-4 mb-6">
+              <p className="text-sm font-medium text-blue-900 mb-2">Selected Garage:</p>
+              <p className="text-base font-bold text-blue-900">{selectedGarage.name}</p>
+              <p className="text-sm text-blue-700">{selectedGarage.address}, {selectedGarage.city}</p>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <button
+              onClick={() => handlePaymentChoice('Local Account')}
+              className="w-full text-left bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-400 rounded-lg p-4 transition-colors"
+            >
+              <p className="text-base font-bold text-blue-900">Garage Account</p>
+              <p className="text-sm text-blue-700 mt-1">
+                Pay on the client's account with this garage
+                {garageAccountNumber ? ` (Account: ${garageAccountNumber})` : ''}
+              </p>
+            </button>
+
+            <button
+              onClick={() => handlePaymentChoice('Card Payment')}
+              className="w-full text-left bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 hover:border-gray-400 rounded-lg p-4 transition-colors"
+            >
+              <p className="text-base font-bold text-gray-900">Debit / Credit Card</p>
+              <p className="text-sm text-gray-600 mt-1">Pay using the organization's payment card</p>
+            </button>
+          </div>
+
+          <button
+            onClick={() => {
+              setCurrentStep('garage_selection');
+              setDistanceFromGarage(null);
+              setLocationMismatch(false);
+            }}
+            className="w-full mt-6 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (currentStep === 'location_confirmation') {
     const selectedGarage = garages.find(g => g.id === selectedGarageId);

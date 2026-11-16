@@ -30,6 +30,7 @@ interface FuelTransactionRequest {
   locationAccuracy?: number;
   locationProvider?: string;
   fuelOrderId?: string | null;
+  paymentMethod?: "card" | "local_account";
 }
 
 Deno.serve(async (req: Request) => {
@@ -277,11 +278,34 @@ Deno.serve(async (req: Request) => {
       .eq("id", driver.organization_id)
       .maybeSingle();
 
-    // Resolve payment card for card-paying clients
+    // Resolve payment method. When the driver was offered a choice (garage account +
+    // card both available), the client sends the chosen method explicitly.
     let resolvedFuelCardId: string | null = null;
-    let resolvedPaymentMethod = "card";
+    let resolvedPaymentMethod: "card" | "local_account" =
+      transactionData.paymentMethod === "local_account" || transactionData.paymentMethod === "card"
+        ? transactionData.paymentMethod
+        : "card";
 
-    if (organization?.payment_option === "Card Payment") {
+    if (resolvedPaymentMethod === "local_account") {
+      const { data: chosenGarageAccount } = await supabase
+        .from("organization_garage_accounts")
+        .select("id, is_active")
+        .eq("organization_id", driver.organization_id)
+        .eq("garage_id", transactionData.garageId)
+        .maybeSingle();
+
+      if (!chosenGarageAccount || !chosenGarageAccount.is_active) {
+        return new Response(
+          JSON.stringify({
+            error: "No active garage account exists for this garage. Please pay by card or contact your administrator."
+          }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+    } else {
       const { data: defaultCard } = await supabase
         .from("organization_payment_cards")
         .select("id")
@@ -303,13 +327,11 @@ Deno.serve(async (req: Request) => {
           .maybeSingle();
         if (anyCard) resolvedFuelCardId = anyCard.id;
       }
-    } else if (organization?.payment_option === "Local Account") {
-      resolvedPaymentMethod = "local_account";
     }
 
     let requiresFuelOrder = false;
 
-    if (organization?.payment_option === "Local Account") {
+    if (resolvedPaymentMethod === "local_account") {
       const { data: garageAccount } = await supabase
         .from("organization_garage_accounts")
         .select("id, is_active, order_required")
