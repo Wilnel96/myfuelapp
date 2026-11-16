@@ -60,6 +60,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   const [previousDriverInfo, setPreviousDriverInfo] = useState<{ name: string; daysUnreturned: number; lastDrawDate: string } | null>(null);
   const [requireLicenseScan, setRequireLicenseScan] = useState(false);
   const [vehicleIdentifiedByScan, setVehicleIdentifiedByScan] = useState(false);
+  const [currentlyDrawnVehicle, setCurrentlyDrawnVehicle] = useState<string | null>(null);
 
   const [availableTrailers, setAvailableTrailers] = useState<Trailer[]>([]);
   const [selectedTrailer, setSelectedTrailer] = useState<Trailer | null>(null);
@@ -72,6 +73,9 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     loadVehicles();
     getCurrentLocation();
     loadDriverLicenseCode();
+    checkAnyActiveDrawing(driverId)
+      .then(setCurrentlyDrawnVehicle)
+      .catch(() => setCurrentlyDrawnVehicle(null));
   }, []);
 
   useEffect(() => {
@@ -1059,6 +1063,20 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Vehicle</h2>
             <p className="text-gray-600 mb-6">Scan the license disk barcode or manually select a vehicle.</p>
+
+            {currentlyDrawnVehicle && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">
+                    Vehicle currently drawn: {currentlyDrawnVehicle}
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    You already have this vehicle out. It must be returned before another vehicle can be drawn.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {selectedVehicle && (
               <div className="bg-green-50 rounded-lg p-4 mb-6">
