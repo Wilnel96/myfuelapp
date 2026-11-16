@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Smartphone, CheckCircle2, XCircle, AlertCircle, Loader2, CreditCard } from 'lucide-react';
+import { Smartphone, CheckCircle2, XCircle, AlertCircle, Loader2, CreditCard, MessageCircle } from 'lucide-react';
 import { supabase, getDriverToken } from '../lib/supabase';
 
 interface NFCPaymentProps {
@@ -14,7 +14,7 @@ interface NFCPaymentProps {
   onCancel: () => void;
 }
 
-type PaymentStatus = 'preparing' | 'nfc_ready' | 'waiting_tap' | 'transmitting' | 'pin_request' | 'awaiting_pin' | 'processing' | 'completed' | 'failed' | 'timeout';
+type PaymentStatus = 'preparing' | 'otp_entry' | 'nfc_ready' | 'waiting_tap' | 'transmitting' | 'pin_request' | 'awaiting_pin' | 'processing' | 'completed' | 'failed' | 'timeout';
 
 export function NFCPayment({
   vehicleId,
@@ -33,6 +33,11 @@ export function NFCPayment({
   const [lastFourDigits, setLastFourDigits] = useState('');
   const [authorizationPIN, setAuthorizationPIN] = useState('');
   const [hasCardPin, setHasCardPin] = useState(false);
+  const [otpRequired, setOtpRequired] = useState(false);
+  const [otpSentTo, setOtpSentTo] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpError, setOtpError] = useState('');
   const [accountInfo, setAccountInfo] = useState('');
   const [countdown, setCountdown] = useState(60);
   const [retryCount, setRetryCount] = useState(0);
@@ -126,6 +131,12 @@ export function NFCPayment({
         setCardBrand(result.cardBrand || '');
         setLastFourDigits(result.lastFourDigits || '');
         setHasCardPin(Boolean(result.hasCardPin));
+        if (result.otpRequired) {
+          setOtpRequired(true);
+          setOtpSentTo(result.otpSentTo || '');
+          setStatus('otp_entry');
+          return;
+        }
       }
       setStatus('nfc_ready');
 
@@ -142,6 +153,48 @@ export function NFCPayment({
       setTimeout(() => {
         onFailure(isConfigError ? errorMessage.replace('CONFIG_ERROR: ', '') : err.message, !isConfigError);
       }, 3000);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length !== 6) {
+      setOtpError('Enter the 6-digit code from WhatsApp');
+      return;
+    }
+
+    try {
+      setOtpVerifying(true);
+      setOtpError('');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/prepare-nfc-payment`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'X-Driver-Token': getDriverToken() || '',
+          },
+          body: JSON.stringify({ mode: 'verify-otp', transactionId, pin: '', otp: otpCode }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setOtpError(result.error || 'Verification failed. Please try again.');
+        return;
+      }
+
+      setOtpRequired(false);
+      setStatus('nfc_ready');
+      setTimeout(() => {
+        initiateNFCTransmission();
+      }, 1000);
+    } catch (err) {
+      setOtpError('Verification failed. Please try again.');
+    } finally {
+      setOtpVerifying(false);
     }
   };
 
@@ -338,6 +391,8 @@ export function NFCPayment({
     switch (status) {
       case 'preparing':
         return <Loader2 className="w-20 h-20 text-blue-600 animate-spin" />;
+      case 'otp_entry':
+        return <MessageCircle className="w-20 h-20 text-green-600" />;
       case 'nfc_ready':
       case 'waiting_tap':
         return <Smartphone className="w-20 h-20 text-blue-600 animate-pulse" />;
@@ -361,6 +416,8 @@ export function NFCPayment({
     switch (status) {
       case 'preparing':
         return 'Preparing Payment...';
+      case 'otp_entry':
+        return 'Verify with WhatsApp Code';
       case 'nfc_ready':
         return 'Payment Ready';
       case 'waiting_tap':
@@ -386,6 +443,8 @@ export function NFCPayment({
     switch (status) {
       case 'preparing':
         return 'Securely preparing your payment details';
+      case 'otp_entry':
+        return 'Enter the code we sent to your WhatsApp to authorize this card payment';
       case 'nfc_ready':
         return 'Get ready to tap your phone';
       case 'waiting_tap':
@@ -407,7 +466,7 @@ export function NFCPayment({
     }
   };
 
-  const canCancel = ['preparing', 'nfc_ready', 'waiting_tap'].includes(status);
+  const canCancel = ['preparing', 'otp_entry', 'nfc_ready', 'waiting_tap'].includes(status);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -453,6 +512,78 @@ export function NFCPayment({
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-800 text-center">
                   Position your phone near the card machine's contactless reader
+                </p>
+              </div>
+            </div>
+          )}
+
+          {status === 'otp_entry' && (
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br from-green-600 to-emerald-700 rounded-2xl p-6 text-white shadow-xl">
+                <div className="flex items-center justify-center space-x-2 mb-3">
+                  <MessageCircle className="w-5 h-5 text-green-100" />
+                  <p className="text-sm font-medium text-green-100">
+                    Verification code sent via WhatsApp{otpSentTo ? ` to ${otpSentTo}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center justify-center space-x-3">
+                  <CreditCard className="w-5 h-5 text-green-100" />
+                  <p className="text-sm font-medium">
+                    {cardBrand} •••• {lastFourDigits} · R{amount.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg p-6 shadow-sm space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 text-left">
+                    Enter the 6-digit code
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => {
+                      setOtpCode(e.target.value.replace(/[^0-9]/g, ''));
+                      setOtpError('');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && otpCode.length === 6 && !otpVerifying) {
+                        handleVerifyOtp();
+                      }
+                    }}
+                    placeholder="000000"
+                    disabled={otpVerifying}
+                    className="w-full text-center text-3xl font-bold tracking-[0.5em] font-mono py-4 px-4 border-2 border-gray-300 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all disabled:bg-gray-50 disabled:opacity-60"
+                  />
+                </div>
+
+                {otpError && (
+                  <div className="flex items-start space-x-2 bg-red-50 border border-red-200 rounded-lg p-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-800 text-left">{otpError}</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleVerifyOtp}
+                  disabled={otpCode.length !== 6 || otpVerifying}
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold py-4 px-6 rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  <div className="flex items-center justify-center space-x-2">
+                    {otpVerifying ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-5 h-5" />
+                    )}
+                    <span>{otpVerifying ? 'Verifying...' : 'Authorize Payment'}</span>
+                  </div>
+                </button>
+
+                <p className="text-xs text-gray-500">
+                  The code expires in 5 minutes. Card details are only sent to the card machine after you authorize with this code.
                 </p>
               </div>
             </div>

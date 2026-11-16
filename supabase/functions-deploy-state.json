@@ -87,7 +87,7 @@
     },
     "prepare-nfc-payment": {
       "hasChanged": false,
-      "hash": "bcf9c17405bf582c1093f4ceb16c530f182f25a29156bbeec35eb1045cd54618"
+      "hash": "bc849ace1706b7457b8dc1285c55b9da72e86e99d58c90bd123205f971e14e1a"
     },
     "send-email": {
       "hasChanged": false,

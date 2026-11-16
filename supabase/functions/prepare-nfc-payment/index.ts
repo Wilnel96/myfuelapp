@@ -8,9 +8,10 @@ const corsHeaders = {
 };
 
 interface PreparePaymentRequest {
-  mode?: 'prepare' | 'authorization-pin';
+  mode?: 'prepare' | 'authorization-pin' | 'verify-otp';
   transactionId?: string;
   pin: string;
+  otp?: string;
   amount: number;
   vehicleId?: string;
   fuelTransactionId?: string;
@@ -87,9 +88,75 @@ Deno.serve(async (req: Request) => {
     const requestData: PreparePaymentRequest = await req.json();
     const { mode, transactionId, pin, amount, vehicleId, fuelTransactionId, deviceInfo, location } = requestData;
 
-    // Second step of a card payment: hand over the card's authorisation PIN only
-    // for a transaction that belongs to this driver and is waiting at the pump.
-    // The PIN is never included in the prepare response.
+    // Second step of a card payment: confirm the OTP that was sent to the
+    // driver's WhatsApp number. Only after a correct OTP may the NFC payload
+    // be armed and the card PIN requested.
+    if (mode === 'verify-otp') {
+      if (!transactionId || !otp) {
+        return new Response(
+          JSON.stringify({ error: 'Transaction and verification code required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: txn } = await supabase
+        .from('nfc_payment_transactions')
+        .select('id, driver_id, payment_status, whatsapp_otp_hash, otp_attempts, nfc_activated_at')
+        .eq('id', transactionId)
+        .eq('driver_id', driverId)
+        .maybeSingle();
+
+      if (!txn || txn.payment_status !== 'awaiting_otp') {
+        return new Response(
+          JSON.stringify({ error: 'Payment is not waiting for verification' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!txn.whatsapp_otp_hash) {
+        return new Response(
+          JSON.stringify({ error: 'No verification code was sent. Please restart the payment.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (txn.otp_attempts >= 5) {
+        await supabase
+          .from('nfc_payment_transactions')
+          .update({ payment_status: 'failed', failure_code: 'otp_attempts_exceeded' })
+          .eq('id', txn.id);
+        return new Response(
+          JSON.stringify({ error: 'Too many incorrect codes. Please start the payment again.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const otpValid = await bcrypt.compare(otp, txn.whatsapp_otp_hash);
+      if (!otpValid) {
+        await supabase
+          .from('nfc_payment_transactions')
+          .update({ otp_attempts: (txn.otp_attempts || 0) + 1 })
+          .eq('id', txn.id);
+        return new Response(
+          JSON.stringify({ error: 'Incorrect code. Please try again.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      await supabase
+        .from('nfc_payment_transactions')
+        .update({ otp_verified_at: new Date().toISOString(), payment_status: 'pin_verified' })
+        .eq('id', txn.id);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Third step: hand over the card's authorisation PIN only for a transaction
+    // that belongs to this driver, whose OTP has been verified, and which is
+    // waiting at the pump. The PIN is never included in the prepare response.
     if (mode === 'authorization-pin') {
       if (!transactionId) {
         return new Response(
@@ -100,12 +167,12 @@ Deno.serve(async (req: Request) => {
 
       const { data: txn } = await supabase
         .from('nfc_payment_transactions')
-        .select('id, driver_id, organization_card_id, payment_status, nfc_activated_at')
+        .select('id, driver_id, organization_card_id, payment_status, nfc_activated_at, otp_verified_at')
         .eq('id', transactionId)
         .eq('driver_id', driverId)
         .maybeSingle();
 
-      if (!txn || !['nfc_ready', 'transmitting'].includes(txn.payment_status) || !txn.organization_card_id) {
+      if (!txn || !['nfc_ready', 'transmitting'].includes(txn.payment_status) || !txn.organization_card_id || !txn.otp_verified_at) {
         return new Response(
           JSON.stringify({ error: 'Payment is not ready' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -385,14 +452,16 @@ Deno.serve(async (req: Request) => {
       const expiryYear = await decryptField(dataKey, paymentCard.expiry_year_encrypted, paymentCard.iv_expiry_year);
       const cvv = await decryptField(dataKey, paymentCard.cvv_encrypted, paymentCard.iv_cvv);
 
-      // Create NFC payment transaction record
+      // Create NFC payment transaction record. Card payments start in
+      // awaiting_otp: the WhatsApp code must be confirmed before the card
+      // details are armed for NFC transmission.
       const { data: nfcTransaction, error: nfcError } = await supabase
         .from('nfc_payment_transactions')
         .insert({
           driver_id: driverId,
           organization_card_id: paymentCard.id,
           amount,
-          payment_status: 'pin_verified',
+          payment_status: 'awaiting_otp',
           pin_entered_at: new Date().toISOString(),
           pin_verified_at: new Date().toISOString(),
           device_info: deviceInfo || null,
@@ -414,35 +483,42 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      // Prepare encrypted NFC payload (re-encrypt for transmission)
-      nfcPayload = await encryptNFCPayload({
-        paymentType: 'card',
-        cardNumber,
-        cardHolderName,
-        expiryMonth,
-        expiryYear,
-        cvv,
-        amount,
+      // Send the one-time authorization code to the driver's WhatsApp number.
+      const { data: otpDriver } = await supabase
+        .from('drivers')
+        .select('phone_number, name, surname')
+        .eq('id', driverId)
+        .maybeSingle();
+
+      const otpSent = await sendWhatsAppOtp({
+        supabaseUrl,
         transactionId: nfcTransaction.id,
+        phone: otpDriver?.phone_number || '',
+        driverName: [otpDriver?.name, otpDriver?.surname].filter(Boolean).join(' ') || 'Driver',
+        amount,
+        lastFour: paymentCard.last_four_digits || '',
       });
 
-      // Update NFC transaction status
-      await supabase
-        .from('nfc_payment_transactions')
-        .update({
-          payment_status: 'nfc_ready',
-          nfc_activated_at: new Date().toISOString(),
-        })
-        .eq('id', nfcTransaction.id);
+      if (!otpSent) {
+        await supabase
+          .from('nfc_payment_transactions')
+          .update({ payment_status: 'failed', failure_code: 'otp_send_failed' })
+          .eq('id', nfcTransaction.id);
+        return new Response(
+          JSON.stringify({ error: 'Could not send the verification code. Please check that your phone number is up to date and try again.' }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       displayInfo = {
         success: true,
         transactionId: nfcTransaction.id,
-        payload: nfcPayload,
         paymentType: 'card',
         cardBrand: paymentCard.card_brand,
         lastFourDigits: paymentCard.last_four_digits,
         hasCardPin: Boolean(paymentCard.pin_encrypted),
+        otpRequired: true,
+        otpSentTo: maskPhoneNumber(otpDriver?.phone_number || ''),
         amount,
       };
     }
@@ -549,4 +625,89 @@ async function encryptNFCPayload(payload: any): Promise<string> {
   return JSON.stringify({
     data: btoa(String.fromCharCode(...combined)),
   });
+}
+
+// Send the one-time card authorization code to the driver's WhatsApp number
+// using the Meta WhatsApp Cloud API. Returns false when the integration is
+// not configured or the message could not be delivered, so the payment
+// fails closed rather than proceeding without verification.
+async function sendWhatsAppOtp(opts: {
+  supabaseUrl: string;
+  transactionId: string;
+  phone: string;
+  driverName: string;
+  amount: number;
+  lastFour: string;
+}): Promise<boolean> {
+  const whatsappToken = Deno.env.get('WHATSAPP_TOKEN');
+  const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
+
+  if (!whatsappToken || !phoneNumberId) {
+    console.error('WhatsApp OTP not sent: WHATSAPP_TOKEN or WHATSAPP_PHONE_NUMBER_ID is not configured');
+    return false;
+  }
+
+  if (!opts.phone) {
+    console.error('WhatsApp OTP not sent: driver has no phone number on record');
+    return false;
+  }
+
+  // Generate the 6-digit code and store only a bcrypt hash of it. The plain
+  // code exists solely in the WhatsApp message and is never persisted.
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+  // Hash and store against the transaction created by the caller. Only the
+  // hash is persisted, so the code cannot be read back from the database.
+  const otpHash = bcrypt.hashSync(otp, 10);
+  const { error: otpStoreError } = await supabase
+    .from('nfc_payment_transactions')
+    .update({ whatsapp_otp_hash: otpHash, otp_attempts: 0 })
+    .eq('id', opts.transactionId);
+
+  if (otpStoreError) {
+    console.error('WhatsApp OTP not sent: failed to store code hash');
+    return false;
+  }
+
+  const message =
+    `Hi ${opts.driverName}, your card authorization code is *${otp}*. ` +
+    `Enter this code in the driver app to approve paying R${opts.amount.toFixed(2)} ` +
+    `with your card ending in ${opts.lastFour}. The code expires in 5 minutes. ` +
+    `If you did not request this, ignore this message.`;
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${whatsappToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: opts.phone.replace(/[^0-9]/g, ''),
+          type: 'text',
+          text: { body: message },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error('WhatsApp API error:', response.status, await response.text());
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('WhatsApp API request failed:', err);
+    return false;
+  }
+}
+
+function maskPhoneNumber(phone: string): string {
+  if (!phone) return '';
+  const digits = phone.replace(/[^0-9]/g, '');
+  if (digits.length < 4) return '****';
+  return `*** *** ${digits.slice(-4)}`;
 }
