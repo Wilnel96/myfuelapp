@@ -125,6 +125,7 @@ export default function LogbookReport() {
         .gte('entry_date', startDate)
         .lte('entry_date', endDate)
         .order('entry_date', { ascending: true })
+        .order('opening_km', { ascending: true })
         .order('sequence_number', { ascending: true });
 
       if (selectedVehicleId !== 'all') {

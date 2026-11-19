@@ -302,6 +302,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         .eq('driver_id', driverId)
         .eq('vehicle_transaction_id', trip.id)
         .order('entry_date', { ascending: false })
+        .order('opening_km', { ascending: false })
         .order('sequence_number', { ascending: false });
 
       if (entriesError) throw entriesError;
@@ -887,6 +888,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         .gte('entry_date', dlStartDate)
         .lte('entry_date', dlEndDate)
         .order('entry_date', { ascending: true })
+        .order('opening_km', { ascending: true })
         .order('sequence_number', { ascending: true });
 
       if (fetchError) throw fetchError;
