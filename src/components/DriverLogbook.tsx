@@ -41,7 +41,7 @@ interface LogbookEntry {
   vehicle_model?: string;
 }
 
-type VoiceStep = 'idle' | 'asking_open_km' | 'asking_from' | 'asking_reason' | 'done';
+type VoiceStep = 'idle' | 'asking_open_km' | 'asking_from' | 'asking_to' | 'asking_reason' | 'done';
 
 // --- Word-to-number converter ---
 // Speech recognition returns "twelve thousand three hundred forty five" as text.
@@ -171,6 +171,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
   const [voiceStep, setVoiceStep] = useState<VoiceStep>('idle');
   const [voiceOpenKm, setVoiceOpenKm] = useState('');
   const [voiceFrom, setVoiceFrom] = useState('');
+  const [voiceTo, setVoiceTo] = useState('');
   const [voiceReason, setVoiceReason] = useState('');
   const [voiceInterim, setVoiceInterim] = useState('');
   const [voiceError, setVoiceError] = useState('');  const recognitionRef = useRef<any>(null);
@@ -432,6 +433,8 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
         } else {
           if (step === 'asking_from') {
             setVoiceFrom(finalText);
+          } else if (step === 'asking_to') {
+            setVoiceTo(finalText);
           } else if (step === 'asking_reason') {
             setVoiceReason(finalText);
           }
@@ -474,6 +477,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     if (!selectedTrip) return;
     setVoiceOpenKm('');
     setVoiceFrom('');
+    setVoiceTo('');
     setVoiceReason('');
     confirmingRef.current = false;
 
@@ -499,8 +503,18 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     if (confirmingRef.current) return;
     confirmingRef.current = true;
     stopRecognition();
-    setVoiceStep('asking_reason');
+    setVoiceStep('asking_to');
     await speak(`From: ${voiceFrom}.`);
+    confirmingRef.current = false;
+    await speakThenListen('Where are you travelling to?', false);
+  };
+
+  const confirmTo = async () => {
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
+    stopRecognition();
+    setVoiceStep('asking_reason');
+    await speak(`Travelling to: ${voiceTo}.`);
     confirmingRef.current = false;
     await speakThenListen('What is the reason for the trip?', false);
   };
@@ -539,6 +553,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
           sequence_number: seqNum,
           opening_km: openKm,
           from_location: voiceFrom.trim() || null,
+          to_location: voiceTo.trim() || null,
           trip_reason: voiceReason.trim(),
           closing_km: null,
           km_travelled: null,
@@ -561,6 +576,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
       setVoiceStep('idle');
       setVoiceOpenKm('');
       setVoiceFrom('');
+      setVoiceTo('');
       setVoiceReason('');
 
       await speak('Entry saved. You can add closing kilometers later.');
@@ -577,6 +593,7 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
     setVoiceStep('idle');
     setVoiceOpenKm('');
     setVoiceFrom('');
+    setVoiceTo('');
     setVoiceReason('');
     setVoiceInterim('');
     setVoiceError('');
@@ -1216,8 +1233,11 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                 <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_from' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
                   2. From
                 </span>
+                <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_to' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                  3. Travel to
+                </span>
                 <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'asking_reason' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                  3. Reason
+                  4. Reason
                 </span>
                 <span className={`px-3 py-1 rounded-full font-medium ${voiceStep === 'done' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
                   Save
@@ -1304,6 +1324,51 @@ export default function DriverLogbook({ organizationId, driverId, driverName, on
                     >
                       <Check className="w-5 h-5" />
                       Confirm From
+                    </button>
+                    <button
+                      onClick={cancelVoice}
+                      className="px-6 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Travel to */}
+              {voiceStep === 'asking_to' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Travel To (destination)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={voiceTo}
+                      onChange={(e) => setVoiceTo(e.target.value)}
+                      className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 text-base focus:border-blue-500 focus:outline-none"
+                      placeholder="e.g. Client warehouse, Stellenbosch"
+                      style={{ fontSize: '16px' }}
+                    />
+                    <button
+                      onClick={() => startListening(false)}
+                      className={`px-4 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 self-start ${
+                        isListeningNow ? 'bg-red-100 text-red-700' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                      }`}
+                    >
+                      {isListeningNow ? <Square className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                      {isListeningNow ? 'Stop' : 'Speak'}
+                    </button>
+                  </div>
+                  {voiceInterim && voiceStep === 'asking_to' && (
+                    <p className="text-xs text-gray-500 mt-1">Hearing: "{voiceInterim}"</p>
+                  )}
+                  {voiceError && <p className="text-xs text-red-500 mt-1">{voiceError}</p>}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={confirmTo}
+                      className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-5 h-5" />
+                      Confirm Destination
                     </button>
                     <button
                       onClick={cancelVoice}
