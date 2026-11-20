@@ -105,6 +105,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
   });
   const [purchasingOil, setPurchasingOil] = useState(false);
   const [showPumpScanner, setShowPumpScanner] = useState(false);
+  const [pumpImage, setPumpImage] = useState<string | null>(null);
 
   const [garages, setGarages] = useState<Garage[]>([]);
   const [garageAccountNumber, setGarageAccountNumber] = useState<string>('');
@@ -1103,6 +1104,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           location: location ? `${location.lat},${location.lng}` : 'Unknown',
           fuelType: drawnVehicle.fuel_type || 'Diesel-50',
           licenseDiskImage: licenseDiskScan?.image,
+          pumpImage: pumpImage,
           oilQuantity: purchasingOil && formData.oilQuantity ? parseFloat(formData.oilQuantity) : 0,
           oilUnitPrice: purchasingOil && formData.oilUnitPrice ? parseFloat(formData.oilUnitPrice) : 0,
           oilTotalAmount: purchasingOil && formData.oilTotalAmount ? parseFloat(formData.oilTotalAmount) : 0,
@@ -1265,6 +1267,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
     setShowBarcodeScanner(false);
     setNfcStatus('idle');
     setShowAccountDetails(false);
+    setPumpImage(null);
     loadDrawnVehicle();
   };
 
@@ -2987,8 +2990,9 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
             {currentStep === 'fuel_details' && showPumpScanner && (
               <PumpScanner
                 onCancel={() => setShowPumpScanner(false)}
-                onConfirm={({ liters, amount }) => {
+                onConfirm={({ liters, amount, image }) => {
                   setShowPumpScanner(false);
+                  setPumpImage(image);
                   const price = parseFloat(formData.pricePerLiter) || 0;
                   // Prefer litres read off the pump; otherwise derive them from the rand total
                   const litersToUse = liters || (amount && price > 0 ? (parseFloat(amount) / price).toFixed(2) : '');

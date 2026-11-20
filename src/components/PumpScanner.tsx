@@ -3,8 +3,24 @@ import { Camera, RefreshCw, X, Check, AlertCircle, Loader2, Pencil } from 'lucid
 import Tesseract from 'tesseract.js';
 
 interface PumpScannerProps {
-  onConfirm: (result: { liters: string; amount: string }) => void;
+  onConfirm: (result: { liters: string; amount: string; image: string | null }) => void;
   onCancel: () => void;
+}
+
+function compressImage(dataUrl: string, maxW = 800, quality = 0.7): Promise<string> {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxW / img.width);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
 
 function normalizeNumber(s: string): string {
@@ -150,8 +166,16 @@ export default function PumpScanner({ onConfirm, onCancel }: PumpScannerProps) {
     startCamera();
   };
 
-  const handleConfirm = () => {
-    onConfirm({ liters: editLiters, amount: editAmount });
+  const handleConfirm = async () => {
+    let image: string | null = null;
+    if (captured) {
+      try {
+        image = await compressImage(captured);
+      } catch {
+        image = null;
+      }
+    }
+    onConfirm({ liters: editLiters, amount: editAmount, image });
   };
 
   const cleanNum = (s: string) => s.replace(/[^0-9.,]/g, '').replace(',', '.');

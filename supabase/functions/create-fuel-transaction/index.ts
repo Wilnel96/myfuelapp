@@ -17,6 +17,7 @@ interface FuelTransactionRequest {
   location?: string;
   fuelType: string;
   licenseDiskImage?: string;
+  pumpImage?: string | null;
   commissionRate: number;
   commissionAmount: number;
   netAmount: number;
@@ -498,6 +499,7 @@ Deno.serve(async (req: Request) => {
         location: transactionData.location || "Unknown",
         fuel_type: transactionData.fuelType,
         license_disk_image: transactionData.licenseDiskImage,
+        pump_image: transactionData.pumpImage || null,
         number_plate_image: null,
         verified: true,
         authorized_at: new Date().toISOString(),
