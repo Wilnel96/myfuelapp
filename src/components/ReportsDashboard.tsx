@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { friendlyError } from '../lib/errors';
 import { supabase } from '../lib/supabase';
 import { getFuelTypeDisplayName } from '../lib/fuelTypes';
-import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare, Clock, DollarSign, Mail, BookOpen } from 'lucide-react';
+import { BarChart3, Download, Calendar, TrendingUp, AlertTriangle, FileText, ArrowLeft, Wrench, AlertCircle, MapPin, CheckCircle, Truck as TruckIcon, MessageSquare, Clock, DollarSign, Mail, BookOpen, Camera, X } from 'lucide-react';
 import DailyTripReport from './DailyTripReport';
 import UnreturnedVehiclesReport from './UnreturnedVehiclesReport';
 import VehicleReturnNotesReport from './VehicleReturnNotesReport';
@@ -58,6 +58,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
   const [error, setError] = useState<string>('');
   const [resolvingException, setResolvingException] = useState<string | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
+  const [viewingImage, setViewingImage] = useState<{ src: string; label: string } | null>(null);
   const [missingTripException, setMissingTripException] = useState<MissingTripException | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
@@ -583,6 +584,24 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
     console.log('Exceptions Query Error:', error);
     console.log('Exceptions Found:', exceptions?.length);
 
+    // transaction_id points at either fuel_transactions or vehicle_transactions
+    // (per transaction_type) with no FK, so photos can't be embedded — fetch them
+    // for the fuel-transaction ones in a second query.
+    const fuelTxIds = (exceptions || [])
+      .filter(e => e.transaction_type !== 'vehicle_draw' && e.transaction_type !== 'vehicle_return' && e.transaction_id)
+      .map(e => e.transaction_id);
+
+    const photosByTxId: Record<string, { pump_image: string | null; license_disk_image: string | null }> = {};
+    if (fuelTxIds.length > 0) {
+      const { data: txPhotos } = await supabase
+        .from('fuel_transactions')
+        .select('id, pump_image, license_disk_image')
+        .in('id', fuelTxIds);
+      for (const t of txPhotos || []) {
+        photosByTxId[t.id] = { pump_image: t.pump_image, license_disk_image: t.license_disk_image };
+      }
+    }
+
     const formattedExceptions = exceptions?.map(e => ({
       id: e.id,
       organization_id: e.organization_id,
@@ -598,6 +617,8 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
       resolved_at: e.resolved_at,
       resolution_notes: e.resolution_notes,
       actual_garage: e.actual_garage || '',
+      pump_image: photosByTxId[e.transaction_id]?.pump_image || null,
+      license_disk_image: photosByTxId[e.transaction_id]?.license_disk_image || null,
       organization_name: e.organizations?.name || '',
       organization_city: e.organizations?.city || '',
     }));
@@ -1775,6 +1796,39 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                                     <p className="text-sm text-green-800 mt-1">{exception.resolution_notes}</p>
                                   </div>
                                 )}
+
+                                {(exception.pump_image || exception.license_disk_image) && (
+                                  <div className="mt-3 p-3 bg-white border border-gray-200 rounded">
+                                    <p className="text-sm font-medium text-gray-700 flex items-center gap-2 mb-2">
+                                      <Camera className="w-4 h-4 text-gray-500" />
+                                      Proof Photos (click to enlarge)
+                                    </p>
+                                    <div className="flex gap-3">
+                                      {exception.pump_image && (
+                                        <div className="text-center">
+                                          <img
+                                            src={exception.pump_image}
+                                            alt="Pump display"
+                                            onClick={() => setViewingImage({ src: exception.pump_image, label: 'Pump display photo' })}
+                                            className="w-24 h-18 object-cover rounded-lg border border-gray-300 cursor-pointer hover:opacity-80 hover:border-blue-400 transition-all"
+                                          />
+                                          <p className="text-xs text-gray-500 mt-1">Pump</p>
+                                        </div>
+                                      )}
+                                      {exception.license_disk_image && (
+                                        <div className="text-center">
+                                          <img
+                                            src={exception.license_disk_image}
+                                            alt="License disk"
+                                            onClick={() => setViewingImage({ src: exception.license_disk_image, label: 'License disk photo' })}
+                                            className="w-24 h-18 object-cover rounded-lg border border-gray-300 cursor-pointer hover:opacity-80 hover:border-blue-400 transition-all"
+                                          />
+                                          <p className="text-xs text-gray-500 mt-1">License</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -2158,6 +2212,34 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
             loadExceptionsData(organizationId, startDate, endDate);
           }}
         />
+      )}
+
+      {/* Proof photo viewer */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center p-4 z-[60]"
+          onClick={() => setViewingImage(null)}
+        >
+          <div className="absolute top-4 right-4">
+            <button
+              type="button"
+              className="text-white hover:text-gray-300 p-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewingImage(null);
+              }}
+            >
+              <X className="w-8 h-8" />
+            </button>
+          </div>
+          <p className="text-white text-sm mb-3">{viewingImage.label}</p>
+          <img
+            src={viewingImage.src}
+            alt={viewingImage.label}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[85vh] object-contain rounded-lg"
+          />
+        </div>
       )}
 
       {/* Resolution Modal */}
