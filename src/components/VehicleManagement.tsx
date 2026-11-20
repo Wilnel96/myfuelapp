@@ -324,9 +324,12 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
         throw new Error('At least one PrDP category must be selected when PrDP is required');
       }
 
-      // Prepare vehicle data
+      // Prepare vehicle data — empty date strings must become null (Postgres rejects '' as a date)
       const vehicleData = {
         ...formData,
+        license_disk_expiry: formData.license_disk_expiry || null,
+        last_service_date: formData.last_service_date || null,
+        next_service_date: formData.next_service_date || null,
         fuel_type: formData.vehicle_type === 'Electric' ? null : formData.fuel_type,
       };
 
