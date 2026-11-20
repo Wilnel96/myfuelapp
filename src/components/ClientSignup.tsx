@@ -321,7 +321,7 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input type="email" value={orgData.email}
+                    <input type="email" value={orgData.email} autoComplete="off"
                       onChange={e => setOrgData(d => ({ ...d, email: e.target.value.toLowerCase() }))}
                       className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg ${ringCls} focus:border-transparent lowercase`}
                       required />
@@ -438,7 +438,7 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
 
           {/* ── User / account details ── */}
           {step === 'user' && (
-            <form onSubmit={handleUserSubmit} className="space-y-4">
+            <form onSubmit={handleUserSubmit} autoComplete="off" className="space-y-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold text-gray-900">Your Account Details</h3>
                 <button type="button"
@@ -476,7 +476,7 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="email" value={userData.email}
+                  <input type="email" value={userData.email} autoComplete="off"
                     onChange={e => setUserData(d => ({ ...d, email: e.target.value.toLowerCase() }))}
                     className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg ${ringCls} focus:border-transparent lowercase`}
                     required />
@@ -564,7 +564,7 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="password" value={userData.password}
+                  <input type="password" value={userData.password} autoComplete="new-password"
                     onChange={e => setUserData(d => ({ ...d, password: e.target.value }))}
                     className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg ${ringCls} focus:border-transparent`}
                     required minLength={8} />
@@ -578,7 +578,7 @@ export default function ClientSignup({ portalType, onBack, onSignupSuccess }: Cl
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input type="password" value={userData.confirmPassword}
+                  <input type="password" value={userData.confirmPassword} autoComplete="new-password"
                     onChange={e => setUserData(d => ({ ...d, confirmPassword: e.target.value }))}
                     className={`w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg ${ringCls} focus:border-transparent`}
                     required />
