@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Fuel, Camera, MapPin, AlertCircle, CheckCircle, LogOut, XCircle } from 'lucide-react';
+import { Fuel, Camera, MapPin, AlertCircle, CheckCircle, LogOut, XCircle, ScanLine } from 'lucide-react';
+import PumpScanner from './PumpScanner';
 import BarcodeScanner from './BarcodeScanner';
 import { supabase, getDriverToken } from '../lib/supabase';
 import { DriverData } from './DriverAuth';
@@ -103,6 +104,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
     oilBrand: '',
   });
   const [purchasingOil, setPurchasingOil] = useState(false);
+  const [showPumpScanner, setShowPumpScanner] = useState(false);
 
   const [garages, setGarages] = useState<Garage[]>([]);
   const [garageAccountNumber, setGarageAccountNumber] = useState<string>('');
@@ -2637,7 +2639,17 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Liters</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Liters</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowPumpScanner(true)}
+                        className="flex items-center gap-1.5 text-sm text-blue-600 font-medium hover:text-blue-700 transition-colors"
+                      >
+                        <ScanLine className="w-4 h-4" />
+                        Scan Pump
+                      </button>
+                    </div>
                     <input
                       type="number"
                       step="0.01"
@@ -2970,6 +2982,21 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                   )}
                 </button>
               </>
+            )}
+
+            {currentStep === 'fuel_details' && showPumpScanner && (
+              <PumpScanner
+                onCancel={() => setShowPumpScanner(false)}
+                onConfirm={({ liters, amount }) => {
+                  setShowPumpScanner(false);
+                  const price = parseFloat(formData.pricePerLiter) || 0;
+                  // Prefer litres read off the pump; otherwise derive them from the rand total
+                  const litersToUse = liters || (amount && price > 0 ? (parseFloat(amount) / price).toFixed(2) : '');
+                  if (litersToUse) {
+                    setFormData(prev => ({ ...prev, liters: litersToUse }));
+                  }
+                }}
+              />
             )}
           </div>
         )}
