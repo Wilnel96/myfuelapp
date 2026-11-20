@@ -62,8 +62,6 @@ function renderExceptionReportPDF(rows: [string, string][], description: string)
     pdf.text(valueLines, margin + labelWidth, y);
     const rowHeight = valueLines.length * 6 + 4;
     y += rowHeight;
-    pdf.setDrawColor(229, 231, 235);
-    pdf.line(margin, y - 3, pageWidth - margin, y - 3);
   }
 
   y += 8;
