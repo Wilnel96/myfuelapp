@@ -657,7 +657,7 @@ export default function VehicleManagement({ onNavigate }: VehicleManagementProps
 
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide border-b pb-1">License & Fuel Details</h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-0.5">
                       License Disk Expiry
