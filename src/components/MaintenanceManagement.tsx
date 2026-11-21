@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wrench, Plus, Trash2, X, Search, ArrowLeft, DollarSign, Calendar, Truck, CheckSquare, Square, Pencil } from 'lucide-react';
+import { Wrench, Plus, Trash2, X, Search, ArrowLeft, DollarSign, Calendar, Truck, CheckSquare, Square, Pencil, Paperclip, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import ScheduledMaintenanceSection from './ScheduledMaintenanceSection';
 import { getMaintenanceItems } from '../lib/maintenanceItems';
@@ -27,6 +27,8 @@ interface MaintenanceRecord {
   cost: number;
   workshop: string | null;
   maintenance_items?: string[] | null;
+  invoice_path?: string | null;
+  invoice_name?: string | null;
   created_at: string;
 }
 
@@ -46,6 +48,9 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [orgId, setOrgId] = useState<string>('');
+
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
+  const [clearingInvoice, setClearingInvoice] = useState(false);
 
   const [formData, setFormData] = useState({
     maintenance_type: 'service' as 'service' | 'other' | 'license_renewal' | 'insurance',
@@ -160,6 +165,19 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
   };
 
   const isOtherSelected = formData.maintenance_items.includes('Other');
+  const recordHasInvoice = Boolean(editingId && records.find(r => r.id === editingId)?.invoice_path);
+
+  const handleViewInvoice = async (record: MaintenanceRecord) => {
+    if (!record.invoice_path) return;
+    const { data, error } = await supabase.storage
+      .from('maintenance-invoices')
+      .createSignedUrl(record.invoice_path, 300);
+    if (error || !data) {
+      alert('Could not open the invoice. It may have been removed.');
+      return;
+    }
+    window.open(data.signedUrl, '_blank');
+  };
 
   const handleEditRecord = (record: MaintenanceRecord) => {
     setEditingId(record.id);
@@ -177,6 +195,8 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
       maintenance_items: cleanItems,
       custom_item_description: customDesc,
     });
+    setInvoiceFile(null);
+    setClearingInvoice(false);
     setShowAddForm(true);
   };
 
@@ -193,6 +213,8 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
       maintenance_items: [],
       custom_item_description: '',
     });
+    setInvoiceFile(null);
+    setClearingInvoice(false);
   };
 
   const handleAddRecord = async (e: React.FormEvent) => {
@@ -238,15 +260,24 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
       }
 
       let error;
+      let savedRow: { id: string } | undefined;
+      let savedId: string | undefined;
       if (editingId) {
+        if (clearingInvoice) {
+          insertData.invoice_path = null;
+          insertData.invoice_name = null;
+        }
         ({ error } = await supabase
           .from('vehicle_maintenance_records')
           .update(insertData)
           .eq('id', editingId));
       } else {
-        ({ error } = await supabase
+        ({ data: savedRow, error } = await supabase
           .from('vehicle_maintenance_records')
-          .insert(insertData));
+          .insert(insertData)
+          .select('id')
+          .single());
+        savedId = savedRow?.id;
       }
 
       if (error) {
@@ -254,8 +285,31 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
         return;
       }
 
+      // Upload the invoice PDF once the record has an id to name the file by
+      if (invoiceFile && savedId) {
+        const path = `${orgId}/${savedId}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from('maintenance-invoices')
+          .upload(path, invoiceFile, { contentType: invoiceFile.type || 'application/pdf', upsert: true });
+        if (uploadError) {
+          alert(`Maintenance saved but the invoice could not be uploaded: ${uploadError.message}`);
+        } else {
+          const { error: linkError } = await supabase
+            .from('vehicle_maintenance_records')
+            .update({ invoice_path: path, invoice_name: invoiceFile.name })
+            .eq('id', savedId);
+          if (linkError) {
+            alert(`Invoice uploaded but could not be linked: ${linkError.message}`);
+          }
+        }
+      } else if (clearingInvoice && editingId) {
+        await supabase.storage.from('maintenance-invoices').remove([`${orgId}/${editingId}.pdf`]);
+      }
+
       setShowAddForm(false);
       setEditingId(null);
+      setInvoiceFile(null);
+      setClearingInvoice(false);
       setFormData({
         maintenance_type: 'service',
         description: '',
@@ -445,6 +499,15 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                       <td className="px-4 py-3 text-sm text-gray-900">{record.workshop || '-'}</td>
                       <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 whitespace-nowrap">{formatCurrency(parseFloat(String(record.cost || 0)))}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
+                        {record.invoice_path && (
+                          <button
+                            onClick={() => handleViewInvoice(record)}
+                            className="text-gray-600 hover:text-blue-700 mr-3"
+                            title={record.invoice_name || 'View invoice PDF'}
+                          >
+                            <Paperclip className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleEditRecord(record)}
                           className="text-blue-600 hover:text-blue-700 mr-3"
@@ -609,6 +672,36 @@ export default function MaintenanceManagement({ onNavigate }: MaintenanceManagem
                     placeholder="e.g. ABC Motors"
                     className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Invoice (PDF) — proof of maintenance</label>
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    onChange={(e) => {
+                      setInvoiceFile(e.target.files?.[0] || null);
+                      setClearingInvoice(false);
+                    }}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm file:mr-3 file:px-3 file:py-1 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 file:cursor-pointer"
+                  />
+                  {editingId && recordHasInvoice && !invoiceFile && (
+                    <div className="flex items-center justify-between mt-2 text-sm">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <FileText className="w-4 h-4 text-gray-400" />
+                        Invoice attached — leave the picker empty to keep it
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setClearingInvoice(true)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                  {clearingInvoice && (
+                    <p className="text-xs text-red-600 mt-1">The attached invoice will be removed when you save.</p>
+                  )}
                 </div>
                 <div className="flex gap-3 pt-2 flex-shrink-0">
                   <button
