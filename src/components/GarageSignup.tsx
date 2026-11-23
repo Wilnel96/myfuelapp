@@ -584,7 +584,7 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Name
+                    Bank Name (Optional)
                   </label>
                   <input
                     type="text"
@@ -597,7 +597,7 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Account Holder
+                    Account Holder (Optional)
                   </label>
                   <input
                     type="text"
@@ -612,7 +612,7 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Account Number
+                    Account Number (Optional)
                   </label>
                   <input
                     type="text"
@@ -625,7 +625,7 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Branch Code
+                    Branch Code (Optional)
                   </label>
                   <input
                     type="text"
