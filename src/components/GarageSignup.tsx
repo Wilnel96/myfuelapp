@@ -64,8 +64,13 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
     'Zone 5'
   ];
 
+  // Emails and passwords keep their typed case; dropdowns (province, fuel brand, price zone)
+  // must keep their list values, so only free-typed fields are uppercased
+  const CASE_SENSITIVE_FIELDS = ['emailAddress', 'contactPersonEmail', 'password', 'confirmPassword', 'province', 'fuelBrand', 'priceZone'];
+
   const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    const stored = CASE_SENSITIVE_FIELDS.includes(field) ? value : value.toUpperCase();
+    setFormData(prev => ({ ...prev, [field]: stored }));
     setError('');
   };
 
