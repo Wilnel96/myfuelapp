@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { SOUTH_AFRICAN_FUEL_BRANDS } from '../lib/fuelBrands';
+import { KNOWN_ZONE_CODES } from '../lib/priceZones';
 import { Store, AlertCircle, ArrowLeft, CheckCircle, MapPin, Phone, Mail, Building, CreditCard, Fuel } from 'lucide-react';
 
 interface GarageSignupProps {
@@ -54,15 +55,9 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
     'Western Cape'
   ];
 
-  const priceZones = [
-    'Inland',
-    'Coastal',
-    'Zone 1',
-    'Zone 2',
-    'Zone 3',
-    'Zone 4',
-    'Zone 5'
-  ];
+  // Official DMRE magisterial district zone codes — the same zones used by the
+  // fuel price update spreadsheet upload
+  const priceZones = [...KNOWN_ZONE_CODES];
 
   // Emails and passwords keep their typed case; dropdowns (province, fuel brand, price zone)
   // must keep their list values, so only free-typed fields are uppercased
@@ -180,7 +175,7 @@ export default function GarageSignup({ onBack, onSuccess }: GarageSignupProps) {
         branch_code: formData.branchCode.trim(),
         vat_number: formData.vatNumber.trim(),
         fuel_brand: formData.fuelBrand,
-        price_zone: formData.priceZone || 'Inland',
+        price_zone: formData.priceZone,
         status: 'active'
       };
 
