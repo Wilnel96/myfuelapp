@@ -926,7 +926,9 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
 
       const orgPaymentOption = organization?.payment_option || 'Card Payment';
 
-      if (garageAccount && orgPaymentOption === 'Card Payment') {
+      // When both a local account and a payment card exist, always let the
+      // driver choose — regardless of the org's default payment option.
+      if (garageAccount) {
         const { data: paymentCard } = await supabase
           .from('organization_payment_cards')
           .select('id')
