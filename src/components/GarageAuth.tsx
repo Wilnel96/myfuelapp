@@ -31,7 +31,13 @@ export default function GarageAuth({ onLogin, onBack, onSignup, onDenied }: Gara
 
       if (authError) {
         console.error('[GarageAuth] Auth error:', authError);
-        setError('Invalid email or password');
+        if (authError.status === 429) {
+          setError('Too many sign-in attempts. Please wait a minute and try again.');
+        } else if (authError.status === 400) {
+          setError('Invalid email or password');
+        } else {
+          setError('Sign-in is temporarily unavailable. Please try again in a moment.');
+        }
         setLoading(false);
         return;
       }
