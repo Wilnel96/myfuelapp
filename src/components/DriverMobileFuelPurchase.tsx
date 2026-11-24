@@ -924,6 +924,8 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           .maybeSingle(),
       ]);
 
+      const orgPaymentOption = organization?.payment_option || 'Card Payment';
+
       if (garageAccount && orgPaymentOption === 'Card Payment') {
         const { data: paymentCard } = await supabase
           .from('organization_payment_cards')
@@ -956,8 +958,6 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         setPaymentCheckError('');
       } else {
         // No local account — check if card payment is available
-        const orgPaymentOption = organization?.payment_option || 'Card Payment';
-
         if (orgPaymentOption === 'Local Account') {
           // Org is local-account only but no account at this garage
           setPaymentCheckError(`No local account found for this garage. Please contact your administrator to set one up.`);
