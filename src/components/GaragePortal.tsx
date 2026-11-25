@@ -216,12 +216,30 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
-      const updateData = {
+      const updateData: any = {
         fuel_types: fuelTypes,
         fuel_prices: fuelPrices,
         other_offerings: otherOfferings,
         contact_persons: contactPersons,
       };
+
+      if (currentView === 'garage-info') {
+        updateData.name = editedGarageInfo.name.trim();
+        updateData.address_line_1 = editedGarageInfo.address_line_1.trim();
+        updateData.address_line_2 = editedGarageInfo.address_line_2.trim();
+        updateData.city = editedGarageInfo.city.trim();
+        updateData.province = editedGarageInfo.province;
+        updateData.postal_code = editedGarageInfo.postal_code.trim();
+        updateData.phone_number = editedGarageInfo.phone_number.trim();
+        updateData.email_address = editedGarageInfo.email_address.trim();
+        updateData.fuel_brand = editedGarageInfo.fuel_brand.trim();
+        if (editedGarageInfo.latitude.trim()) {
+          updateData.latitude = parseFloat(editedGarageInfo.latitude);
+        }
+        if (editedGarageInfo.longitude.trim()) {
+          updateData.longitude = parseFloat(editedGarageInfo.longitude);
+        }
+      }
 
       if (session?.access_token) {
         // Authenticated via Supabase Auth — use direct client (RLS allows garage_user to update own garage)
@@ -687,17 +705,6 @@ export default function GaragePortal({ garageId, garageName, garageEmail, garage
                   <option value="Other">Other</option>
                 </select>
               </div>
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={handleSaveGarageInfo}
-                disabled={saving}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
             </div>
           </div>
         </div>
