@@ -135,9 +135,9 @@ function ContactForm({
 }: {
   contact: GarageContactPerson;
   onChange: (updates: Partial<GarageContactPerson>) => void;
-  onSave: () => void;
+  onSave?: () => void;
   onCancel: () => void;
-  saveLabel: string;
+  saveLabel?: string;
   isPrimary: boolean;
 }) {
   const [showPerms, setShowPerms] = useState(true);
@@ -230,14 +230,16 @@ function ContactForm({
       </div>
 
       <div className="flex items-center gap-3 pt-2">
-        <button
-          type="button"
-          onClick={onSave}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-        >
-          <Check className="w-4 h-4" />
-          {saveLabel}
-        </button>
+        {onSave && (
+          <button
+            type="button"
+            onClick={onSave}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            <Check className="w-4 h-4" />
+            {saveLabel}
+          </button>
+        )}
         <button
           type="button"
           onClick={onCancel}
@@ -253,7 +255,7 @@ function ContactForm({
 
 export default function GarageContactManagement({ contacts, onUpdate, hasOrganization = false }: GarageContactManagementProps) {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editContact, setEditContact] = useState<GarageContactPerson | null>(null);
+  const [editingOriginal, setEditingOriginal] = useState<GarageContactPerson | null>(null);
   const [addingNew, setAddingNew] = useState(false);
   const [newContact, setNewContact] = useState<GarageContactPerson>({ ...EMPTY_CONTACT });
 
@@ -286,17 +288,6 @@ export default function GarageContactManagement({ contacts, onUpdate, hasOrganiz
     setAddingNew(false);
   };
 
-  const handleSaveEdit = (index: number) => {
-    if (!editContact) return;
-    const err = validate(editContact, index);
-    if (err) { alert(err); return; }
-    const updated = [...contacts];
-    updated[index] = normalise(editContact);
-    onUpdate(updated);
-    setEditingIndex(null);
-    setEditContact(null);
-  };
-
   const handleDelete = (index: number) => {
     if (contacts.length === 1) {
       alert('Cannot remove the last contact person. At least one is required.');
@@ -320,8 +311,22 @@ export default function GarageContactManagement({ contacts, onUpdate, hasOrganiz
   };
 
   const startEdit = (index: number) => {
-    setEditContact(normalise({ ...contacts[index] }));
+    setEditingOriginal(normalise({ ...contacts[index] }));
     setEditingIndex(index);
+  };
+
+  const handleEditChange = (index: number, updates: Partial<GarageContactPerson>) => {
+    onUpdate(contacts.map((c, i) => (i === index ? normalise({ ...c, ...updates }) : c)));
+  };
+
+  const cancelEdit = (index: number) => {
+    if (editingOriginal) {
+      const updated = [...contacts];
+      updated[index] = editingOriginal;
+      onUpdate(updated);
+    }
+    setEditingOriginal(null);
+    setEditingIndex(null);
   };
 
   const permissionSummary = (c: GarageContactPerson) => {
@@ -369,6 +374,9 @@ export default function GarageContactManagement({ contacts, onUpdate, hasOrganiz
               </button>
             </div>
             <div className="p-6">
+              <p className="text-sm text-gray-500 mb-4">
+                Fill in the person's details and click <strong>Add Person</strong>. This prepares them in the list — then click <strong>Save Changes</strong> in the bar at the bottom of the screen to persist.
+              </p>
               <ContactForm
                 contact={newContact}
                 onChange={updates => setNewContact(c => ({ ...c, ...updates }))}
@@ -388,13 +396,11 @@ export default function GarageContactManagement({ contacts, onUpdate, hasOrganiz
           const isEditing = editingIndex === index;
           return (
             <div key={index} className={`border rounded-xl p-4 transition-colors ${c.is_primary ? 'border-amber-300 bg-amber-50/30' : 'border-gray-200 bg-white'}`}>
-              {isEditing && editContact ? (
+              {isEditing ? (
                 <ContactForm
-                  contact={editContact}
-                  onChange={updates => setEditContact(ec => ({ ...ec!, ...updates }))}
-                  onSave={() => handleSaveEdit(index)}
-                  onCancel={() => { setEditingIndex(null); setEditContact(null); }}
-                  saveLabel="Save Changes"
+                  contact={normalise(contact)}
+                  onChange={updates => handleEditChange(index, updates)}
+                  onCancel={() => cancelEdit(index)}
                   isPrimary={c.is_primary}
                 />
               ) : (
@@ -461,7 +467,7 @@ export default function GarageContactManagement({ contacts, onUpdate, hasOrganiz
           <li>The <strong>primary contact</strong> automatically receives all permissions.</li>
           <li>Restrict <strong>Change Account Numbers</strong> to trusted users only — an incorrect change can cause fuel charges to appear on the wrong client account.</li>
           <li>Vehicle registration numbers are validated against the client organisation — a driver cannot refuel under a different client's account number using their vehicle registration.</li>
-          <li>Click <strong>Save Changes</strong> at the bottom of the page after any updates.</li>
+          <li>Click <strong>Save Changes</strong> in the bar at the bottom of the screen to persist your updates.</li>
         </ul>
       </div>
     </div>
