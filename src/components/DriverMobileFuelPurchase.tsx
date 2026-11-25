@@ -148,6 +148,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
     };
   }, [drawnVehicle?.id]);
   const [paymentCheckError, setPaymentCheckError] = useState<string>('');
+  const [choiceLimitInfo, setChoiceLimitInfo] = useState<{ garageLimit: number | null; driverDaily: number | null; driverMonthly: number | null } | null>(null);
 
   useEffect(() => {
     validateSession();
@@ -886,6 +887,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
   const handleGarageSelection = async () => {
     setError('');
     setPaymentCheckError('');
+    setChoiceLimitInfo(null);
     setLoading(true);
 
     if (!selectedGarageId) {
@@ -924,8 +926,6 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           .maybeSingle(),
       ]);
 
-      const orgPaymentOption = organization?.payment_option || 'Card Payment';
-
       // When both a local account and a payment card exist, always let the
       // driver choose — regardless of the org's default payment option.
       if (garageAccount) {
@@ -943,6 +943,22 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           setIsLocalAccount(false);
           setGarageAccountNumber(garageAccount.account_number);
           setPaymentCheckError('');
+          const { data: drvSettings } = await supabase
+            .from('driver_payment_settings')
+            .select('daily_spending_limit, monthly_spending_limit, payment_enabled')
+            .eq('driver_id', driver.id)
+            .maybeSingle();
+          setChoiceLimitInfo({
+            garageLimit: garageAccount.monthly_spend_limit != null
+              ? Number(garageAccount.monthly_spend_limit) - (Number(garageAccount.deposit_amount) || 0)
+              : null,
+            driverDaily: drvSettings?.payment_enabled && drvSettings?.daily_spending_limit
+              ? parseFloat(String(drvSettings.daily_spending_limit))
+              : null,
+            driverMonthly: drvSettings?.payment_enabled && drvSettings?.monthly_spending_limit
+              ? parseFloat(String(drvSettings.monthly_spending_limit))
+              : null,
+          });
           const proximityCheck = checkLocationProximity(selectedGarage);
           setDistanceFromGarage(proximityCheck.distance);
           setLocationMismatch(!proximityCheck.isNear);
@@ -959,14 +975,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
         setGarageAccountNumber(garageAccount.account_number);
         setPaymentCheckError('');
       } else {
-        // No local account — check if card payment is available
-        if (orgPaymentOption === 'Local Account') {
-          // Org is local-account only but no account at this garage
-          setPaymentCheckError(`No local account found for this garage. Please contact your administrator to set one up.`);
-          setLoading(false);
-          return;
-        }
-
+        // No local account at this garage — pay by card if one is loaded
         const { data: paymentCard } = await supabase
           .from('organization_payment_cards')
           .select('id')
@@ -976,7 +985,7 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
           .maybeSingle();
 
         if (!paymentCard) {
-          setPaymentCheckError('No payment method available. No local account exists for this garage and no active payment card is loaded. Please contact your administrator.');
+          setPaymentCheckError('No payment method available. This garage has no local account for your organization and no active payment card is loaded. Please contact your administrator.');
           setLoading(false);
           return;
         }
@@ -1428,6 +1437,11 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                 Pay on the client's account with this garage
                 {garageAccountNumber ? ` (Account: ${garageAccountNumber})` : ''}
               </p>
+              {choiceLimitInfo?.garageLimit != null && (
+                <p className="text-sm font-semibold text-blue-900 mt-2">
+                  Available limit: R {choiceLimitInfo.garageLimit.toFixed(2)}
+                </p>
+              )}
             </button>
 
             <button
@@ -1436,6 +1450,16 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
             >
               <p className="text-base font-bold text-gray-900">Debit / Credit Card</p>
               <p className="text-sm text-gray-600 mt-1">Pay using the organization's payment card</p>
+              {choiceLimitInfo && (choiceLimitInfo.driverDaily != null || choiceLimitInfo.driverMonthly != null) && (
+                <p className="text-sm font-semibold text-gray-900 mt-2">
+                  Available limit:{' '}
+                  {choiceLimitInfo.driverDaily != null && choiceLimitInfo.driverMonthly != null
+                    ? `R ${Math.min(choiceLimitInfo.driverDaily, choiceLimitInfo.driverMonthly).toFixed(2)}`
+                    : choiceLimitInfo.driverDaily != null
+                      ? `R ${choiceLimitInfo.driverDaily.toFixed(2)}`
+                      : `R ${choiceLimitInfo.driverMonthly!.toFixed(2)}`}
+                </p>
+              )}
             </button>
           </div>
 
@@ -2395,7 +2419,9 @@ export default function DriverMobileFuelPurchase({ driver, onLogout, onComplete 
                     ) : (
                       <div className="flex items-center gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg mb-3">
                         <CheckCircle className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                        <p className="text-sm text-gray-700">Payment via card</p>
+                        <p className="text-sm text-gray-700">
+                          Payment via card <span className="text-xs text-gray-500">— No local account</span>
+                        </p>
                       </div>
                     )}
 
