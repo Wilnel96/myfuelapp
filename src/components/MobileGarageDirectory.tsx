@@ -125,6 +125,20 @@ export default function MobileGarageDirectory({ onBack, organizationId }: Mobile
     return R * c;
   };
 
+  const buildGarageQuery = (garage: Garage): string =>
+    garage.latitude && garage.longitude
+      ? `${garage.latitude},${garage.longitude}`
+      : `${garage.address_line_1}${garage.address_line_2 ? ', ' + garage.address_line_2 : ''}, ${garage.city}, ${garage.province} ${garage.postal_code}`;
+
+  const openInGoogleMaps = (garage: Garage) => {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(buildGarageQuery(garage))}`, '_blank');
+  };
+
+  const openDirections = (garage: Garage) => {
+    // Directions link: Google Maps computes the route and distance from the driver's current position
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(buildGarageQuery(garage))}&travelmode=driving`, '_blank');
+  };
+
   const getUserLocation = () => {
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported by your browser');
@@ -330,6 +344,21 @@ export default function MobileGarageDirectory({ onBack, organizationId }: Mobile
                         </div>
                       )}
 
+                      {(garage.latitude && garage.longitude || garage.address_line_1) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDirections(garage);
+                          }}
+                          className="mt-1 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          <Navigation className="w-4 h-4" />
+                          {garage.distance !== undefined
+                            ? `Directions (${garage.distance.toFixed(1)} km away)`
+                            : 'Directions'}
+                        </button>
+                      )}
+
                       {garage.fuel_types && garage.fuel_types.length > 0 && (
                         <div className="space-y-1 mt-2">
                           {sortFuelTypes(garage.fuel_types).map((fuelType) => (
@@ -358,9 +387,7 @@ export default function MobileGarageDirectory({ onBack, organizationId }: Mobile
                         className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer hover:text-blue-600"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const address = `${garage.address_line_1}${garage.address_line_2 ? ', ' + garage.address_line_2 : ''}, ${garage.city}, ${garage.province} ${garage.postal_code}`;
-                          const encodedAddress = encodeURIComponent(address);
-                          window.open(`https://www.google.com/maps/search/?api=1&query=${encodedAddress}`, '_blank');
+                          openInGoogleMaps(garage);
                         }}
                       >
                         <MapPin className="w-4 h-4 flex-shrink-0 mt-0.5" />
