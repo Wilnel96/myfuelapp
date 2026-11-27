@@ -57,7 +57,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
   const [driverPrdpCategories, setDriverPrdpCategories] = useState<string[]>([]);
   const [missingPrdpCategories, setMissingPrdpCategories] = useState<string[]>([]);
   const [unreturnedVehicleWarning, setUnreturnedVehicleWarning] = useState(false);
-  const [previousDriverInfo, setPreviousDriverInfo] = useState<{ name: string; daysUnreturned: number; lastDrawDate: string } | null>(null);
+  const [previousDriverInfo, setPreviousDriverInfo] = useState<{ name: string; daysUnreturned: number; lastDrawDate: string; tripDetails: string } | null>(null);
   const [requireLicenseScan, setRequireLicenseScan] = useState(false);
   const [vehicleIdentifiedByScan, setVehicleIdentifiedByScan] = useState(false);
   const [currentlyDrawnVehicle, setCurrentlyDrawnVehicle] = useState<string | null>(null);
@@ -184,7 +184,8 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
       setPreviousDriverInfo({
         name: unreturnedCheck.driverName,
         daysUnreturned: unreturnedCheck.daysUnreturned,
-        lastDrawDate: unreturnedCheck.lastDrawDate
+        lastDrawDate: unreturnedCheck.lastDrawDate,
+        tripDetails: unreturnedCheck.tripDetails
       });
       setUnreturnedVehicleWarning(true);
       setStep('confirm-unreturned-vehicle');
@@ -388,12 +389,12 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     return unreturnedDraw ? (unreturnedDraw.vehicles as any).registration_number : null;
   };
 
-  const checkUnreturnedByOtherDriver = async (vehicleId: string): Promise<{ hasUnreturnedDraw: boolean; driverName: string; daysUnreturned: number; lastDrawDate: string } | null> => {
+  const checkUnreturnedByOtherDriver = async (vehicleId: string): Promise<{ hasUnreturnedDraw: boolean; driverName: string; daysUnreturned: number; lastDrawDate: string; tripDetails: string } | null> => {
     // Fetch all draws and all returns for this vehicle in parallel (2 queries instead of N+1)
     const [{ data: draws }, { data: returns }] = await Promise.all([
       supabase
         .from('vehicle_transactions')
-        .select('id, driver_id, created_at')
+        .select('id, driver_id, created_at, trip_description, odometer_reading, location')
         .eq('vehicle_id', vehicleId)
         .eq('transaction_type', 'draw')
         .order('created_at', { ascending: false }),
@@ -425,11 +426,18 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
     const today = new Date();
     const daysUnreturned = Math.floor((today.getTime() - drawDate.getTime()) / (1000 * 60 * 60 * 24));
 
+    const tripBits: string[] = [];
+    if (lastDraw.trip_description) tripBits.push(`trip described as "${lastDraw.trip_description}"`);
+    if (lastDraw.odometer_reading != null) tripBits.push(`odometer recorded as ${lastDraw.odometer_reading.toLocaleString()} km`);
+    if (lastDraw.location) tripBits.push(`location recorded as ${lastDraw.location}`);
+    const tripDetails = tripBits.length > 0 ? tripBits.join('; ') : 'no trip details were recorded';
+
     return {
       hasUnreturnedDraw: true,
       driverName: `${driver.first_name} ${driver.surname}`,
       daysUnreturned,
-      lastDrawDate: drawDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      lastDrawDate: drawDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      tripDetails
     };
   };
 
@@ -867,9 +875,9 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
             driver_id: driverId,
             organization_id: organizationId,
             exception_type: 'not_returned_by_previous_driver',
-            description: `Vehicle was drawn by ${previousDriverInfo.name} on ${previousDriverInfo.lastDrawDate} (${previousDriverInfo.daysUnreturned} days ago) and was never returned. New driver proceeded to draw the vehicle anyway.`,
+            description: `Vehicle was drawn by ${previousDriverInfo.name} on ${previousDriverInfo.lastDrawDate} (${previousDriverInfo.daysUnreturned} days ago) and was never returned. Previous driver's recorded draw details: ${previousDriverInfo.tripDetails}. New driver proceeded to draw the vehicle anyway.`,
             expected_value: 'Vehicle should be returned before next draw',
-            actual_value: `Vehicle drawn without return by ${previousDriverInfo.name}`,
+            actual_value: `Vehicle drawn without return by ${previousDriverInfo.name}. ${previousDriverInfo.tripDetails}`,
             transaction_id: transaction.id,
             resolved: false,
           });
@@ -1124,7 +1132,8 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                         setPreviousDriverInfo({
                           name: unreturnedCheck.driverName,
                           daysUnreturned: unreturnedCheck.daysUnreturned,
-                          lastDrawDate: unreturnedCheck.lastDrawDate
+                          lastDrawDate: unreturnedCheck.lastDrawDate,
+                          tripDetails: unreturnedCheck.tripDetails
                         });
                         setUnreturnedVehicleWarning(true);
                         setStep('confirm-unreturned-vehicle');
