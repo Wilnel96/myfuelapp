@@ -168,7 +168,7 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-4">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
         <div className="bg-blue-600 text-white p-6 text-center">
           <div className="flex items-center justify-center gap-3 mb-2">
@@ -252,7 +252,7 @@ export default function DriverAuth({ onLogin, onBack }: DriverAuthProps) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Date of Birth
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 min-w-0 max-w-full">
               <input
                 type="text"
                 inputMode="numeric"
