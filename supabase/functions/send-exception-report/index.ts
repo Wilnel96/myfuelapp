@@ -154,10 +154,7 @@ Deno.serve(async (req: Request) => {
     if (usersError) throw usersError;
 
     const users = (orgUsers ?? []) as OrgUser[];
-    const vehicleUsers = users.filter((u) => u.title === "Vehicle User" && u.email);
-    const recipientRows = vehicleUsers.length > 0
-      ? vehicleUsers
-      : users.filter((u) => u.is_main_user && u.email);
+    const recipientRows = users.filter((u) => (u.is_main_user || u.title === "Secondary Main User") && u.email);
     const recipients = [...new Set(recipientRows.map((u) => u.email))];
 
     if (recipients.length === 0) {

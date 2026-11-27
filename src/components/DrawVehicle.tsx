@@ -878,31 +878,7 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
           console.error('FAILED to log unreturned vehicle exception:', exceptionError);
           setError(`Warning: Vehicle drawn but unreturned exception logging failed: ${exceptionError.message}`);
         } else {
-          console.log('Unreturned vehicle exception logged successfully');
-
-          const { data: drawingDriver } = await supabase
-            .from('drivers')
-            .select('first_name, surname')
-            .eq('id', driverId)
-            .maybeSingle();
-
-          try {
-            await supabase.functions.invoke('send-unreturned-vehicle-email', {
-              body: {
-                organization_id: organizationId,
-                vehicle_registration: selectedVehicle.registration_number,
-                vehicle_make: selectedVehicle.make,
-                vehicle_model: selectedVehicle.model,
-                driver_name: drawingDriver ? `${drawingDriver.first_name} ${drawingDriver.surname}` : 'Unknown driver',
-                driver_id: driverId,
-                previous_driver_name: previousDriverInfo.name,
-                last_draw_date: previousDriverInfo.lastDrawDate,
-                days_unreturned: previousDriverInfo.daysUnreturned,
-              },
-            });
-          } catch (emailErr) {
-            console.error('Failed to send unreturned vehicle email:', emailErr);
-          }
+          console.log('Unreturned vehicle exception logged successfully; PDF report emailed via exception trigger');
         }
       }
 
@@ -1141,6 +1117,21 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
                       }
 
                       setSelectedVehicle(vehicle);
+
+                      // Check if vehicle was not returned by another driver
+                      const unreturnedCheck = await checkUnreturnedByOtherDriver(vehicle.id);
+                      if (unreturnedCheck?.hasUnreturnedDraw) {
+                        setPreviousDriverInfo({
+                          name: unreturnedCheck.driverName,
+                          daysUnreturned: unreturnedCheck.daysUnreturned,
+                          lastDrawDate: unreturnedCheck.lastDrawDate
+                        });
+                        setUnreturnedVehicleWarning(true);
+                        setStep('confirm-unreturned-vehicle');
+                        return;
+                      }
+                      setUnreturnedVehicleWarning(false);
+                      setPreviousDriverInfo(null);
                     } catch (err: any) {
                       setError(err.message || 'Failed to select vehicle. Please try again.');
                       setSelectedVehicle(null);
@@ -1164,9 +1155,27 @@ export default function DrawVehicle({ organizationId, driverId, onBack }: DrawVe
               {selectedVehicle && (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     setError('');
-                    setStep('enter-odometer');
+                    if (unreturnedVehicleWarning) {
+                      const isQualified = await checkDriverLicenseQualifies(driverId, selectedVehicle!);
+                      if (!isQualified) {
+                        setLicenseWarning(true);
+                        setStep('confirm-license-warning');
+                        return;
+                      }
+                      setLicenseWarning(false);
+
+                      const hasPrdp = checkDriverPrdpQualifies(selectedVehicle!);
+                      if (!hasPrdp) {
+                        setPrdpWarning(true);
+                        setStep('confirm-prdp-warning');
+                        return;
+                      }
+                      setPrdpWarning(false);
+                    }
+                    await loadExpectedOdometer(selectedVehicle!.id);
+                    goToOdometer();
                   }}
                   className="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition-colors"
                 >
