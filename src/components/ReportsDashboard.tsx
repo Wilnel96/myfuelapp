@@ -58,6 +58,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
   const [error, setError] = useState<string>('');
   const [resolvingException, setResolvingException] = useState<string | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
+  const [tripDetailsDraft, setTripDetailsDraft] = useState('');
   const [viewingImage, setViewingImage] = useState<{ src: string; label: string } | null>(null);
   const [missingTripException, setMissingTripException] = useState<MissingTripException | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -627,10 +628,6 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
   };
 
   const resolveException = async (exceptionId: string, notes: string) => {
-    if (!notes || notes.trim() === '') {
-      alert('Please enter resolution notes');
-      return;
-    }
 
     setLoading(true);
     try {
@@ -642,14 +639,45 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
 
       const resolvedAt = new Date().toISOString();
 
+      // Pull the current row so completed trip details can be merged into the
+      // record rather than clobbering the original exception description.
+      const { data: currentException } = await supabase
+        .from('vehicle_exceptions')
+        .select('description, actual_value, exception_type')
+        .eq('id', exceptionId)
+        .maybeSingle();
+
+      const updatePayload: Record<string, any> = {
+        resolved: true,
+        resolved_at: resolvedAt,
+        resolved_by: user.id,
+        resolution_notes: notes,
+      };
+
+      const trimmedTripDetails = tripDetailsDraft.trim();
+      if (trimmedTripDetails) {
+        const existingActual = (currentException?.actual_value || '').trim();
+        const hadNoDetails = /no trip details were recorded/i.test(existingActual);
+        if (!existingActual || hadNoDetails) {
+          updatePayload.actual_value = trimmedTripDetails;
+        } else {
+          updatePayload.actual_value = `${existingActual}. Trip details completed during resolution: ${trimmedTripDetails}`;
+        }
+
+        const existingDescription = (currentException?.description || '').trim();
+        if (/no trip details were recorded/i.test(existingDescription)) {
+          updatePayload.description = existingDescription.replace(
+            /no trip details were recorded/i,
+            `trip details completed during resolution: ${trimmedTripDetails}`
+          );
+        } else if (currentException?.exception_type === 'not_returned_by_previous_driver') {
+          updatePayload.description = `${existingDescription} Trip details completed during resolution: ${trimmedTripDetails}`;
+        }
+      }
+
       const { error } = await supabase
         .from('vehicle_exceptions')
-        .update({
-          resolved: true,
-          resolved_at: resolvedAt,
-          resolved_by: user.id,
-          resolution_notes: notes,
-        })
+        .update(updatePayload)
         .eq('id', exceptionId);
 
       if (error) {
@@ -672,6 +700,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
       // Reset the resolution modal
       setResolvingException(null);
       setResolutionNotes('');
+      setTripDetailsDraft('');
     } catch (err: any) {
       console.error('Exception resolution error:', err);
       alert(`Error: ${err.message}`);
@@ -1863,6 +1892,10 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                                       e.stopPropagation();
                                       setResolvingException(exception.id);
                                       setResolutionNotes('');
+                                      const actual = (exception.actual_value || '').trim();
+                                      const desc = (exception.description || '').trim();
+                                      const noDetails = /no trip details were recorded/i;
+                                      setTripDetailsDraft(noDetails.test(actual) ? '' : (actual || noDetails.test(desc) ? '' : desc));
                                     }}
                                     className="text-sm text-blue-600 hover:text-blue-700 font-medium"
                                   >
@@ -2250,6 +2283,17 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
             <p className="text-sm text-gray-600 mb-4">
               Please provide notes explaining how this exception was resolved or investigated.
             </p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Trip Details {tripDetailsDraft.trim() ? '(edit if incomplete)' : '(complete if missing)'}
+            </label>
+            <textarea
+              value={tripDetailsDraft}
+              onChange={(e) => setTripDetailsDraft(e.target.value)}
+              placeholder="Record the trip details for this exception, e.g. where the vehicle was driven, purpose of the trip, odometer readings..."
+              rows={3}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none mb-4"
+            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">Resolution Notes</label>
             <textarea
               value={resolutionNotes}
               onChange={(e) => setResolutionNotes(e.target.value)}
@@ -2264,6 +2308,7 @@ export default function ReportsDashboard({ onNavigate, exceptionReportsOnly = fa
                 onClick={() => {
                   setResolvingException(null);
                   setResolutionNotes('');
+                  setTripDetailsDraft('');
                 }}
                 disabled={loading}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"

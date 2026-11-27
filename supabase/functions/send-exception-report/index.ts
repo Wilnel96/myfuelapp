@@ -99,6 +99,7 @@ function uint8ToBase64(bytes: Uint8Array): string {
 interface OrgUser {
   email: string;
   title: string;
+  role: string | null;
   is_main_user: boolean;
 }
 
@@ -146,7 +147,7 @@ Deno.serve(async (req: Request) => {
         : Promise.resolve({ data: null }),
       supabase
         .from("organization_users")
-        .select("email, title, is_main_user")
+        .select("email, title, role, is_main_user")
         .eq("organization_id", exception.organization_id)
         .eq("is_active", true),
     ]);
@@ -154,7 +155,13 @@ Deno.serve(async (req: Request) => {
     if (usersError) throw usersError;
 
     const users = (orgUsers ?? []) as OrgUser[];
-    const recipientRows = users.filter((u) => (u.is_main_user || u.title === "Secondary Main User") && u.email);
+    // Prefer the dedicated vehicle user; fall back to main user(s) when none exists.
+    const vehicleUsers = users.filter(
+      (u) => (u.title === "Vehicle User" || u.role === "vehicle_user") && u.email
+    );
+    const recipientRows = vehicleUsers.length > 0
+      ? vehicleUsers
+      : users.filter((u) => (u.is_main_user || u.title === "Secondary Main User") && u.email);
     const recipients = [...new Set(recipientRows.map((u) => u.email))];
 
     if (recipients.length === 0) {
